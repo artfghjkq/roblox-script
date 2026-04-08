@@ -1,4 +1,4 @@
--- artfghjkq - v0.0.1
+-- artfghjkq - v0.0.2
 -- Changes: Vertical tabs, Galaxy gradient colors, Rainbow ESP colors, Per-ESP color pickers in ESP tab, Other Scripts tab
 
 local player = game.Players.LocalPlayer
