@@ -1,4 +1,4 @@
--- artfghjkq - v0.0.8
+-- @isnotsin - v0.0.8
 -- Changes: Vertical tabs, Galaxy gradient colors, Rainbow ESP colors, Per-ESP color pickers in ESP tab, Other Scripts tab
 
 local player = game.Players.LocalPlayer
@@ -104,7 +104,7 @@ local function tween(obj, props, duration, style, direction)
 end
 
 local function notifyImportant(text)
-    pcall(function() game.StarterGui:SetCore("SendNotification", {Title = "artfghjkq", Text = text, Duration = 3}) end)
+    pcall(function() game.StarterGui:SetCore("SendNotification", {Title = "@isnotsin", Text = text, Duration = 3}) end)
 end
 
 local function createCorner(parent, radius)
@@ -366,7 +366,7 @@ end
 -- UI CREATION
 -- ============================================================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "artfghjkq"
+screenGui.Name = "@isnotsin"
 screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = CoreGui
@@ -377,7 +377,7 @@ iconBtn.Name = "Icon"
 iconBtn.Size = UDim2.new(0, 60, 0, 60)
 iconBtn.Position = UDim2.new(0, 20, 0, 20)
 iconBtn.BackgroundColor3 = COLORS.Background
-iconBtn.Text = "A"
+iconBtn.Text = "S"
 iconBtn.TextColor3 = COLORS.GalaxyAccent
 iconBtn.Font = Enum.Font.GothamBlack
 iconBtn.TextSize = 28
@@ -425,7 +425,7 @@ local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, -80, 1, 0)
 titleLabel.Position = UDim2.new(0, 15, 0, 0)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "✦ artfghjkq HUB"
+titleLabel.Text = "✦ @isnotsin HUB"
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.TextSize = 14
 titleLabel.TextColor3 = COLORS.White
@@ -979,4 +979,4 @@ createQuickBtn("👁", "INVIS", 0, COLORS.White, "Invisibility", function(v)
     applyInvisibility(v)
 end)
 
-notifyImportant("artfghjkq HUB Loaded!")
+notifyImportant("@isnotsin HUB Loaded!")
