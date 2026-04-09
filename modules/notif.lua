@@ -31,15 +31,15 @@ local Holder = NewInstance("Instance", "Frame", {
     BackgroundColor3 = Color3.fromRGB(255, 255, 255),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
-    Position = UDim2.new(0, 10, 1, -10),
-    Size = UDim2.new(0, 200, 0, 300),
-    AnchorPoint = Vector2.new(0, 1),
+    Position = UDim2.new(0.5, 0, 0, 10),
+    Size = UDim2.new(0, 260, 0, 300),
+    AnchorPoint = Vector2.new(0.5, 0),
 })
 
 NewInstance("Instance", "UIListLayout", {
     Parent = Holder,
     SortOrder = Enum.SortOrder.LayoutOrder,
-    VerticalAlignment = Enum.VerticalAlignment.Bottom,
+    VerticalAlignment = Enum.VerticalAlignment.Top,
     Padding = UDim.new(0, 4),
 })
 

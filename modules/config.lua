@@ -16,6 +16,7 @@ local CONFIG = {
     Names = false,
     TeamFilter = false,
     Invisibility = false,
+    WallWalk = false,
     ESPColor = Color3.fromRGB(0, 255, 0),
     SkeletonColor = Color3.fromRGB(255, 255, 255),
     TracerColor = Color3.fromRGB(0, 255, 255),

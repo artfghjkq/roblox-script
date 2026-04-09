@@ -1,4 +1,4 @@
--- artfghjkq HUB v0.1.1
+-- artfghjkq HUB v0.1.2
 -- Entry point — loads all modules from GitHub
 
 local BASE_URL = "https://raw.githubusercontent.com/artfghjkq/roblox-script/refs/heads/main/modules/"
@@ -80,6 +80,119 @@ local function applyInvisibility(state)
         end
     end
     if state then startInvLoop() else stopInvLoop() end
+end
+
+-- ============================================================
+-- WALLWALK
+-- ============================================================
+local wallWalkController = nil
+local wallWalkConn = nil
+
+local function stopWallWalk()
+    if wallWalkConn then wallWalkConn:Disconnect(); wallWalkConn = nil end
+    if wallWalkController then
+        pcall(function() wallWalkController:Destroy() end)
+        wallWalkController = nil
+    end
+    -- Restore normal gravity on HRP
+    pcall(function()
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local bf = hrp:FindFirstChild("WallWalkGravity")
+            if bf then bf:Destroy() end
+        end
+        workspace.Gravity = 196.2
+    end)
+end
+
+local function startWallWalk()
+    stopWallWalk()
+    task.spawn(function()
+        pcall(function()
+            -- Inline WallWalk: override gravity using BodyPosition trick via RunService
+            local Players = game:GetService("Players")
+            local lp = Players.LocalPlayer
+            local char = lp.Character or lp.CharacterAdded:Wait()
+            local hrp = char:WaitForChild("HumanoidRootPart")
+            local hum = char:WaitForChild("Humanoid")
+
+            local PLAYERS = Players
+
+            -- Gravity controller (simplified inline version)
+            local gravityUp = Vector3.new(0, 1, 0)
+
+            local function getGravityUp(hrpCF)
+                local ignoreList = {}
+                for _, p in next, PLAYERS:GetPlayers() do
+                    ignoreList[#ignoreList+1] = p.Character
+                end
+                local origin = hrpCF.Position
+                local centerRay = Ray.new(origin, -25 * gravityUp)
+                local hit, _, normal = workspace:FindPartOnRayWithIgnoreList(centerRay, ignoreList)
+                if hit then return normal end
+
+                local PI2 = math.pi * 2
+                local radialVector = math.abs(hrpCF.LookVector:Dot(gravityUp)) < 0.999
+                    and hrpCF.LookVector:Cross(gravityUp)
+                    or hrpCF.RightVector:Cross(gravityUp)
+                local normalSum = Vector3.new(0,0,0)
+                local hitCount = 0
+                for i = 1, 16 do
+                    local dtheta = PI2 * ((i-1)/16)
+                    local offset = CFrame.fromAxisAngle(gravityUp, dtheta) * radialVector
+                    local ray = Ray.new(origin + 2*offset, 25 * (-gravityUp + (Vector3.new(0,0,0) - offset).Unit * 0.5))
+                    local h2, _, n2 = workspace:FindPartOnRayWithIgnoreList(ray, ignoreList)
+                    if h2 then
+                        normalSum = normalSum + n2
+                        hitCount = hitCount + 1
+                    end
+                end
+                if hitCount > 0 and normalSum ~= Vector3.new(0,0,0) then
+                    return normalSum.Unit
+                end
+                return gravityUp
+            end
+
+            local Vectorforce = Instance.new("VectorForce")
+            Vectorforce.Name = "WallWalkGravity"
+            Vectorforce.RelativeTo = Enum.ActuatorRelativeTo.World
+            Vectorforce.Force = Vector3.new(0, 0, 0)
+            local att = Instance.new("Attachment", hrp)
+            Vectorforce.Attachment0 = att
+            Vectorforce.Parent = hrp
+
+            wallWalkConn = game:GetService("RunService").Heartbeat:Connect(function()
+                if not CONFIG.WallWalk then stopWallWalk(); return end
+                local char2 = lp.Character
+                local hrp2 = char2 and char2:FindFirstChild("HumanoidRootPart")
+                local hum2 = char2 and char2:FindFirstChildWhichIsA("Humanoid")
+                if not hrp2 or not hum2 then return end
+
+                local newUp = getGravityUp(hrp2.CFrame)
+                gravityUp = gravityUp:Lerp(newUp, 0.15).Unit
+
+                local mass = 0
+                for _, p in pairs(char2:GetDescendants()) do
+                    if p:IsA("BasePart") then mass = mass + p.Mass end
+                end
+
+                local gravDir = -gravityUp
+                Vectorforce.Force = -gravDir * workspace.Gravity * mass
+
+                -- Rotate character to align with surface
+                local cf = hrp2.CFrame
+                local currentUp = cf.UpVector
+                local axis = currentUp:Cross(gravityUp)
+                if axis.Magnitude > 0.001 then
+                    local angle = math.asin(math.clamp(axis.Magnitude, -1, 1))
+                    hrp2.CFrame = CFrame.fromAxisAngle(axis.Unit, angle) * cf
+                end
+            end)
+
+            wallWalkController = Vectorforce
+        end)
+    end)
 end
 
 -- ============================================================
@@ -441,6 +554,7 @@ local QB_OPTIONS = {
     {label="Skel",    icon="💀", key="Skeleton",     color=Color3.fromRGB(200,200,255),   callback=nil},
     {label="Tracer",  icon="📡", key="Tracers",      color=Color3.fromRGB(0,255,255),     callback=nil},
     {label="Jump",    icon="🚀", key="SuperJump",    color=Color3.fromRGB(255,200,0),     callback=nil},
+    {label="WallWalk",icon="🧱", key="WallWalk",     color=Color3.fromRGB(255,160,80),    callback=function(v) if v then startWallWalk() else stopWallWalk() end end},
     {label="King",    icon="👑", key="KingMode",     color=Color3.fromRGB(255,215,0),     callback=nil},
     {label="FPS",     icon="🖥", key="FPSBoost",     color=Color3.fromRGB(100,200,255),   callback=function(v) Lighting.GlobalShadows=not v Lighting.Technology=v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap end},
 }
@@ -470,29 +584,39 @@ local function updateQBBtn(i)
     end
 end
 
+-- ============================================================
+-- QB WRAPPER (single draggable parent for toggle + slots + panel)
+-- ============================================================
+local qbWrapper = Instance.new("Frame")
+qbWrapper.Size = UDim2.new(0, 290, 0, 230)
+qbWrapper.Position = UDim2.new(0, 20, 0.5, -90)
+qbWrapper.BackgroundTransparency = 1
+qbWrapper.Visible = false
+qbWrapper.Active = true
+qbWrapper.Draggable = true
+qbWrapper.ZIndex = 1
+qbWrapper.Parent = screenGui
+
 local qbContainer = Instance.new("Frame")
 qbContainer.Size = UDim2.new(0, 58, 0, 10)
-qbContainer.Position = UDim2.new(0, 20, 0.5, -90)
+qbContainer.Position = UDim2.new(0, 0, 0, 38)
 qbContainer.BackgroundTransparency = 1
-qbContainer.Visible = false
-qbContainer.Active = true
-qbContainer.Draggable = true
-qbContainer.Parent = screenGui
+qbContainer.Active = false
+qbContainer.ZIndex = 5
+qbContainer.Parent = qbWrapper
 
 local qbLayout = Instance.new("UIListLayout", qbContainer)
 qbLayout.SortOrder = Enum.SortOrder.LayoutOrder
 qbLayout.Padding = UDim.new(0, 6)
 
--- Assign panel
+-- Assign panel (sits to the right inside the wrapper)
 local qbPanel = Instance.new("Frame")
 qbPanel.Size = UDim2.new(0, 200, 0, 10)
-qbPanel.Position = UDim2.new(0, 90, 0.5, -90)
+qbPanel.Position = UDim2.new(0, 66, 0, 38)
 qbPanel.BackgroundColor3 = COLORS.DarkBG
 qbPanel.Visible = false
-qbPanel.Active = true
-qbPanel.Draggable = true
 qbPanel.ZIndex = 10
-qbPanel.Parent = screenGui
+qbPanel.Parent = qbWrapper
 createCorner(qbPanel, 10)
 createStroke(qbPanel, COLORS.Galaxy1, 2)
 
@@ -653,12 +777,7 @@ for slotIdx = 1, 3 do
 
     local function openPanel(si)
         currentEditSlot = si
-        qbPanel.Position = UDim2.new(
-            qbContainer.Position.X.Scale,
-            qbContainer.Position.X.Offset + 62,
-            qbContainer.Position.Y.Scale,
-            qbContainer.Position.Y.Offset + (si-1)*60
-        )
+        qbPanel.Position = UDim2.new(0, 66, 0, 38 + (si-1)*60)
         qbPanel.Visible = true
         refreshAssignedLabels()
     end
@@ -696,21 +815,25 @@ qbLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     qbContainer.Size = UDim2.new(0, 58, 0, qbLayout.AbsoluteContentSize.Y)
 end)
 
--- QB toggle button
+-- QB toggle button (lives inside wrapper, at top)
 local qbToggleBtn = Instance.new("TextButton")
 qbToggleBtn.Size = UDim2.new(0, 32, 0, 32)
-qbToggleBtn.Position = UDim2.new(0, 20, 0, 90)
+qbToggleBtn.Position = UDim2.new(0, 0, 0, 0)
 qbToggleBtn.BackgroundColor3 = COLORS.DarkBG
 qbToggleBtn.Text = "⚡"
 qbToggleBtn.TextColor3 = COLORS.GalaxyAccent
 qbToggleBtn.Font = Enum.Font.GothamBold
 qbToggleBtn.TextSize = 14
 qbToggleBtn.Active = true
-qbToggleBtn.Draggable = true
-qbToggleBtn.Parent = screenGui
+qbToggleBtn.ZIndex = 5
+qbToggleBtn.Parent = qbWrapper
 createCorner(qbToggleBtn, 8)
 createStroke(qbToggleBtn, COLORS.Galaxy1, 2)
 
+-- Wrapper visibility driven by icon drag handle below icon
+local qbWrapperOpen = false
+
+-- Show/hide wrapper via icon (same iconBtn area)
 local qbOpen = false
 qbToggleBtn.MouseButton1Click:Connect(function()
     qbOpen = not qbOpen
@@ -718,6 +841,9 @@ qbToggleBtn.MouseButton1Click:Connect(function()
     if not qbOpen then qbPanel.Visible = false end
     tween(qbToggleBtn, {BackgroundColor3 = qbOpen and COLORS.Galaxy1 or COLORS.DarkBG}, 0.2)
 end)
+
+-- Keep wrapper always visible so the toggle btn is clickable; wrapper bg is transparent
+qbWrapper.Visible = true
 
 -- ============================================================
 -- POPULATE TABS
@@ -733,6 +859,15 @@ createSlider(mainContent, "Walk Speed", "WalkSpeed", 16, 250)
 toggleSyncs["Noclip"] = createToggle(mainContent, "Noclip", "Noclip")
 toggleSyncs["Invisibility"] = createToggle(mainContent, "Invisibility", "Invisibility", function(v)
     applyInvisibility(v)
+end)
+toggleSyncs["WallWalk"] = createToggle(mainContent, "Wall Walk", "WallWalk", function(v)
+    if v then
+        startWallWalk()
+        Notif:Send("Wall Walk: ON", 2)
+    else
+        stopWallWalk()
+        Notif:Send("Wall Walk: OFF", 2)
+    end
 end)
 createToggle(mainContent, "Super Jump", "SuperJump")
 createSlider(mainContent, "Jump Power", "JumpPower", 50, 500)
@@ -809,6 +944,7 @@ end)
 local function onCharacterAdded(newChar)
     task.wait(1)
     if CONFIG.Invisibility then applyInvisibility(true) end
+    if CONFIG.WallWalk then startWallWalk() end
     newChar.ChildAdded:Connect(function()
         if CONFIG.Invisibility then applyInvisibility(true) end
     end)
@@ -817,4 +953,4 @@ end
 player.CharacterAdded:Connect(onCharacterAdded)
 if player.Character then onCharacterAdded(player.Character) end
 
-Notif:Send("artfghjkq HUB v0.1.1 Loaded!", 4)
+Notif:Send("artfghjkq HUB v0.1.2 Loaded!", 4)
