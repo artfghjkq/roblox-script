@@ -50,7 +50,7 @@ ${credits}
     return res.send(fullTextResponse);
   }
 
-  const script = fs.readFileSync(path.join(process.cwd(), "core"), "utf8");
+  const script = fs.readFileSync(path.join(process.cwd(), "main.lua"), "utf8");
   res.setHeader("Content-Type", "text/plain");
   res.send(script);
 }

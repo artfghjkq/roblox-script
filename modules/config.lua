@@ -1,0 +1,27 @@
+local CONFIG = {
+    KingMode = false,
+    AntiAFK = false,
+    WalkSpeed = 50,
+    JumpPower = 150,
+    SpeedBoost = false,
+    SuperJump = false,
+    FPSBoost = false,
+    DisableParticles = false,
+    ShowFPS = false,
+    Noclip = false,
+    BoxESP = false,
+    Tracers = false,
+    Skeleton = false,
+    HealthBar = false,
+    Names = false,
+    TeamFilter = false,
+    Invisibility = false,
+    ESPColor = Color3.fromRGB(0, 255, 0),
+    SkeletonColor = Color3.fromRGB(255, 255, 255),
+    TracerColor = Color3.fromRGB(0, 255, 255),
+    BoxRainbow = false,
+    SkeletonRainbow = false,
+    TracerRainbow = false,
+}
+
+return CONFIG

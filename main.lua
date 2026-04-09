@@ -1,0 +1,820 @@
+-- artfghjkq HUB v0.1.1
+-- Entry point — loads all modules from GitHub
+
+local BASE_URL = "https://raw.githubusercontent.com/artfghjkq/roblox-script/refs/heads/main/modules/"
+
+local function req(file)
+    return loadstring(game:HttpGet(BASE_URL .. file))()
+end
+
+-- Services
+local player         = game.Players.LocalPlayer
+local RunService     = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui        = game:GetService("CoreGui")
+local Lighting       = game:GetService("Lighting")
+local VirtualUser    = game:GetService("VirtualUser")
+
+-- Load modules
+local CONFIG   = req("config.lua")
+local ColLib   = req("colors.lua")
+local Notif    = req("notif.lua")
+local ESP      = req("esp.lua")
+local Scripts  = req("scripts.lua")
+
+local COLORS         = ColLib.COLORS
+local createCorner   = ColLib.createCorner
+local createStroke   = ColLib.createStroke
+local createGradient = ColLib.createGradient
+local galaxyGradient = ColLib.galaxyGradient
+local tween          = ColLib.tween
+
+-- Anti-AFK
+player.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- Rainbow hue (shared)
+local rainbowHue = 0
+
+-- ESP cleanup on player leave
+game.Players.PlayerRemoving:Connect(function(plr)
+    ESP:Cleanup(plr)
+end)
+
+-- Invisibility
+local invConn = nil
+
+local function stopInvLoop()
+    if invConn then invConn:Disconnect(); invConn = nil end
+end
+
+local function startInvLoop()
+    stopInvLoop()
+    invConn = RunService.RenderStepped:Connect(function()
+        if not CONFIG.Invisibility then stopInvLoop(); return end
+        local char = player.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        local hum  = char and char:FindFirstChild("Humanoid")
+        if not hrp or not hum then return end
+        local orig   = hrp.CFrame
+        local offset = hum.CameraOffset
+        hrp.CFrame = orig * CFrame.new(0, -200000, 0)
+        hum.CameraOffset = hrp.CFrame:ToObjectSpace(CFrame.new(orig.Position)).Position
+        task.defer(function()
+            if hrp and hrp.Parent then
+                hrp.CFrame = orig
+                hum.CameraOffset = offset
+            end
+        end)
+    end)
+end
+
+local function applyInvisibility(state)
+    local char = player.Character
+    if not char then return end
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Transparency = state and 0.5 or 0
+        end
+    end
+    if state then startInvLoop() else stopInvLoop() end
+end
+
+-- ============================================================
+-- UI
+-- ============================================================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "artfghjkq"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = CoreGui
+
+-- Icon button
+local iconBtn = Instance.new("TextButton")
+iconBtn.Size = UDim2.new(0, 60, 0, 60)
+iconBtn.Position = UDim2.new(0, 20, 0, 20)
+iconBtn.BackgroundColor3 = COLORS.Background
+iconBtn.Text = "A"
+iconBtn.TextColor3 = COLORS.GalaxyAccent
+iconBtn.Font = Enum.Font.GothamBlack
+iconBtn.TextSize = 28
+iconBtn.Active = true
+iconBtn.Draggable = true
+iconBtn.Parent = screenGui
+createCorner(iconBtn, 12)
+local iconStroke = createStroke(iconBtn, COLORS.Galaxy1, 3)
+galaxyGradient(iconBtn, 135)
+
+-- Animate icon stroke
+RunService.Heartbeat:Connect(function(dt)
+    rainbowHue = (rainbowHue + dt * 0.4) % 1
+    iconStroke.Color = Color3.fromHSV((rainbowHue + 0.5) % 1, 0.7, 1)
+end)
+
+-- Main frame
+local FRAME_W, FRAME_H, TAB_W = 310, 380, 70
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, FRAME_W, 0, FRAME_H)
+mainFrame.Position = UDim2.new(0.5, -FRAME_W/2, 0.5, -FRAME_H/2)
+mainFrame.BackgroundColor3 = COLORS.Background
+mainFrame.Visible = false
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+createCorner(mainFrame, 15)
+createStroke(mainFrame, COLORS.Galaxy1, 2)
+
+-- Top bar
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1, 0, 0, 42)
+topBar.BackgroundColor3 = COLORS.Galaxy1
+topBar.Parent = mainFrame
+createCorner(topBar, 15)
+galaxyGradient(topBar, 90)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -80, 1, 0)
+titleLabel.Position = UDim2.new(0, 15, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "✦ artfghjkq HUB"
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 14
+titleLabel.TextColor3 = COLORS.White
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = topBar
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 25, 0, 25)
+closeBtn.Position = UDim2.new(1, -35, 0.5, -12.5)
+closeBtn.Text = "×"
+closeBtn.BackgroundColor3 = COLORS.DarkBG
+closeBtn.TextColor3 = COLORS.White
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 20
+closeBtn.Parent = topBar
+createCorner(closeBtn, 6)
+
+-- Sidebar
+local tabSidebar = Instance.new("Frame")
+tabSidebar.Size = UDim2.new(0, TAB_W, 1, -42)
+tabSidebar.Position = UDim2.new(0, 0, 0, 42)
+tabSidebar.BackgroundColor3 = COLORS.DarkBG
+tabSidebar.Parent = mainFrame
+
+local sideLayout = Instance.new("UIListLayout", tabSidebar)
+sideLayout.SortOrder = Enum.SortOrder.LayoutOrder
+sideLayout.Padding = UDim.new(0, 4)
+
+local sidePad = Instance.new("UIPadding", tabSidebar)
+sidePad.PaddingTop = UDim.new(0, 6)
+sidePad.PaddingLeft = UDim.new(0, 4)
+sidePad.PaddingRight = UDim.new(0, 4)
+
+local contentFrame = Instance.new("Frame")
+contentFrame.Size = UDim2.new(1, -TAB_W, 1, -42)
+contentFrame.Position = UDim2.new(0, TAB_W, 0, 42)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = mainFrame
+
+local tabButtons, contentContainers = {}, {}
+local tabs = {"MAIN", "ESP", "FPS", "SCRIPTS"}
+local tabIcons = {MAIN="⚙", ESP="👁", FPS="🖥", SCRIPTS="📜"}
+
+local function setActiveTab(tabName)
+    for name, btn in pairs(tabButtons) do
+        btn.BackgroundColor3 = (name == tabName) and COLORS.Galaxy1 or COLORS.Frame
+        btn.TextColor3 = (name == tabName) and COLORS.White or Color3.fromRGB(160, 140, 180)
+    end
+    for name, c in pairs(contentContainers) do c.Visible = (name == tabName) end
+end
+
+for i, tabName in ipairs(tabs) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 50)
+    btn.BackgroundColor3 = (i == 1) and COLORS.Galaxy1 or COLORS.Frame
+    btn.TextColor3 = (i == 1) and COLORS.White or Color3.fromRGB(160, 140, 180)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 8
+    btn.Text = tabIcons[tabName] .. "\n" .. tabName
+    btn.TextWrapped = true
+    btn.Parent = tabSidebar
+    createCorner(btn, 8)
+    tabButtons[tabName] = btn
+
+    local container = Instance.new("ScrollingFrame")
+    container.Size = UDim2.new(1, 0, 1, 0)
+    container.BackgroundTransparency = 1
+    container.BorderSizePixel = 0
+    container.ScrollBarThickness = 2
+    container.Visible = (i == 1)
+    container.CanvasSize = UDim2.new(0, 0, 0, 0)
+    container.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    container.Parent = contentFrame
+    contentContainers[tabName] = container
+
+    local layout = Instance.new("UIListLayout", container)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 4)
+
+    local pad = Instance.new("UIPadding", container)
+    pad.PaddingTop = UDim.new(0, 4)
+    pad.PaddingLeft = UDim.new(0, 4)
+    pad.PaddingRight = UDim.new(0, 4)
+
+    btn.MouseButton1Click:Connect(function() setActiveTab(tabName) end)
+end
+
+-- ============================================================
+-- COMPONENTS
+-- ============================================================
+local COLOR_PRESETS = {
+    {name="White",  color=Color3.fromRGB(255,255,255)},
+    {name="Red",    color=Color3.fromRGB(255,50,50)},
+    {name="Orange", color=Color3.fromRGB(255,165,0)},
+    {name="Yellow", color=Color3.fromRGB(255,255,0)},
+    {name="Green",  color=Color3.fromRGB(50,205,50)},
+    {name="Cyan",   color=Color3.fromRGB(0,255,255)},
+    {name="Blue",   color=Color3.fromRGB(50,100,255)},
+    {name="Purple", color=Color3.fromRGB(180,50,255)},
+    {name="Pink",   color=Color3.fromRGB(255,100,200)},
+}
+
+local toggleSyncs = {}
+
+local function createToggle(parent, text, key, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -4, 0, 32)
+    container.BackgroundColor3 = COLORS.Frame
+    container.Parent = parent
+    createCorner(container, 8)
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -50, 1, 0)
+    label.Position = UDim2.new(0, 8, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.Font = Enum.Font.GothamSemibold
+    label.TextSize = 10
+    label.TextColor3 = COLORS.White
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
+
+    local toggleBtn = Instance.new("Frame")
+    toggleBtn.Size = UDim2.new(0, 34, 0, 17)
+    toggleBtn.Position = UDim2.new(1, -42, 0.5, -8.5)
+    toggleBtn.BackgroundColor3 = CONFIG[key] and COLORS.Galaxy1 or COLORS.Gray
+    toggleBtn.Parent = container
+    createCorner(toggleBtn, 9)
+
+    local indicator = Instance.new("Frame")
+    indicator.Size = UDim2.new(0, 13, 0, 13)
+    indicator.Position = CONFIG[key] and UDim2.new(1,-15,0.5,-6.5) or UDim2.new(0,2,0.5,-6.5)
+    indicator.BackgroundColor3 = COLORS.White
+    indicator.Parent = toggleBtn
+    createCorner(indicator, 7)
+
+    local click = Instance.new("TextButton")
+    click.Size = UDim2.new(1, 0, 1, 0)
+    click.BackgroundTransparency = 1
+    click.Text = ""
+    click.Parent = container
+
+    local function updateVisuals(state)
+        tween(toggleBtn, {BackgroundColor3 = state and COLORS.Galaxy1 or COLORS.Gray}, 0.2)
+        tween(indicator, {Position = state and UDim2.new(1,-15,0.5,-6.5) or UDim2.new(0,2,0.5,-6.5)}, 0.2)
+    end
+
+    click.MouseButton1Click:Connect(function()
+        CONFIG[key] = not CONFIG[key]
+        updateVisuals(CONFIG[key])
+        if callback then callback(CONFIG[key]) end
+    end)
+
+    return updateVisuals
+end
+
+local function createSlider(parent, text, key, min, max, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -4, 0, 45)
+    container.BackgroundColor3 = COLORS.Frame
+    container.Parent = parent
+    createCorner(container, 8)
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -8, 0, 18)
+    label.Position = UDim2.new(0, 8, 0, 4)
+    label.BackgroundTransparency = 1
+    label.Text = text .. ": " .. CONFIG[key]
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 9
+    label.TextColor3 = COLORS.White
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
+
+    local sliderBg = Instance.new("Frame")
+    sliderBg.Size = UDim2.new(1, -16, 0, 6)
+    sliderBg.Position = UDim2.new(0, 8, 0, 30)
+    sliderBg.BackgroundColor3 = COLORS.Gray
+    sliderBg.Parent = container
+    createCorner(sliderBg, 3)
+
+    local ip = math.clamp((CONFIG[key]-min)/(max-min), 0, 1)
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new(ip, 0, 1, 0)
+    fill.BackgroundColor3 = COLORS.Galaxy1
+    fill.Parent = sliderBg
+    createCorner(fill, 3)
+    galaxyGradient(fill, 0)
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 12, 0, 12)
+    knob.Position = UDim2.new(ip, -6, 0.5, -6)
+    knob.BackgroundColor3 = COLORS.White
+    knob.Parent = sliderBg
+    createCorner(knob, 6)
+    createStroke(knob, COLORS.Galaxy1, 1)
+
+    local dragging = false
+    local function update(input)
+        local pos = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X)/sliderBg.AbsoluteSize.X, 0, 1)
+        local val = math.floor(min + (max-min)*pos)
+        CONFIG[key] = val
+        label.Text = text .. ": " .. val
+        fill.Size = UDim2.new(pos, 0, 1, 0)
+        knob.Position = UDim2.new(pos, -6, 0.5, -6)
+        if callback then callback(val) end
+    end
+
+    sliderBg.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging=true update(i) end end)
+    UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging=false end end)
+    UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then update(i) end end)
+end
+
+local function createESPColorRow(parent, text, colorKey, rainbowKey)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -4, 0, 54)
+    container.BackgroundColor3 = COLORS.Frame
+    container.Parent = parent
+    createCorner(container, 8)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -8, 0, 18)
+    lbl.Position = UDim2.new(0, 8, 0, 4)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 9
+    lbl.TextColor3 = Color3.fromRGB(180, 160, 210)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = container
+
+    local div = Instance.new("Frame")
+    div.Size = UDim2.new(1, -16, 0, 1)
+    div.Position = UDim2.new(0, 8, 0, 24)
+    div.BackgroundColor3 = COLORS.Gray
+    div.Parent = container
+
+    local idx = 1
+    local swatch = Instance.new("Frame")
+    swatch.Size = UDim2.new(0, 16, 0, 16)
+    swatch.Position = UDim2.new(0, 8, 0, 31)
+    swatch.BackgroundColor3 = CONFIG[colorKey]
+    swatch.Parent = container
+    createCorner(swatch, 4)
+
+    local cName = Instance.new("TextLabel")
+    cName.Size = UDim2.new(0, 55, 0, 16)
+    cName.Position = UDim2.new(0, 28, 0, 31)
+    cName.BackgroundTransparency = 1
+    cName.Text = "Custom"
+    cName.Font = Enum.Font.GothamBold
+    cName.TextSize = 9
+    cName.TextColor3 = CONFIG[colorKey]
+    cName.TextXAlignment = Enum.TextXAlignment.Left
+    cName.Parent = container
+
+    local cBtn = Instance.new("TextButton")
+    cBtn.Size = UDim2.new(0, 75, 0, 20)
+    cBtn.Position = UDim2.new(0, 5, 0, 29)
+    cBtn.BackgroundTransparency = 1
+    cBtn.Text = ""
+    cBtn.Parent = container
+
+    cBtn.MouseButton1Click:Connect(function()
+        idx = (idx % #COLOR_PRESETS) + 1
+        local c = COLOR_PRESETS[idx]
+        CONFIG[colorKey] = c.color
+        swatch.BackgroundColor3 = c.color
+        cName.Text = c.name
+        cName.TextColor3 = c.color
+    end)
+
+    local rbBtn = Instance.new("TextButton")
+    rbBtn.Size = UDim2.new(0, 70, 0, 18)
+    rbBtn.Position = UDim2.new(1, -78, 0, 29)
+    rbBtn.BackgroundColor3 = CONFIG[rainbowKey] and COLORS.Galaxy1 or COLORS.Gray
+    rbBtn.Text = "🌈 Rainbow"
+    rbBtn.TextColor3 = COLORS.White
+    rbBtn.Font = Enum.Font.GothamBold
+    rbBtn.TextSize = 7
+    rbBtn.Parent = container
+    createCorner(rbBtn, 6)
+
+    rbBtn.MouseButton1Click:Connect(function()
+        CONFIG[rainbowKey] = not CONFIG[rainbowKey]
+        tween(rbBtn, {BackgroundColor3 = CONFIG[rainbowKey] and COLORS.Galaxy1 or COLORS.Gray}, 0.2)
+    end)
+end
+
+-- ============================================================
+-- QUICK BUTTONS
+-- ============================================================
+local QB_OPTIONS = {
+    {label="Speed",   icon="⚡", key="SpeedBoost",  color=COLORS.Green,       callback=function(v) if not v then local h=player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") if h then h.WalkSpeed=16 end end end},
+    {label="Noclip",  icon="👻", key="Noclip",      color=COLORS.GalaxyAccent,callback=nil},
+    {label="Invis",   icon="👁", key="Invisibility", color=COLORS.White,       callback=function(v) applyInvisibility(v) end},
+    {label="Box ESP", icon="📦", key="BoxESP",       color=Color3.fromRGB(0,255,0),       callback=nil},
+    {label="Skel",    icon="💀", key="Skeleton",     color=Color3.fromRGB(200,200,255),   callback=nil},
+    {label="Tracer",  icon="📡", key="Tracers",      color=Color3.fromRGB(0,255,255),     callback=nil},
+    {label="Jump",    icon="🚀", key="SuperJump",    color=Color3.fromRGB(255,200,0),     callback=nil},
+    {label="King",    icon="👑", key="KingMode",     color=Color3.fromRGB(255,215,0),     callback=nil},
+    {label="FPS",     icon="🖥", key="FPSBoost",     color=Color3.fromRGB(100,200,255),   callback=function(v) Lighting.GlobalShadows=not v Lighting.Technology=v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap end},
+}
+
+local qbSlots      = {nil, nil, nil}
+local qbBtns       = {}
+local qbStrokes    = {}
+local qbNameLabels = {}
+
+local function updateQBBtn(i)
+    local btn    = qbBtns[i]
+    local stroke = qbStrokes[i]
+    local nlbl   = qbNameLabels[i]
+    if not btn then return end
+    local opt = qbSlots[i]
+    if opt then
+        local state = CONFIG[opt.key]
+        btn.Text = opt.icon
+        btn.TextColor3 = state and opt.color or COLORS.Gray
+        if stroke then stroke.Color = state and opt.color or COLORS.Gray end
+        if nlbl then nlbl.Text = opt.label; nlbl.TextColor3 = state and opt.color or COLORS.Gray end
+    else
+        btn.Text = "+"
+        btn.TextColor3 = COLORS.Gray
+        if stroke then stroke.Color = COLORS.Gray end
+        if nlbl then nlbl.Text = "Empty"; nlbl.TextColor3 = COLORS.Gray end
+    end
+end
+
+local qbContainer = Instance.new("Frame")
+qbContainer.Size = UDim2.new(0, 58, 0, 10)
+qbContainer.Position = UDim2.new(0, 20, 0.5, -90)
+qbContainer.BackgroundTransparency = 1
+qbContainer.Visible = false
+qbContainer.Active = true
+qbContainer.Draggable = true
+qbContainer.Parent = screenGui
+
+local qbLayout = Instance.new("UIListLayout", qbContainer)
+qbLayout.SortOrder = Enum.SortOrder.LayoutOrder
+qbLayout.Padding = UDim.new(0, 6)
+
+-- Assign panel
+local qbPanel = Instance.new("Frame")
+qbPanel.Size = UDim2.new(0, 200, 0, 10)
+qbPanel.Position = UDim2.new(0, 90, 0.5, -90)
+qbPanel.BackgroundColor3 = COLORS.DarkBG
+qbPanel.Visible = false
+qbPanel.Active = true
+qbPanel.Draggable = true
+qbPanel.ZIndex = 10
+qbPanel.Parent = screenGui
+createCorner(qbPanel, 10)
+createStroke(qbPanel, COLORS.Galaxy1, 2)
+
+local qbPanelLayout = Instance.new("UIListLayout", qbPanel)
+qbPanelLayout.SortOrder = Enum.SortOrder.LayoutOrder
+qbPanelLayout.Padding = UDim.new(0, 3)
+
+local qbPanelPad = Instance.new("UIPadding", qbPanel)
+qbPanelPad.PaddingTop = UDim.new(0, 6)
+qbPanelPad.PaddingBottom = UDim.new(0, 6)
+qbPanelPad.PaddingLeft = UDim.new(0, 6)
+qbPanelPad.PaddingRight = UDim.new(0, 6)
+
+local qbPanelTitle = Instance.new("TextLabel")
+qbPanelTitle.Size = UDim2.new(1, 0, 0, 20)
+qbPanelTitle.BackgroundTransparency = 1
+qbPanelTitle.Text = "Assign Quick Button"
+qbPanelTitle.Font = Enum.Font.GothamBold
+qbPanelTitle.TextSize = 10
+qbPanelTitle.TextColor3 = Color3.fromRGB(180, 140, 255)
+qbPanelTitle.TextXAlignment = Enum.TextXAlignment.Left
+qbPanelTitle.ZIndex = 10
+qbPanelTitle.Parent = qbPanel
+
+local qbPanelClose = Instance.new("TextButton")
+qbPanelClose.Size = UDim2.new(0, 18, 0, 18)
+qbPanelClose.Position = UDim2.new(1, -24, 0, 1)
+qbPanelClose.BackgroundTransparency = 1
+qbPanelClose.Text = "×"
+qbPanelClose.TextColor3 = COLORS.White
+qbPanelClose.Font = Enum.Font.GothamBold
+qbPanelClose.TextSize = 14
+qbPanelClose.ZIndex = 10
+qbPanelClose.Parent = qbPanel
+
+local currentEditSlot = nil
+local qbOptionRows = {}
+
+local function refreshAssignedLabels()
+    for _, r in ipairs(qbOptionRows) do r.label.Text = "" end
+    for i, slotOpt in ipairs(qbSlots) do
+        if slotOpt then
+            for _, r in ipairs(qbOptionRows) do
+                if r.opt.key == slotOpt.key then r.label.Text = "Slot "..i end
+            end
+        end
+    end
+end
+
+for _, opt in ipairs(QB_OPTIONS) do
+    local row = Instance.new("TextButton")
+    row.Size = UDim2.new(1, 0, 0, 26)
+    row.BackgroundColor3 = COLORS.Frame
+    row.Text = opt.icon .. "  " .. opt.label
+    row.TextColor3 = COLORS.White
+    row.Font = Enum.Font.GothamSemibold
+    row.TextSize = 10
+    row.TextXAlignment = Enum.TextXAlignment.Left
+    row.ZIndex = 10
+    row.Parent = qbPanel
+    createCorner(row, 6)
+
+    local rPad = Instance.new("UIPadding", row)
+    rPad.PaddingLeft = UDim.new(0, 8)
+
+    local assignedLbl = Instance.new("TextLabel")
+    assignedLbl.Size = UDim2.new(0, 50, 1, 0)
+    assignedLbl.Position = UDim2.new(1, -55, 0, 0)
+    assignedLbl.BackgroundTransparency = 1
+    assignedLbl.Text = ""
+    assignedLbl.Font = Enum.Font.GothamBold
+    assignedLbl.TextSize = 8
+    assignedLbl.TextColor3 = Color3.fromRGB(150, 120, 200)
+    assignedLbl.ZIndex = 10
+    assignedLbl.Parent = row
+
+    table.insert(qbOptionRows, {row=row, opt=opt, label=assignedLbl})
+
+    row.MouseButton1Click:Connect(function()
+        if not currentEditSlot then return end
+        for i, s in ipairs(qbSlots) do
+            if s and s.key == opt.key then qbSlots[i]=nil updateQBBtn(i) end
+        end
+        qbSlots[currentEditSlot] = opt
+        updateQBBtn(currentEditSlot)
+        refreshAssignedLabels()
+        qbPanel.Visible = false
+        currentEditSlot = nil
+    end)
+end
+
+local clearRow = Instance.new("TextButton")
+clearRow.Size = UDim2.new(1, 0, 0, 26)
+clearRow.BackgroundColor3 = Color3.fromRGB(60, 15, 15)
+clearRow.Text = "✕  Clear Slot"
+clearRow.TextColor3 = COLORS.Red
+clearRow.Font = Enum.Font.GothamBold
+clearRow.TextSize = 10
+clearRow.TextXAlignment = Enum.TextXAlignment.Left
+clearRow.ZIndex = 10
+clearRow.Parent = qbPanel
+createCorner(clearRow, 6)
+
+local clPad = Instance.new("UIPadding", clearRow)
+clPad.PaddingLeft = UDim.new(0, 8)
+
+clearRow.MouseButton1Click:Connect(function()
+    if not currentEditSlot then return end
+    qbSlots[currentEditSlot] = nil
+    updateQBBtn(currentEditSlot)
+    refreshAssignedLabels()
+    qbPanel.Visible = false
+    currentEditSlot = nil
+end)
+
+qbPanelClose.MouseButton1Click:Connect(function()
+    qbPanel.Visible = false
+    currentEditSlot = nil
+end)
+
+qbPanelLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    qbPanel.Size = UDim2.new(0, 200, 0, qbPanelLayout.AbsoluteContentSize.Y + 12)
+end)
+
+-- Create 3 QB slots
+for slotIdx = 1, 3 do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 54, 0, 54)
+    btn.BackgroundColor3 = COLORS.Background
+    btn.Text = "+"
+    btn.TextColor3 = COLORS.Gray
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 20
+    btn.Active = true
+    btn.ZIndex = 5
+    btn.Parent = qbContainer
+    createCorner(btn, 10)
+
+    local stroke = createStroke(btn, COLORS.Gray, 2)
+    qbStrokes[slotIdx] = stroke
+
+    local nlbl = Instance.new("TextLabel")
+    nlbl.Size = UDim2.new(1, 0, 0, 12)
+    nlbl.Position = UDim2.new(0, 0, 1, 2)
+    nlbl.BackgroundTransparency = 1
+    nlbl.Text = "Empty"
+    nlbl.Font = Enum.Font.GothamBold
+    nlbl.TextSize = 7
+    nlbl.TextColor3 = COLORS.Gray
+    nlbl.ZIndex = 5
+    nlbl.Parent = btn
+    qbNameLabels[slotIdx] = nlbl
+
+    qbBtns[slotIdx] = btn
+
+    local holdConn = nil
+    local isHolding = false
+
+    local function openPanel(si)
+        currentEditSlot = si
+        qbPanel.Position = UDim2.new(
+            qbContainer.Position.X.Scale,
+            qbContainer.Position.X.Offset + 62,
+            qbContainer.Position.Y.Scale,
+            qbContainer.Position.Y.Offset + (si-1)*60
+        )
+        qbPanel.Visible = true
+        refreshAssignedLabels()
+    end
+
+    btn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isHolding = false
+            holdConn = task.delay(0.4, function()
+                isHolding = true
+                openPanel(slotIdx)
+            end)
+        end
+    end)
+
+    btn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if holdConn then task.cancel(holdConn); holdConn = nil end
+            if not isHolding then
+                local opt = qbSlots[slotIdx]
+                if opt then
+                    CONFIG[opt.key] = not CONFIG[opt.key]
+                    if opt.callback then opt.callback(CONFIG[opt.key]) end
+                    if toggleSyncs[opt.key] then toggleSyncs[opt.key](CONFIG[opt.key]) end
+                    updateQBBtn(slotIdx)
+                    Notif:Send((CONFIG[opt.key] and "ON" or "OFF") .. ": " .. opt.label, 2)
+                else
+                    openPanel(slotIdx)
+                end
+            end
+        end
+    end)
+end
+
+qbLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    qbContainer.Size = UDim2.new(0, 58, 0, qbLayout.AbsoluteContentSize.Y)
+end)
+
+-- QB toggle button
+local qbToggleBtn = Instance.new("TextButton")
+qbToggleBtn.Size = UDim2.new(0, 32, 0, 32)
+qbToggleBtn.Position = UDim2.new(0, 20, 0, 90)
+qbToggleBtn.BackgroundColor3 = COLORS.DarkBG
+qbToggleBtn.Text = "⚡"
+qbToggleBtn.TextColor3 = COLORS.GalaxyAccent
+qbToggleBtn.Font = Enum.Font.GothamBold
+qbToggleBtn.TextSize = 14
+qbToggleBtn.Active = true
+qbToggleBtn.Draggable = true
+qbToggleBtn.Parent = screenGui
+createCorner(qbToggleBtn, 8)
+createStroke(qbToggleBtn, COLORS.Galaxy1, 2)
+
+local qbOpen = false
+qbToggleBtn.MouseButton1Click:Connect(function()
+    qbOpen = not qbOpen
+    qbContainer.Visible = qbOpen
+    if not qbOpen then qbPanel.Visible = false end
+    tween(qbToggleBtn, {BackgroundColor3 = qbOpen and COLORS.Galaxy1 or COLORS.DarkBG}, 0.2)
+end)
+
+-- ============================================================
+-- POPULATE TABS
+-- ============================================================
+local mainContent = contentContainers["MAIN"]
+toggleSyncs["SpeedBoost"] = createToggle(mainContent, "Speed Boost", "SpeedBoost", function(v)
+    if not v then
+        local hum = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid")
+        if hum then hum.WalkSpeed = 16 end
+    end
+end)
+createSlider(mainContent, "Walk Speed", "WalkSpeed", 16, 250)
+toggleSyncs["Noclip"] = createToggle(mainContent, "Noclip", "Noclip")
+toggleSyncs["Invisibility"] = createToggle(mainContent, "Invisibility", "Invisibility", function(v)
+    applyInvisibility(v)
+end)
+createToggle(mainContent, "Super Jump", "SuperJump")
+createSlider(mainContent, "Jump Power", "JumpPower", 50, 500)
+toggleSyncs["KingMode"] = createToggle(mainContent, "King Mode", "KingMode")
+createToggle(mainContent, "Anti AFK", "AntiAFK")
+
+local espContent = contentContainers["ESP"]
+createToggle(espContent, "Box ESP",    "BoxESP")
+createESPColorRow(espContent, "Box Color",      "ESPColor",      "BoxRainbow")
+createToggle(espContent, "Skeleton",   "Skeleton")
+createESPColorRow(espContent, "Skeleton Color", "SkeletonColor", "SkeletonRainbow")
+createToggle(espContent, "Tracers",    "Tracers")
+createESPColorRow(espContent, "Tracer Color",   "TracerColor",   "TracerRainbow")
+createToggle(espContent, "Health Bar", "HealthBar")
+createToggle(espContent, "Names",      "Names")
+createToggle(espContent, "Team Filter","TeamFilter")
+
+local fpsContent = contentContainers["FPS"]
+toggleSyncs["FPSBoost"] = createToggle(fpsContent, "FPS Boost", "FPSBoost", function(v)
+    Lighting.GlobalShadows = not v
+    Lighting.Technology = v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap
+end)
+createToggle(fpsContent, "Disable Particles", "DisableParticles")
+createToggle(fpsContent, "Show FPS", "ShowFPS")
+
+Scripts:Init(contentContainers["SCRIPTS"], COLORS, galaxyGradient, createCorner, Notif)
+
+-- ============================================================
+-- RUNTIME
+-- ============================================================
+local menuOpen = false
+iconBtn.MouseButton1Click:Connect(function()
+    menuOpen = not menuOpen
+    mainFrame.Visible = menuOpen
+    if menuOpen then
+        mainFrame.Size = UDim2.new(0, 0, 0, 0)
+        tween(mainFrame, {Size = UDim2.new(0, FRAME_W, 0, FRAME_H)}, 0.4, Enum.EasingStyle.Back)
+    end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    menuOpen = false
+    mainFrame.Visible = false
+end)
+
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        local char = player.Character
+        local hum  = char and char:FindFirstChildWhichIsA("Humanoid")
+        if hum then
+            if CONFIG.SpeedBoost then hum.WalkSpeed = CONFIG.WalkSpeed end
+            if CONFIG.KingMode   then hum.Health = hum.MaxHealth; hum.MaxHealth = 999999 end
+        end
+        if CONFIG.Noclip and char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
+            end
+        end
+        for i = 1, 3 do updateQBBtn(i) end
+        ESP:Update(CONFIG, COLORS, rainbowHue)
+    end)
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if CONFIG.SuperJump then
+        pcall(function()
+            local char = player.Character
+            local hrp  = char:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.Velocity = Vector3.new(hrp.Velocity.X, CONFIG.JumpPower, hrp.Velocity.Z) end
+        end)
+    end
+end)
+
+local function onCharacterAdded(newChar)
+    task.wait(1)
+    if CONFIG.Invisibility then applyInvisibility(true) end
+    newChar.ChildAdded:Connect(function()
+        if CONFIG.Invisibility then applyInvisibility(true) end
+    end)
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
+if player.Character then onCharacterAdded(player.Character) end
+
+Notif:Send("artfghjkq HUB v0.1.1 Loaded!", 4)
