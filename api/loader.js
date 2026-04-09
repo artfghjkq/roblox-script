@@ -34,7 +34,7 @@ We're on a mission, but this isn't it.
     `.trim();
 
     const credits = `
-@isnotsin | t.me/isnotsin
+@artfghjkq
     `.trim();
 
     const fullTextResponse = `
@@ -50,7 +50,7 @@ ${credits}
     return res.send(fullTextResponse);
   }
 
-  const script = fs.readFileSync(path.join(process.cwd(), "main.lua"), "utf8");
+  const script = fs.readFileSync(path.join(process.cwd(), "artfghjkq.script"), "utf8");
   res.setHeader("Content-Type", "text/plain");
   res.send(script);
 }
