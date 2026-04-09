@@ -85,113 +85,27 @@ end
 -- ============================================================
 -- WALLWALK
 -- ============================================================
-local wallWalkController = nil
-local wallWalkConn = nil
+local wallWalkActive = false
 
-local function stopWallWalk()
-    if wallWalkConn then wallWalkConn:Disconnect(); wallWalkConn = nil end
-    if wallWalkController then
-        pcall(function() wallWalkController:Destroy() end)
-        wallWalkController = nil
-    end
-    -- Restore normal gravity on HRP
-    pcall(function()
-        local char = player.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local bf = hrp:FindFirstChild("WallWalkGravity")
-            if bf then bf:Destroy() end
-        end
-        workspace.Gravity = 196.2
+local function startWallWalk()
+    if wallWalkActive then return end
+    wallWalkActive = true
+    task.spawn(function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/artfghjkq/roblox-script/refs/heads/main/modules/wallwalk.lua"))()
+        end)
     end)
 end
 
-local function startWallWalk()
-    stopWallWalk()
-    task.spawn(function()
-        pcall(function()
-            -- Inline WallWalk: override gravity using BodyPosition trick via RunService
-            local Players = game:GetService("Players")
-            local lp = Players.LocalPlayer
-            local char = lp.Character or lp.CharacterAdded:Wait()
-            local hrp = char:WaitForChild("HumanoidRootPart")
-            local hum = char:WaitForChild("Humanoid")
-
-            local PLAYERS = Players
-
-            -- Gravity controller (simplified inline version)
-            local gravityUp = Vector3.new(0, 1, 0)
-
-            local function getGravityUp(hrpCF)
-                local ignoreList = {}
-                for _, p in next, PLAYERS:GetPlayers() do
-                    ignoreList[#ignoreList+1] = p.Character
-                end
-                local origin = hrpCF.Position
-                local centerRay = Ray.new(origin, -25 * gravityUp)
-                local hit, _, normal = workspace:FindPartOnRayWithIgnoreList(centerRay, ignoreList)
-                if hit then return normal end
-
-                local PI2 = math.pi * 2
-                local radialVector = math.abs(hrpCF.LookVector:Dot(gravityUp)) < 0.999
-                    and hrpCF.LookVector:Cross(gravityUp)
-                    or hrpCF.RightVector:Cross(gravityUp)
-                local normalSum = Vector3.new(0,0,0)
-                local hitCount = 0
-                for i = 1, 16 do
-                    local dtheta = PI2 * ((i-1)/16)
-                    local offset = CFrame.fromAxisAngle(gravityUp, dtheta) * radialVector
-                    local ray = Ray.new(origin + 2*offset, 25 * (-gravityUp + (Vector3.new(0,0,0) - offset).Unit * 0.5))
-                    local h2, _, n2 = workspace:FindPartOnRayWithIgnoreList(ray, ignoreList)
-                    if h2 then
-                        normalSum = normalSum + n2
-                        hitCount = hitCount + 1
-                    end
-                end
-                if hitCount > 0 and normalSum ~= Vector3.new(0,0,0) then
-                    return normalSum.Unit
-                end
-                return gravityUp
-            end
-
-            local Vectorforce = Instance.new("VectorForce")
-            Vectorforce.Name = "WallWalkGravity"
-            Vectorforce.RelativeTo = Enum.ActuatorRelativeTo.World
-            Vectorforce.Force = Vector3.new(0, 0, 0)
-            local att = Instance.new("Attachment", hrp)
-            Vectorforce.Attachment0 = att
-            Vectorforce.Parent = hrp
-
-            wallWalkConn = game:GetService("RunService").Heartbeat:Connect(function()
-                if not CONFIG.WallWalk then stopWallWalk(); return end
-                local char2 = lp.Character
-                local hrp2 = char2 and char2:FindFirstChild("HumanoidRootPart")
-                local hum2 = char2 and char2:FindFirstChildWhichIsA("Humanoid")
-                if not hrp2 or not hum2 then return end
-
-                local newUp = getGravityUp(hrp2.CFrame)
-                gravityUp = gravityUp:Lerp(newUp, 0.15).Unit
-
-                local mass = 0
-                for _, p in pairs(char2:GetDescendants()) do
-                    if p:IsA("BasePart") then mass = mass + p.Mass end
-                end
-
-                local gravDir = -gravityUp
-                Vectorforce.Force = -gravDir * workspace.Gravity * mass
-
-                -- Rotate character to align with surface
-                local cf = hrp2.CFrame
-                local currentUp = cf.UpVector
-                local axis = currentUp:Cross(gravityUp)
-                if axis.Magnitude > 0.001 then
-                    local angle = math.asin(math.clamp(axis.Magnitude, -1, 1))
-                    hrp2.CFrame = CFrame.fromAxisAngle(axis.Unit, angle) * cf
-                end
-            end)
-
-            wallWalkController = Vectorforce
-        end)
+local function stopWallWalk()
+    wallWalkActive = false
+    -- The wallwalk script handles its own cleanup via GravityController:Destroy()
+    -- which restores PlatformStand=false and re-enables default animations
+    pcall(function()
+        local char = player.Character
+        if not char then return end
+        local hum = char:FindFirstChildWhichIsA("Humanoid")
+        if hum then hum.PlatformStand = false end
     end)
 end
 
