@@ -26,7 +26,7 @@ function Scripts:Init(scriptsContent, COLORS, galaxyGradient, createCorner, Noti
     local refreshBtn = Instance.new("TextButton")
     refreshBtn.Size = UDim2.new(1, -4, 0, 26)
     refreshBtn.BackgroundColor3 = COLORS.DarkBG
-    refreshBtn.Text = "↺  Refresh Scripts"
+    refreshBtn.Text = "[ R ]  Refresh Scripts"
     refreshBtn.TextColor3 = Color3.fromRGB(180, 140, 255)
     refreshBtn.Font = Enum.Font.GothamBold
     refreshBtn.TextSize = 9
@@ -88,7 +88,7 @@ function Scripts:Init(scriptsContent, COLORS, galaxyGradient, createCorner, Noti
                 task.wait(1)
                 eb.Text = "LOAD"
             end)
-            if Notif then Notif:Send("Loading: " .. capName, 3) end
+            if Notif then Notif:Send("Loading: " .. capName, 2) end
         end)
     end
 
@@ -148,7 +148,7 @@ function Scripts:Init(scriptsContent, COLORS, galaxyGradient, createCorner, Noti
         end
 
         statusLabel.Text = #allScriptFrames .. " script(s) loaded"
-        if Notif then Notif:Send("Scripts refreshed — " .. #allScriptFrames .. " loaded", 3) end
+        if Notif then Notif:Send(#allScriptFrames .. " script(s) loaded.", 3) end
     end
 
     refreshBtn.MouseButton1Click:Connect(loadAll)
