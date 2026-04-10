@@ -22,6 +22,7 @@ local Notif    = req("notif.lua")
 local ESP      = req("esp.lua")
 local Scripts  = req("scripts.lua")
 local Invi     = req("invi.lua")
+local Troll    = req("troll.lua")
 
 local COLORS         = ColLib.COLORS
 local createCorner   = ColLib.createCorner
@@ -175,8 +176,8 @@ contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = mainFrame
 
 local tabButtons, contentContainers = {}, {}
-local tabs = {"MAIN", "ESP", "FPS", "SCRIPTS"}
-local tabIcons = {MAIN="SYS", ESP="ESP", FPS="FPS", SCRIPTS="SCR"}
+local tabs = {"MAIN", "ESP", "FPS", "SCRIPTS", "TROLL"}
+local tabIcons = {MAIN="SYS", ESP="ESP", FPS="FPS", SCRIPTS="SCR", TROLL="TRL"}
 
 local function setActiveTab(tabName)
     for name, btn in pairs(tabButtons) do
@@ -933,6 +934,44 @@ toggleSyncs["DisableParticles"] = createToggle(fpsContent, "Disable Particles", 
 toggleSyncs["ShowFPS"]          = createToggle(fpsContent, "Show FPS", "ShowFPS")
 
 Scripts:Init(contentContainers["SCRIPTS"], COLORS, galaxyGradient, createCorner, Notif)
+
+local trollContent = contentContainers["TROLL"]
+toggleSyncs["Scare"] = createToggle(trollContent, "Scare", "Scare", function(v)
+    if v then
+        Troll:StartScare()
+        Notif:Send("Scare: ON", 2)
+    else
+        Troll:StopScare()
+        Notif:Send("Scare: OFF", 2)
+    end
+end)
+toggleSyncs["Fling"] = createToggle(trollContent, "Fling", "Fling", function(v)
+    if v then
+        Troll:StartFling()
+        Notif:Send("Fling: ON", 2)
+    else
+        Troll:StopFling()
+        Notif:Send("Fling: OFF", 2)
+    end
+end)
+toggleSyncs["WalkFling"] = createToggle(trollContent, "Walk Fling", "WalkFling", function(v)
+    if v then
+        Troll:StartWalkFling()
+        Notif:Send("Walk Fling: ON", 2)
+    else
+        Troll:StopWalkFling()
+        Notif:Send("Walk Fling: OFF", 2)
+    end
+end)
+toggleSyncs["AntiFling"] = createToggle(trollContent, "Anti Fling", "AntiFling", function(v)
+    if v then
+        Troll:StartAntiFling()
+        Notif:Send("Anti Fling: ON", 2)
+    else
+        Troll:StopAntiFling()
+        Notif:Send("Anti Fling: OFF", 2)
+    end
+end)
 
 -- Load saved config (must run after QB_OPTIONS, qbSlots, toggleSyncs are all defined)
 loadConfig()

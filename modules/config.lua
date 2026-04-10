@@ -23,6 +23,10 @@ local CONFIG = {
     BoxRainbow = false,
     SkeletonRainbow = false,
     TracerRainbow = false,
+    Scare = false,
+    Fling = false,
+    WalkFling = false,
+    AntiFling = false,
 }
 
 return CONFIG
