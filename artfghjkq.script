@@ -21,6 +21,7 @@ local ColLib   = req("colors.lua")
 local Notif    = req("notif.lua")
 local ESP      = req("esp.lua")
 local Scripts  = req("scripts.lua")
+local Invi     = req("invi.lua")
 
 local COLORS         = ColLib.COLORS
 local createCorner   = ColLib.createCorner
@@ -43,43 +44,9 @@ game.Players.PlayerRemoving:Connect(function(plr)
     ESP:Cleanup(plr)
 end)
 
--- Invisibility
-local invConn = nil
-
-local function stopInvLoop()
-    if invConn then invConn:Disconnect(); invConn = nil end
-end
-
-local function startInvLoop()
-    stopInvLoop()
-    invConn = RunService.RenderStepped:Connect(function()
-        if not CONFIG.Invisibility then stopInvLoop(); return end
-        local char = player.Character
-        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-        local hum  = char and char:FindFirstChild("Humanoid")
-        if not hrp or not hum then return end
-        local orig   = hrp.CFrame
-        local offset = hum.CameraOffset
-        hrp.CFrame = orig * CFrame.new(0, -200000, 0)
-        hum.CameraOffset = hrp.CFrame:ToObjectSpace(CFrame.new(orig.Position)).Position
-        task.defer(function()
-            if hrp and hrp.Parent then
-                hrp.CFrame = orig
-                hum.CameraOffset = offset
-            end
-        end)
-    end)
-end
-
+-- Invisibility (handled by invi.lua module)
 local function applyInvisibility(state)
-    local char = player.Character
-    if not char then return end
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.Transparency = state and 0.5 or 0
-        end
-    end
-    if state then startInvLoop() else stopInvLoop() end
+    Invi:Set(state)
 end
 
 -- ============================================================
@@ -1036,10 +1003,10 @@ end)
 
 local function onCharacterAdded(newChar)
     task.wait(1)
-    if CONFIG.Invisibility then applyInvisibility(true) end
+    if CONFIG.Invisibility then Invi:OnCharacterAdded(newChar) end
     if CONFIG.WallWalk then startWallWalk() end
     newChar.ChildAdded:Connect(function()
-        if CONFIG.Invisibility then applyInvisibility(true) end
+        if CONFIG.Invisibility then Invi:OnCharacterAdded(newChar) end
     end)
 end
 
