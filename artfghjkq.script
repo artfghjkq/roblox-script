@@ -822,6 +822,7 @@ clearRow.MouseButton1Click:Connect(function()
     qbPanel.Visible = false
     currentEditSlot = nil
     saveConfig()
+end)
 
 qbPanelClose.MouseButton1Click:Connect(function()
     qbPanel.Visible = false
