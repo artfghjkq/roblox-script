@@ -1,138 +1,210 @@
--- invi.lua
--- Invisibility module for HALO-HALO
--- Method: sethiddenproperty CFrame flicker (IY-style)
--- Falls back to transparency-only if executor doesn't support it
-
 local Invi = {}
 
-local Players     = game:GetService("Players")
-local RunService  = game:GetService("RunService")
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 
--- Internal state
-local _conn   = nil
-local _active = false
+local _active      = false
+local _steppedConn = nil
+local _flyConn     = nil
+local _keyDownConn = nil
+local _keyUpConn   = nil
+local _flying      = false
+local _realChar    = nil
 
--- Attempt to use sethiddenproperty (best method — hides from server)
-local _sethidden = (sethiddenproperty or set_hidden_property or set_hidden_prop)
-local _useHidden = type(_sethidden) == "function"
-
--- ============================================================
--- CORE LOOP
--- ============================================================
-local function _stopLoop()
-    if _conn then
-        _conn:Disconnect()
-        _conn = nil
-    end
+local function getRoot(char)
+    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
 end
 
-local function _startLoop()
-    _stopLoop()
-    _conn = RunService.RenderStepped:Connect(function()
-        if not _active then _stopLoop() return end
+local function stopFly()
+    _flying = false
+    if _keyDownConn then _keyDownConn:Disconnect(); _keyDownConn = nil end
+    if _keyUpConn   then _keyUpConn:Disconnect();   _keyUpConn   = nil end
+    if _flyConn     then _flyConn:Disconnect();     _flyConn     = nil end
+end
 
-        local char = player.Character
-        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-        local hum  = char and char:FindFirstChildWhichIsA("Humanoid")
-        if not hrp or not hum then return end
+local function startFly(root)
+    if _flying then stopFly() end
+    _flying = true
 
-        if _useHidden then
-            -- Best method: hide CFrame via hidden property so server sees player
-            -- underground while client sees them normally
-            local orig = hrp.CFrame
-            local camOff = hum.CameraOffset
+    local bg = Instance.new("BodyGyro")
+    bg.P = 9e4
+    bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bg.CFrame = root.CFrame
+    bg.Parent = root
 
-            pcall(_sethidden, hrp, "CFrame", orig * CFrame.new(0, -1e6, 0))
-            hum.CameraOffset = hrp.CFrame:ToObjectSpace(CFrame.new(orig.Position)).Position
+    local bv = Instance.new("BodyVelocity")
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bv.Parent = root
 
-            task.defer(function()
-                if hrp and hrp.Parent then
-                    pcall(_sethidden, hrp, "CFrame", orig)
-                    hum.CameraOffset = camOff
-                end
-            end)
-        else
-            -- Fallback: standard CFrame flicker
-            local orig   = hrp.CFrame
-            local camOff = hum.CameraOffset
+    local ctrl  = {F=0, B=0, L=0, R=0}
+    local speed = 50
 
-            hrp.CFrame = orig * CFrame.new(0, -1e6, 0)
-            hum.CameraOffset = hrp.CFrame:ToObjectSpace(CFrame.new(orig.Position)).Position
+    _keyDownConn = UserInputService.InputBegan:Connect(function(input, proc)
+        if proc then return end
+        if input.KeyCode == Enum.KeyCode.W then ctrl.F =  speed
+        elseif input.KeyCode == Enum.KeyCode.S then ctrl.B = -speed
+        elseif input.KeyCode == Enum.KeyCode.A then ctrl.L = -speed
+        elseif input.KeyCode == Enum.KeyCode.D then ctrl.R =  speed
+        end
+    end)
 
-            task.defer(function()
-                if hrp and hrp.Parent then
-                    hrp.CFrame = orig
-                    hum.CameraOffset = camOff
-                end
-            end)
+    _keyUpConn = UserInputService.InputEnded:Connect(function(input, proc)
+        if proc then return end
+        if input.KeyCode == Enum.KeyCode.W then ctrl.F = 0
+        elseif input.KeyCode == Enum.KeyCode.S then ctrl.B = 0
+        elseif input.KeyCode == Enum.KeyCode.A then ctrl.L = 0
+        elseif input.KeyCode == Enum.KeyCode.D then ctrl.R = 0
+        end
+    end)
+
+    _flyConn = RunService.Heartbeat:Connect(function()
+        if not _flying or not root or not root.Parent then
+            stopFly()
+            return
+        end
+        local cam  = workspace.CurrentCamera
+        local move = cam.CFrame.LookVector  * (ctrl.F + ctrl.B)
+                   + cam.CFrame.RightVector * (ctrl.L + ctrl.R)
+        bg.CFrame  = cam.CFrame
+        bv.Velocity = move
+    end)
+end
+
+local function startSteppedLoop(root)
+    if _steppedConn then _steppedConn:Disconnect() end
+    _steppedConn = RunService.Stepped:Connect(function()
+        if not _active then
+            _steppedConn:Disconnect()
+            _steppedConn = nil
+            return
+        end
+        if root and root.Parent then
+            root.CanCollide = false
         end
     end)
 end
 
--- ============================================================
--- TRANSPARENCY HELPERS
--- ============================================================
-local _savedTransparency = {}
-
-local function _hideChar(char)
-    _savedTransparency = {}
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") or part:IsA("Decal") then
-            _savedTransparency[part] = part.Transparency
-            part.Transparency = 1
-        end
-    end
-    -- Keep HRP visible to self so camera works, just fully transparent
-end
-
-local function _showChar(char)
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") or part:IsA("Decal") then
-            local saved = _savedTransparency[part]
-            part.Transparency = saved ~= nil and saved or 0
-        end
-    end
-    _savedTransparency = {}
-end
-
--- ============================================================
--- PUBLIC API
--- ============================================================
-
 function Invi:Enable()
-    _active = true
-    local char = player.Character
-    if char then _hideChar(char) end
-    _startLoop()
+    if _active then return end
+    _active   = true
+    _realChar = player.Character
+    if not _realChar then _active = false return end
+
+    local hum = _realChar:FindFirstChildWhichIsA("Humanoid")
+    if hum then
+        pcall(function()
+            hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+        end)
+    end
+
+    local dummy   = Instance.new("Model")
+    dummy.Name    = "HH_InviDummy"
+    dummy.Parent  = workspace
+
+    local dTorso          = Instance.new("Part")
+    dTorso.Name           = "Torso"
+    dTorso.CanCollide     = false
+    dTorso.Anchored       = true
+    dTorso.Position       = Vector3.new(0, 9999, 0)
+    dTorso.Parent         = dummy
+
+    local dHead           = Instance.new("Part")
+    dHead.Name            = "Head"
+    dHead.CanCollide      = false
+    dHead.Anchored        = true
+    dHead.Position        = Vector3.new(0, 9999, 0)
+    dHead.Parent          = dummy
+
+    local dHum            = Instance.new("Humanoid")
+    dHum.Name             = "Humanoid"
+    dHum.Parent           = dummy
+
+    player.Character = dummy
+    task.wait(3)
+
+    if not _active then
+        player.Character = _realChar
+        dummy:Destroy()
+        return
+    end
+
+    player.Character = _realChar
+    task.wait(3)
+
+    if not _active then
+        dummy:Destroy()
+        return
+    end
+
+    local newHum        = Instance.new("Humanoid")
+    newHum.Parent       = _realChar
+
+    local root = getRoot(_realChar)
+
+    for _, v in pairs(_realChar:GetChildren()) do
+        if v ~= root
+        and v.Name ~= "Humanoid"
+        and not v:IsA("Script")
+        and not v:IsA("LocalScript")
+        and not v:IsA("ModuleScript") then
+            pcall(function() v:Destroy() end)
+        end
+    end
+
+    if root then
+        root.Transparency = 1
+        root.CanCollide   = false
+        workspace.CurrentCamera.CameraSubject = root
+        startSteppedLoop(root)
+        startFly(root)
+    end
+
+    dummy:Destroy()
 end
 
 function Invi:Disable()
+    if not _active then return end
     _active = false
-    _stopLoop()
-    local char = player.Character
-    if char then _showChar(char) end
+
+    stopFly()
+    if _steppedConn then _steppedConn:Disconnect(); _steppedConn = nil end
+
+    pcall(function()
+        local char = player.Character
+        if not char then return end
+        local hum = char:FindFirstChildWhichIsA("Humanoid")
+        if hum then
+            hum:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
+            hum.PlatformStand = false
+        end
+        local root = getRoot(char)
+        if root then
+            root.Transparency = 0
+            root.CanCollide   = true
+        end
+        workspace.CurrentCamera.CameraSubject = hum or char
+    end)
+
+    _realChar = nil
 end
 
 function Invi:Set(state)
-    if state then
-        self:Enable()
-    else
-        self:Disable()
-    end
+    if state then self:Enable() else self:Disable() end
 end
 
 function Invi:IsActive()
     return _active
 end
 
--- Re-apply on respawn (called by main script's CharacterAdded)
-function Invi:OnCharacterAdded(char)
+function Invi:OnCharacterAdded()
     if not _active then return end
-    task.wait(0.5)
-    _hideChar(char)
-    _startLoop()
+    _active = false
+    task.wait(1)
+    self:Enable()
 end
 
 return Invi
