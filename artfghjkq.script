@@ -1,5 +1,5 @@
--- artfghjkq HUB v0.1.2
--- Entry point — loads all modules from GitHub
+-- HALO-HALO v0.1.2
+-- Entry point -- loads all modules from GitHub
 
 local BASE_URL = "https://raw.githubusercontent.com/artfghjkq/roblox-script/refs/heads/main/modules/"
 
@@ -113,7 +113,7 @@ end
 -- UI
 -- ============================================================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "artfghjkq"
+screenGui.Name = "HALO-HALO"
 screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = CoreGui
@@ -123,10 +123,10 @@ local iconBtn = Instance.new("TextButton")
 iconBtn.Size = UDim2.new(0, 60, 0, 60)
 iconBtn.Position = UDim2.new(0, 20, 0, 20)
 iconBtn.BackgroundColor3 = COLORS.Background
-iconBtn.Text = "A"
-iconBtn.TextColor3 = COLORS.GalaxyAccent
+iconBtn.Text = "HH"
+iconBtn.TextColor3 = COLORS.White
 iconBtn.Font = Enum.Font.GothamBlack
-iconBtn.TextSize = 28
+iconBtn.TextSize = 18
 iconBtn.Active = true
 iconBtn.Draggable = true
 iconBtn.Parent = screenGui
@@ -167,7 +167,7 @@ local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, -80, 1, 0)
 titleLabel.Position = UDim2.new(0, 15, 0, 0)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "✦ artfghjkq HUB"
+titleLabel.Text = "HALO-HALO"
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.TextSize = 14
 titleLabel.TextColor3 = COLORS.White
@@ -177,7 +177,7 @@ titleLabel.Parent = topBar
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 25, 0, 25)
 closeBtn.Position = UDim2.new(1, -35, 0.5, -12.5)
-closeBtn.Text = "×"
+closeBtn.Text = "X"
 closeBtn.BackgroundColor3 = COLORS.DarkBG
 closeBtn.TextColor3 = COLORS.White
 closeBtn.Font = Enum.Font.GothamBold
@@ -209,7 +209,7 @@ contentFrame.Parent = mainFrame
 
 local tabButtons, contentContainers = {}, {}
 local tabs = {"MAIN", "ESP", "FPS", "SCRIPTS"}
-local tabIcons = {MAIN="⚙", ESP="👁", FPS="🖥", SCRIPTS="📜"}
+local tabIcons = {MAIN="SYS", ESP="ESP", FPS="FPS", SCRIPTS="SCR"}
 
 local function setActiveTab(tabName)
     for name, btn in pairs(tabButtons) do
@@ -254,6 +254,147 @@ for i, tabName in ipairs(tabs) do
 
     btn.MouseButton1Click:Connect(function() setActiveTab(tabName) end)
 end
+
+
+-- ============================================================
+-- SAVE / LOAD CONFIG
+-- ============================================================
+local SAVE_FILE = "halohalo_config.json"
+
+-- Keys that are Color3 values (need special serialization)
+local COLOR_KEYS = {ESPColor=true, SkeletonColor=true, TracerColor=true}
+
+local function color3ToTable(c)
+    return {r=c.R, g=c.G, b=c.B}
+end
+
+local function tableToColor3(t)
+    return Color3.new(t.r, t.g, t.b)
+end
+
+-- QB slot keys only (labels) so we can restore assignments
+local function qbSlotsToTable()
+    local t = {}
+    for i, opt in ipairs(qbSlots) do
+        t[i] = opt and opt.key or false
+    end
+    return t
+end
+
+local function saveConfig()
+    if not (writefile) then return end
+    pcall(function()
+        local data = {}
+
+        -- CONFIG table
+        data.config = {}
+        for k, v in pairs(CONFIG) do
+            if COLOR_KEYS[k] then
+                data.config[k] = color3ToTable(v)
+            else
+                data.config[k] = v
+            end
+        end
+
+        -- QB slot assignments (store the key string)
+        data.qbSlots = qbSlotsToTable()
+
+        -- Serialise manually (no JSON lib guaranteed in all executors)
+        local function serialize(val)
+            local t = type(val)
+            if t == "boolean" then return val and "true" or "false"
+            elseif t == "number" then return tostring(val)
+            elseif t == "string" then return '"' .. val:gsub('"', '\\"') .. '"'
+            elseif t == "table" then
+                local parts = {}
+                local isArr = (#val > 0)
+                for k2, v2 in pairs(val) do
+                    if isArr then
+                        parts[#parts+1] = serialize(v2)
+                    else
+                        parts[#parts+1] = '"' .. tostring(k2) .. '":' .. serialize(v2)
+                    end
+                end
+                if isArr then
+                    return "[" .. table.concat(parts, ",") .. "]"
+                else
+                    return "{" .. table.concat(parts, ",") .. "}"
+                end
+            else
+                return "null"
+            end
+        end
+
+        writefile(SAVE_FILE, serialize(data))
+    end)
+end
+
+local function loadConfig()
+    if not (readfile and isfile) then return end
+    if not isfile(SAVE_FILE) then return end
+    pcall(function()
+        local raw = readfile(SAVE_FILE)
+
+        -- Simple JSON parser for the flat structure we write
+        -- Parse colors
+        local function parseColor(s)
+            local r,g,b = s:match('"r":([%d%.]+).-"g":([%d%.]+).-"b":([%d%.]+)')
+            if r then return Color3.new(tonumber(r), tonumber(g), tonumber(b)) end
+        end
+
+        -- Restore CONFIG booleans and numbers
+        for k, _ in pairs(CONFIG) do
+            if COLOR_KEYS[k] then
+                local block = raw:match('"'..k..'":(%b{})')
+                if block then
+                    local c = parseColor(block)
+                    if c then CONFIG[k] = c end
+                end
+            else
+                local val = raw:match('"'..k..'":([^,}%]]+)')
+                if val then
+                    val = val:match("^%s*(.-)%s*$")
+                    if val == "true" then CONFIG[k] = true
+                    elseif val == "false" then CONFIG[k] = false
+                    else
+                        local n = tonumber(val)
+                        if n then CONFIG[k] = n end
+                    end
+                end
+            end
+        end
+
+        -- Restore QB slots
+        local qbBlock = raw:match('"qbSlots":%[(.-)%]')
+        if qbBlock then
+            local i = 0
+            for entry in qbBlock:gmatch('[^,]+') do
+                i = i + 1
+                entry = entry:match('^%s*"?(.-)"?%s*$')
+                if entry ~= "false" and entry ~= "" then
+                    for _, opt in ipairs(QB_OPTIONS) do
+                        if opt.key == entry then
+                            qbSlots[i] = opt
+                            break
+                        end
+                    end
+                end
+            end
+        end
+
+        -- Apply restored QB visuals
+        for i = 1, 3 do updateQBBtn(i) end
+
+        -- Apply side-effects for restored state
+        if CONFIG.Invisibility then applyInvisibility(true) end
+        if CONFIG.WallWalk then startWallWalk() end
+        if CONFIG.FPSBoost then
+            Lighting.GlobalShadows = false
+            Lighting.Technology = Enum.Technology.Compatibility
+        end
+    end)
+end
+
 
 -- ============================================================
 -- COMPONENTS
@@ -319,10 +460,13 @@ local function createToggle(parent, text, key, callback)
         CONFIG[key] = not CONFIG[key]
         updateVisuals(CONFIG[key])
         if callback then callback(CONFIG[key]) end
+        saveConfig()
     end)
 
     return updateVisuals
 end
+
+local sliderSyncs = {}
 
 local function createSlider(parent, text, key, min, max, callback)
     local container = Instance.new("Frame")
@@ -376,8 +520,18 @@ local function createSlider(parent, text, key, min, max, callback)
         if callback then callback(val) end
     end
 
+    -- Refresh visuals from CONFIG (used after loadConfig)
+    local function refresh()
+        local val = CONFIG[key]
+        local pos = math.clamp((val - min) / (max - min), 0, 1)
+        label.Text = text .. ": " .. val
+        fill.Size = UDim2.new(pos, 0, 1, 0)
+        knob.Position = UDim2.new(pos, -6, 0.5, -6)
+    end
+    sliderSyncs[key] = refresh
+
     sliderBg.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging=true update(i) end end)
-    UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging=false end end)
+    UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then if dragging then dragging=false; saveConfig() end end end)
     UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then update(i) end end)
 end
 
@@ -438,13 +592,14 @@ local function createESPColorRow(parent, text, colorKey, rainbowKey)
         swatch.BackgroundColor3 = c.color
         cName.Text = c.name
         cName.TextColor3 = c.color
+        saveConfig()
     end)
 
     local rbBtn = Instance.new("TextButton")
     rbBtn.Size = UDim2.new(0, 70, 0, 18)
     rbBtn.Position = UDim2.new(1, -78, 0, 29)
     rbBtn.BackgroundColor3 = CONFIG[rainbowKey] and COLORS.Galaxy1 or COLORS.Gray
-    rbBtn.Text = "🌈 Rainbow"
+    rbBtn.Text = "RGB"
     rbBtn.TextColor3 = COLORS.White
     rbBtn.Font = Enum.Font.GothamBold
     rbBtn.TextSize = 7
@@ -454,6 +609,7 @@ local function createESPColorRow(parent, text, colorKey, rainbowKey)
     rbBtn.MouseButton1Click:Connect(function()
         CONFIG[rainbowKey] = not CONFIG[rainbowKey]
         tween(rbBtn, {BackgroundColor3 = CONFIG[rainbowKey] and COLORS.Galaxy1 or COLORS.Gray}, 0.2)
+        saveConfig()
     end)
 end
 
@@ -461,16 +617,16 @@ end
 -- QUICK BUTTONS
 -- ============================================================
 local QB_OPTIONS = {
-    {label="Speed",   icon="⚡", key="SpeedBoost",  color=COLORS.Green,       callback=function(v) if not v then local h=player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") if h then h.WalkSpeed=16 end end end},
-    {label="Noclip",  icon="👻", key="Noclip",      color=COLORS.GalaxyAccent,callback=nil},
-    {label="Invis",   icon="👁", key="Invisibility", color=COLORS.White,       callback=function(v) applyInvisibility(v) end},
-    {label="Box ESP", icon="📦", key="BoxESP",       color=Color3.fromRGB(0,255,0),       callback=nil},
-    {label="Skel",    icon="💀", key="Skeleton",     color=Color3.fromRGB(200,200,255),   callback=nil},
-    {label="Tracer",  icon="📡", key="Tracers",      color=Color3.fromRGB(0,255,255),     callback=nil},
-    {label="Jump",    icon="🚀", key="SuperJump",    color=Color3.fromRGB(255,200,0),     callback=nil},
-    {label="WallWalk",icon="🧱", key="WallWalk",     color=Color3.fromRGB(255,160,80),    callback=function(v) if v then startWallWalk() else stopWallWalk() end end},
-    {label="King",    icon="👑", key="KingMode",     color=Color3.fromRGB(255,215,0),     callback=nil},
-    {label="FPS",     icon="🖥", key="FPSBoost",     color=Color3.fromRGB(100,200,255),   callback=function(v) Lighting.GlobalShadows=not v Lighting.Technology=v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap end},
+    {label="Speed",   icon="SPD", key="SpeedBoost",  color=COLORS.Green,       callback=function(v) if not v then local h=player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") if h then h.WalkSpeed=16 end end end},
+    {label="Noclip",  icon="NCP", key="Noclip",      color=COLORS.GalaxyAccent,callback=nil},
+    {label="Invis",   icon="INV", key="Invisibility", color=COLORS.White,       callback=function(v) applyInvisibility(v) end},
+    {label="Box ESP", icon="BOX", key="BoxESP",       color=Color3.fromRGB(0,255,0),       callback=nil},
+    {label="Skel",    icon="SKL", key="Skeleton",     color=Color3.fromRGB(200,200,255),   callback=nil},
+    {label="Tracer",  icon="TRC", key="Tracers",      color=Color3.fromRGB(0,255,255),     callback=nil},
+    {label="Jump",    icon="JMP", key="SuperJump",    color=Color3.fromRGB(255,200,0),     callback=nil},
+    {label="WallWalk",icon="WWK", key="WallWalk",     color=Color3.fromRGB(255,160,80),    callback=function(v) if v then startWallWalk() else stopWallWalk() end end},
+    {label="King",    icon="KNG", key="KingMode",     color=Color3.fromRGB(255,215,0),     callback=nil},
+    {label="FPS",     icon="FPS", key="FPSBoost",     color=Color3.fromRGB(100,200,255),   callback=function(v) Lighting.GlobalShadows=not v Lighting.Technology=v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap end},
 }
 
 local qbSlots      = {nil, nil, nil}
@@ -491,7 +647,7 @@ local function updateQBBtn(i)
         if stroke then stroke.Color = state and opt.color or COLORS.Gray end
         if nlbl then nlbl.Text = opt.label; nlbl.TextColor3 = state and opt.color or COLORS.Gray end
     else
-        btn.Text = "+"
+        btn.Text = "--"
         btn.TextColor3 = COLORS.Gray
         if stroke then stroke.Color = COLORS.Gray end
         if nlbl then nlbl.Text = "Empty"; nlbl.TextColor3 = COLORS.Gray end
@@ -499,40 +655,61 @@ local function updateQBBtn(i)
 end
 
 -- ============================================================
--- QB WRAPPER (single draggable parent for toggle + slots + panel)
+-- QUICK BUTTONS
 -- ============================================================
-local qbWrapper = Instance.new("Frame")
-qbWrapper.Size = UDim2.new(0, 290, 0, 230)
-qbWrapper.Position = UDim2.new(0, 20, 0.5, -90)
-qbWrapper.BackgroundTransparency = 1
-qbWrapper.Visible = false
-qbWrapper.Active = true
-qbWrapper.Draggable = true
-qbWrapper.ZIndex = 1
-qbWrapper.Parent = screenGui
 
+-- qbToggleBtn: the only draggable element. Container & panel positions are
+-- computed from its AbsolutePosition so they follow it exactly with no
+-- large invisible hit-area blocking gameplay.
+local qbToggleBtn = Instance.new("TextButton")
+qbToggleBtn.Size = UDim2.new(0, 32, 0, 32)
+qbToggleBtn.Position = UDim2.new(0, 20, 0.5, -90)
+qbToggleBtn.BackgroundColor3 = COLORS.DarkBG
+qbToggleBtn.Text = "QB"
+qbToggleBtn.TextColor3 = COLORS.White
+qbToggleBtn.Font = Enum.Font.GothamBold
+qbToggleBtn.TextSize = 11
+qbToggleBtn.Active = true
+qbToggleBtn.Draggable = true
+qbToggleBtn.ZIndex = 5
+qbToggleBtn.Parent = screenGui
+createCorner(qbToggleBtn, 8)
+createStroke(qbToggleBtn, COLORS.Galaxy1, 2)
+
+-- Container: holds the 3 slot buttons, parented to screenGui directly
+-- Position is resynced from the toggle btn whenever it moves
 local qbContainer = Instance.new("Frame")
 qbContainer.Size = UDim2.new(0, 58, 0, 10)
-qbContainer.Position = UDim2.new(0, 0, 0, 38)
+qbContainer.Position = UDim2.new(0, 20, 0.5, -90 + 38)
 qbContainer.BackgroundTransparency = 1
 qbContainer.Active = false
+qbContainer.Visible = false
 qbContainer.ZIndex = 5
-qbContainer.Parent = qbWrapper
+qbContainer.Parent = screenGui
 
 local qbLayout = Instance.new("UIListLayout", qbContainer)
 qbLayout.SortOrder = Enum.SortOrder.LayoutOrder
 qbLayout.Padding = UDim.new(0, 6)
 
--- Assign panel (sits to the right inside the wrapper)
+-- Assign panel
 local qbPanel = Instance.new("Frame")
 qbPanel.Size = UDim2.new(0, 200, 0, 10)
-qbPanel.Position = UDim2.new(0, 66, 0, 38)
+qbPanel.Position = UDim2.new(0, 20 + 66, 0.5, -90 + 38)
 qbPanel.BackgroundColor3 = COLORS.DarkBG
 qbPanel.Visible = false
 qbPanel.ZIndex = 10
-qbPanel.Parent = qbWrapper
+qbPanel.Parent = screenGui
 createCorner(qbPanel, 10)
 createStroke(qbPanel, COLORS.Galaxy1, 2)
+
+-- Sync container + panel positions to follow toggle btn
+local function syncQBPositions()
+    local ap = qbToggleBtn.AbsolutePosition
+    qbContainer.Position = UDim2.new(0, ap.X, 0, ap.Y + 38)
+    -- panel position is set per-slot in openPanel()
+end
+
+qbToggleBtn:GetPropertyChangedSignal("AbsolutePosition"):Connect(syncQBPositions)
 
 local qbPanelLayout = Instance.new("UIListLayout", qbPanel)
 qbPanelLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -559,7 +736,7 @@ local qbPanelClose = Instance.new("TextButton")
 qbPanelClose.Size = UDim2.new(0, 18, 0, 18)
 qbPanelClose.Position = UDim2.new(1, -24, 0, 1)
 qbPanelClose.BackgroundTransparency = 1
-qbPanelClose.Text = "×"
+qbPanelClose.Text = "X"
 qbPanelClose.TextColor3 = COLORS.White
 qbPanelClose.Font = Enum.Font.GothamBold
 qbPanelClose.TextSize = 14
@@ -584,7 +761,7 @@ for _, opt in ipairs(QB_OPTIONS) do
     local row = Instance.new("TextButton")
     row.Size = UDim2.new(1, 0, 0, 26)
     row.BackgroundColor3 = COLORS.Frame
-    row.Text = opt.icon .. "  " .. opt.label
+    row.Text = "[" .. opt.icon .. "]  " .. opt.label
     row.TextColor3 = COLORS.White
     row.Font = Enum.Font.GothamSemibold
     row.TextSize = 10
@@ -619,13 +796,13 @@ for _, opt in ipairs(QB_OPTIONS) do
         refreshAssignedLabels()
         qbPanel.Visible = false
         currentEditSlot = nil
-    end)
+        saveConfig()
 end
 
 local clearRow = Instance.new("TextButton")
 clearRow.Size = UDim2.new(1, 0, 0, 26)
 clearRow.BackgroundColor3 = Color3.fromRGB(60, 15, 15)
-clearRow.Text = "✕  Clear Slot"
+clearRow.Text = "[ X ]  Clear Slot"
 clearRow.TextColor3 = COLORS.Red
 clearRow.Font = Enum.Font.GothamBold
 clearRow.TextSize = 10
@@ -644,7 +821,7 @@ clearRow.MouseButton1Click:Connect(function()
     refreshAssignedLabels()
     qbPanel.Visible = false
     currentEditSlot = nil
-end)
+    saveConfig()
 
 qbPanelClose.MouseButton1Click:Connect(function()
     qbPanel.Visible = false
@@ -660,10 +837,10 @@ for slotIdx = 1, 3 do
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 54, 0, 54)
     btn.BackgroundColor3 = COLORS.Background
-    btn.Text = "+"
+    btn.Text = "--"
     btn.TextColor3 = COLORS.Gray
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 20
+    btn.TextSize = 11
     btn.Active = true
     btn.ZIndex = 5
     btn.Parent = qbContainer
@@ -691,7 +868,8 @@ for slotIdx = 1, 3 do
 
     local function openPanel(si)
         currentEditSlot = si
-        qbPanel.Position = UDim2.new(0, 66, 0, 38 + (si-1)*60)
+        local ap = qbToggleBtn.AbsolutePosition
+        qbPanel.Position = UDim2.new(0, ap.X + 66, 0, ap.Y + 38 + (si-1)*60)
         qbPanel.Visible = true
         refreshAssignedLabels()
     end
@@ -729,25 +907,6 @@ qbLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     qbContainer.Size = UDim2.new(0, 58, 0, qbLayout.AbsoluteContentSize.Y)
 end)
 
--- QB toggle button (lives inside wrapper, at top)
-local qbToggleBtn = Instance.new("TextButton")
-qbToggleBtn.Size = UDim2.new(0, 32, 0, 32)
-qbToggleBtn.Position = UDim2.new(0, 0, 0, 0)
-qbToggleBtn.BackgroundColor3 = COLORS.DarkBG
-qbToggleBtn.Text = "⚡"
-qbToggleBtn.TextColor3 = COLORS.GalaxyAccent
-qbToggleBtn.Font = Enum.Font.GothamBold
-qbToggleBtn.TextSize = 14
-qbToggleBtn.Active = true
-qbToggleBtn.ZIndex = 5
-qbToggleBtn.Parent = qbWrapper
-createCorner(qbToggleBtn, 8)
-createStroke(qbToggleBtn, COLORS.Galaxy1, 2)
-
--- Wrapper visibility driven by icon drag handle below icon
-local qbWrapperOpen = false
-
--- Show/hide wrapper via icon (same iconBtn area)
 local qbOpen = false
 qbToggleBtn.MouseButton1Click:Connect(function()
     qbOpen = not qbOpen
@@ -755,9 +914,6 @@ qbToggleBtn.MouseButton1Click:Connect(function()
     if not qbOpen then qbPanel.Visible = false end
     tween(qbToggleBtn, {BackgroundColor3 = qbOpen and COLORS.Galaxy1 or COLORS.DarkBG}, 0.2)
 end)
-
--- Keep wrapper always visible so the toggle btn is clickable; wrapper bg is transparent
-qbWrapper.Visible = true
 
 -- ============================================================
 -- POPULATE TABS
@@ -783,31 +939,52 @@ toggleSyncs["WallWalk"] = createToggle(mainContent, "Wall Walk", "WallWalk", fun
         Notif:Send("Wall Walk: OFF", 2)
     end
 end)
-createToggle(mainContent, "Super Jump", "SuperJump")
+toggleSyncs["SuperJump"] = createToggle(mainContent, "Super Jump", "SuperJump")
 createSlider(mainContent, "Jump Power", "JumpPower", 50, 500)
 toggleSyncs["KingMode"] = createToggle(mainContent, "King Mode", "KingMode")
-createToggle(mainContent, "Anti AFK", "AntiAFK")
+toggleSyncs["AntiAFK"] = createToggle(mainContent, "Anti AFK", "AntiAFK")
 
 local espContent = contentContainers["ESP"]
-createToggle(espContent, "Box ESP",    "BoxESP")
+toggleSyncs["BoxESP"]     = createToggle(espContent, "Box ESP",    "BoxESP")
 createESPColorRow(espContent, "Box Color",      "ESPColor",      "BoxRainbow")
-createToggle(espContent, "Skeleton",   "Skeleton")
+toggleSyncs["Skeleton"]   = createToggle(espContent, "Skeleton",   "Skeleton")
 createESPColorRow(espContent, "Skeleton Color", "SkeletonColor", "SkeletonRainbow")
-createToggle(espContent, "Tracers",    "Tracers")
+toggleSyncs["Tracers"]    = createToggle(espContent, "Tracers",    "Tracers")
 createESPColorRow(espContent, "Tracer Color",   "TracerColor",   "TracerRainbow")
-createToggle(espContent, "Health Bar", "HealthBar")
-createToggle(espContent, "Names",      "Names")
-createToggle(espContent, "Team Filter","TeamFilter")
+toggleSyncs["HealthBar"]  = createToggle(espContent, "Health Bar", "HealthBar")
+toggleSyncs["Names"]      = createToggle(espContent, "Names",      "Names")
+toggleSyncs["TeamFilter"] = createToggle(espContent, "Team Filter","TeamFilter")
 
 local fpsContent = contentContainers["FPS"]
 toggleSyncs["FPSBoost"] = createToggle(fpsContent, "FPS Boost", "FPSBoost", function(v)
     Lighting.GlobalShadows = not v
     Lighting.Technology = v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap
 end)
-createToggle(fpsContent, "Disable Particles", "DisableParticles")
-createToggle(fpsContent, "Show FPS", "ShowFPS")
+toggleSyncs["DisableParticles"] = createToggle(fpsContent, "Disable Particles", "DisableParticles")
+toggleSyncs["ShowFPS"]          = createToggle(fpsContent, "Show FPS", "ShowFPS")
 
 Scripts:Init(contentContainers["SCRIPTS"], COLORS, galaxyGradient, createCorner, Notif)
+
+-- Load saved config (must run after QB_OPTIONS, qbSlots, toggleSyncs are all defined)
+loadConfig()
+
+-- Sync toggle visuals to match loaded CONFIG values
+for key, updateFn in pairs(toggleSyncs) do
+    if CONFIG[key] ~= nil then updateFn(CONFIG[key]) end
+end
+-- Sync slider visuals (label text + knob position)
+for key, refreshFn in pairs(sliderSyncs) do
+    refreshFn()
+end
+
+-- Apply DisableParticles side-effect if restored
+if CONFIG.DisableParticles then
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+            v.Enabled = false
+        end
+    end
+end
 
 -- ============================================================
 -- RUNTIME
@@ -867,4 +1044,4 @@ end
 player.CharacterAdded:Connect(onCharacterAdded)
 if player.Character then onCharacterAdded(player.Character) end
 
-Notif:Send("artfghjkq HUB v0.1.2 Loaded!", 4)
+Notif:Send("HALO-HALO v0.1.2 loaded.", 4)
