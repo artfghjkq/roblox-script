@@ -936,41 +936,261 @@ toggleSyncs["ShowFPS"]          = createToggle(fpsContent, "Show FPS", "ShowFPS"
 Scripts:Init(contentContainers["SCRIPTS"], COLORS, galaxyGradient, createCorner, Notif)
 
 local trollContent = contentContainers["TROLL"]
-toggleSyncs["Scare"] = createToggle(trollContent, "Scare", "Scare", function(v)
-    if v then
-        Troll:StartScare()
-        Notif:Send("Scare: ON", 2)
+
+-- ── SCARE SECTION HEADER ─────────────────────────────────────
+local scareHeader = Instance.new("TextLabel")
+scareHeader.Size = UDim2.new(1, -4, 0, 18)
+scareHeader.BackgroundTransparency = 1
+scareHeader.Text = "SCARE TARGET"
+scareHeader.Font = Enum.Font.GothamBold
+scareHeader.TextSize = 9
+scareHeader.TextColor3 = Color3.fromRGB(200, 140, 255)
+scareHeader.TextXAlignment = Enum.TextXAlignment.Left
+scareHeader.Parent = trollContent
+
+-- ── SELECTED TARGET DISPLAY ──────────────────────────────────
+local targetDisplay = Instance.new("Frame")
+targetDisplay.Size = UDim2.new(1, -4, 0, 28)
+targetDisplay.BackgroundColor3 = COLORS.DarkBG
+targetDisplay.Parent = trollContent
+createCorner(targetDisplay, 8)
+createStroke(targetDisplay, COLORS.Galaxy1, 1)
+
+local targetLabel = Instance.new("TextLabel")
+targetLabel.Size = UDim2.new(1, -8, 1, 0)
+targetLabel.Position = UDim2.new(0, 8, 0, 0)
+targetLabel.BackgroundTransparency = 1
+targetLabel.Text = "No target selected"
+targetLabel.Font = Enum.Font.GothamSemibold
+targetLabel.TextSize = 9
+targetLabel.TextColor3 = Color3.fromRGB(160, 140, 180)
+targetLabel.TextXAlignment = Enum.TextXAlignment.Left
+targetLabel.Parent = targetDisplay
+
+-- ── SCARE BUTTON (one-shot, cooldown-aware) ───────────────────
+local scareBtn = Instance.new("TextButton")
+scareBtn.Size = UDim2.new(1, -4, 0, 30)
+scareBtn.BackgroundColor3 = COLORS.Galaxy1
+scareBtn.Text = "👻  SCARE"
+scareBtn.TextColor3 = COLORS.White
+scareBtn.Font = Enum.Font.GothamBold
+scareBtn.TextSize = 10
+scareBtn.Parent = trollContent
+createCorner(scareBtn, 8)
+galaxyGradient(scareBtn, 90)
+
+local function setScareBtnReady(ready)
+    if ready then
+        scareBtn.Text = "👻  SCARE"
+        scareBtn.BackgroundColor3 = COLORS.Galaxy1
+        scareBtn.TextColor3 = COLORS.White
+        tween(scareBtn, {BackgroundColor3 = COLORS.Galaxy1}, 0.2)
     else
-        Troll:StopScare()
-        Notif:Send("Scare: OFF", 2)
+        scareBtn.Text = "⏳  Cooldown..."
+        tween(scareBtn, {BackgroundColor3 = COLORS.DarkBG}, 0.2)
+        scareBtn.TextColor3 = Color3.fromRGB(120, 100, 140)
+    end
+end
+
+Troll.onScareReady = function()
+    setScareBtnReady(true)
+    Notif:Send("👻 Scare ready!", 2)
+end
+
+scareBtn.MouseButton1Click:Connect(function()
+    if Troll:IsScareCooldown() then return end
+    if not Troll:GetTarget() then
+        Notif:Send("No target selected!", 2)
+        return
+    end
+    local ok = Troll:ScareOnce()
+    if ok then
+        setScareBtnReady(false)
+        Notif:Send("Scaring " .. Troll:GetTarget().Name .. "...", 2)
     end
 end)
-toggleSyncs["Fling"] = createToggle(trollContent, "Fling", "Fling", function(v)
-    if v then
-        Troll:StartFling()
-        Notif:Send("Fling: ON", 2)
-    else
-        Troll:StopFling()
-        Notif:Send("Fling: OFF", 2)
+
+-- ── PLAYER LIST ───────────────────────────────────────────────
+local playerListHeader = Instance.new("TextLabel")
+playerListHeader.Size = UDim2.new(1, -4, 0, 18)
+playerListHeader.BackgroundTransparency = 1
+playerListHeader.Text = "SELECT PLAYER"
+playerListHeader.Font = Enum.Font.GothamBold
+playerListHeader.TextSize = 9
+playerListHeader.TextColor3 = Color3.fromRGB(200, 140, 255)
+playerListHeader.TextXAlignment = Enum.TextXAlignment.Left
+playerListHeader.Parent = trollContent
+
+local playerRows = {}
+
+local function refreshPlayerList()
+    for _, row in pairs(playerRows) do
+        if row and row.Parent then row:Destroy() end
     end
+    playerRows = {}
+
+    local allPlayers = game:GetService("Players"):GetPlayers()
+    for _, p in pairs(allPlayers) do
+        if p ~= game:GetService("Players").LocalPlayer then
+            local row = Instance.new("Frame")
+            row.Size = UDim2.new(1, -4, 0, 28)
+            row.BackgroundColor3 = COLORS.Frame
+            row.Parent = trollContent
+            createCorner(row, 6)
+            table.insert(playerRows, row)
+
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(1, -64, 1, 0)
+            nameLabel.Position = UDim2.new(0, 8, 0, 0)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = p.Name
+            nameLabel.Font = Enum.Font.GothamSemibold
+            nameLabel.TextSize = 9
+            nameLabel.TextColor3 = COLORS.White
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.Parent = row
+
+            local selBtn = Instance.new("TextButton")
+            selBtn.Size = UDim2.new(0, 52, 0, 20)
+            selBtn.Position = UDim2.new(1, -56, 0.5, -10)
+            selBtn.Font = Enum.Font.GothamBold
+            selBtn.TextSize = 8
+            selBtn.Parent = row
+            createCorner(selBtn, 5)
+
+            local isSelected = Troll:GetTarget() == p
+            selBtn.Text = isSelected and "✓ SEL" or "SELECT"
+            selBtn.BackgroundColor3 = isSelected and COLORS.Galaxy1 or COLORS.DarkBG
+            selBtn.TextColor3 = isSelected and COLORS.White or Color3.fromRGB(160, 140, 180)
+
+            local capP = p
+            selBtn.MouseButton1Click:Connect(function()
+                Troll:SetTarget(capP)
+                targetLabel.Text = "Target: " .. capP.Name
+                targetLabel.TextColor3 = Color3.fromRGB(180, 140, 255)
+                Notif:Send("Scare target: " .. capP.Name, 2)
+                refreshPlayerList()
+            end)
+        end
+    end
+
+    if #playerRows == 0 then
+        local emptyLabel = Instance.new("TextLabel")
+        emptyLabel.Size = UDim2.new(1, -4, 0, 24)
+        emptyLabel.BackgroundTransparency = 1
+        emptyLabel.Text = "No other players in server"
+        emptyLabel.Font = Enum.Font.Gotham
+        emptyLabel.TextSize = 8
+        emptyLabel.TextColor3 = Color3.fromRGB(120, 100, 140)
+        emptyLabel.TextXAlignment = Enum.TextXAlignment.Left
+        emptyLabel.Parent = trollContent
+        table.insert(playerRows, emptyLabel)
+    end
+end
+
+local refreshRow = Instance.new("TextButton")
+refreshRow.Size = UDim2.new(1, -4, 0, 24)
+refreshRow.BackgroundColor3 = COLORS.DarkBG
+refreshRow.Text = "↺  Refresh Player List"
+refreshRow.TextColor3 = Color3.fromRGB(180, 140, 255)
+refreshRow.Font = Enum.Font.GothamBold
+refreshRow.TextSize = 8
+refreshRow.TextXAlignment = Enum.TextXAlignment.Left
+refreshRow.Parent = trollContent
+createCorner(refreshRow, 6)
+local rrPad = Instance.new("UIPadding", refreshRow)
+rrPad.PaddingLeft = UDim.new(0, 8)
+
+refreshRow.MouseButton1Click:Connect(refreshPlayerList)
+
+refreshPlayerList()
+
+-- ── QB SCARE BUTTON SETUP ─────────────────────────────────────
+local scareQbBtn = Instance.new("TextButton")
+scareQbBtn.Size = UDim2.new(0, 54, 0, 54)
+scareQbBtn.Position = UDim2.new(0, 20, 0.5, 60)
+scareQbBtn.BackgroundColor3 = COLORS.DarkBG
+scareQbBtn.Text = "👻"
+scareQbBtn.TextColor3 = Color3.fromRGB(200, 140, 255)
+scareQbBtn.Font = Enum.Font.GothamBold
+scareQbBtn.TextSize = 22
+scareQbBtn.Active = true
+scareQbBtn.Draggable = false
+scareQbBtn.ZIndex = 5
+scareQbBtn.Parent = screenGui
+createCorner(scareQbBtn, 10)
+createStroke(scareQbBtn, Color3.fromRGB(200, 140, 255), 2)
+
+local scareQbLabel = Instance.new("TextLabel")
+scareQbLabel.Size = UDim2.new(1, 0, 0, 12)
+scareQbLabel.Position = UDim2.new(0, 0, 1, 2)
+scareQbLabel.BackgroundTransparency = 1
+scareQbLabel.Text = "SCARE"
+scareQbLabel.Font = Enum.Font.GothamBold
+scareQbLabel.TextSize = 7
+scareQbLabel.TextColor3 = Color3.fromRGB(200, 140, 255)
+scareQbLabel.ZIndex = 5
+scareQbLabel.Parent = scareQbBtn
+
+local scareQbVisible = true
+
+local function updateScareQb(ready)
+    if ready then
+        scareQbBtn.TextColor3 = Color3.fromRGB(200, 140, 255)
+        tween(scareQbBtn, {BackgroundColor3 = COLORS.DarkBG}, 0.2)
+        createStroke(scareQbBtn, Color3.fromRGB(200, 140, 255), 2)
+        scareQbLabel.Text = "SCARE"
+        scareQbLabel.TextColor3 = Color3.fromRGB(200, 140, 255)
+    else
+        scareQbBtn.TextColor3 = Color3.fromRGB(100, 80, 120)
+        tween(scareQbBtn, {BackgroundColor3 = Color3.fromRGB(20, 15, 30)}, 0.2)
+        scareQbLabel.Text = "WAIT..."
+        scareQbLabel.TextColor3 = Color3.fromRGB(100, 80, 120)
+    end
+end
+
+Troll.onScareReady = function()
+    setScareBtnReady(true)
+    updateScareQb(true)
+    Notif:Send("👻 Scare ready!", 2)
+end
+
+scareQbBtn.MouseButton1Click:Connect(function()
+    if Troll:IsScareCooldown() then return end
+    if not Troll:GetTarget() then
+        Notif:Send("No target! Pick one in TROLL tab.", 3)
+        return
+    end
+    local ok = Troll:ScareOnce()
+    if ok then
+        setScareBtnReady(false)
+        updateScareQb(false)
+        Notif:Send("👻 Scaring " .. Troll:GetTarget().Name .. "...", 2)
+    end
+end)
+
+-- ── FLING TOGGLES ─────────────────────────────────────────────
+local flingHeader = Instance.new("TextLabel")
+flingHeader.Size = UDim2.new(1, -4, 0, 18)
+flingHeader.BackgroundTransparency = 1
+flingHeader.Text = "FLING"
+flingHeader.Font = Enum.Font.GothamBold
+flingHeader.TextSize = 9
+flingHeader.TextColor3 = Color3.fromRGB(200, 140, 255)
+flingHeader.TextXAlignment = Enum.TextXAlignment.Left
+flingHeader.Parent = trollContent
+
+toggleSyncs["Fling"] = createToggle(trollContent, "Fling", "Fling", function(v)
+    if v then Troll:StartFling() Notif:Send("Fling: ON", 2)
+    else Troll:StopFling() Notif:Send("Fling: OFF", 2) end
 end)
 toggleSyncs["WalkFling"] = createToggle(trollContent, "Walk Fling", "WalkFling", function(v)
-    if v then
-        Troll:StartWalkFling()
-        Notif:Send("Walk Fling: ON", 2)
-    else
-        Troll:StopWalkFling()
-        Notif:Send("Walk Fling: OFF", 2)
-    end
+    if v then Troll:StartWalkFling() Notif:Send("Walk Fling: ON", 2)
+    else Troll:StopWalkFling() Notif:Send("Walk Fling: OFF", 2) end
 end)
 toggleSyncs["AntiFling"] = createToggle(trollContent, "Anti Fling", "AntiFling", function(v)
-    if v then
-        Troll:StartAntiFling()
-        Notif:Send("Anti Fling: ON", 2)
-    else
-        Troll:StopAntiFling()
-        Notif:Send("Anti Fling: OFF", 2)
-    end
+    if v then Troll:StartAntiFling() Notif:Send("Anti Fling: ON", 2)
+    else Troll:StopAntiFling() Notif:Send("Anti Fling: OFF", 2) end
 end)
 
 -- Load saved config (must run after QB_OPTIONS, qbSlots, toggleSyncs are all defined)

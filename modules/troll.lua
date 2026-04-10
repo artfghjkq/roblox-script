@@ -1,7 +1,7 @@
 local Troll = {}
 
-local Players     = game:GetService("Players")
-local RunService  = game:GetService("RunService")
+local Players    = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
@@ -9,109 +9,115 @@ local function getRoot(char)
     return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
 end
 
-local scareConn       = nil
+local scareCooldown   = false
 local flinging        = false
+local flingBav        = nil
+local flingNoclipConn = nil
 local flingDiedConn   = nil
 local walkFlinging    = false
 local walkFlingThread = nil
 local antiFlingConn   = nil
 
-local function setNoclip(state)
-    if state then
-        RunService.Stepped:Connect(function()
-            local char = player.Character
-            if not char then return end
-            for _, p in pairs(char:GetDescendants()) do
-                if p:IsA("BasePart") then p.CanCollide = false end
-            end
-        end)
-    end
+Troll.selectedTarget  = nil
+Troll.scareReady      = true
+Troll.onScareReady    = nil
+
+function Troll:SetTarget(targetPlayer)
+    self.selectedTarget = targetPlayer
 end
 
-function Troll:StartScare(targetPlayer)
-    if scareConn then scareConn:Disconnect(); scareConn = nil end
-    scareConn = RunService.Heartbeat:Connect(function()
-        local myChar   = player.Character
-        local myRoot   = getRoot(myChar)
-        local tgt      = targetPlayer or (Players:GetPlayers()[2] ~= player and Players:GetPlayers()[2]) or nil
-        if not tgt then
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= player then tgt = p break end
-            end
-        end
-        if not myRoot or not tgt then return end
-        local tgtRoot = getRoot(tgt.Character)
-        if not tgtRoot then return end
-        local savedCFrame = myRoot.CFrame
-        myRoot.CFrame = tgtRoot.CFrame + tgtRoot.CFrame.LookVector * 2
-        myRoot.CFrame = CFrame.new(myRoot.Position, tgtRoot.Position)
-        task.wait(0.5)
-        pcall(function() myRoot.CFrame = savedCFrame end)
-    end)
+function Troll:GetTarget()
+    return self.selectedTarget
 end
 
-function Troll:StopScare()
-    if scareConn then scareConn:Disconnect(); scareConn = nil end
-end
-
-function Troll:ScareOnce(targetPlayer)
-    local myChar  = player.Character
-    local myRoot  = getRoot(myChar)
-    if not myRoot then return end
-    local tgt = targetPlayer
-    if not tgt then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player then tgt = p break end
-        end
-    end
-    if not tgt then return end
+function Troll:ScareOnce()
+    if scareCooldown then return false end
+    local tgt = self.selectedTarget
+    if not tgt or not tgt.Character then return false end
+    local myRoot  = getRoot(player.Character)
     local tgtRoot = getRoot(tgt.Character)
-    if not tgtRoot then return end
-    local savedCFrame = myRoot.CFrame
-    myRoot.CFrame = tgtRoot.CFrame + tgtRoot.CFrame.LookVector * 2
-    myRoot.CFrame = CFrame.new(myRoot.Position, tgtRoot.Position)
-    task.wait(0.5)
-    pcall(function() myRoot.CFrame = savedCFrame end)
+    if not myRoot or not tgtRoot then return false end
+
+    scareCooldown  = true
+    self.scareReady = false
+
+    task.spawn(function()
+        local saved = myRoot.CFrame
+        myRoot.CFrame = CFrame.new(
+            tgtRoot.Position + tgtRoot.CFrame.LookVector * 2,
+            tgtRoot.Position
+        )
+        task.wait(0.5)
+        pcall(function() myRoot.CFrame = saved end)
+        task.wait(2.5)
+        scareCooldown  = false
+        self.scareReady = true
+        if self.onScareReady then
+            self.onScareReady()
+        end
+    end)
+
+    return true
+end
+
+function Troll:IsScareCooldown()
+    return scareCooldown
 end
 
 function Troll:StartFling()
     if flinging then self:StopFling() end
     local char = player.Character
     if not char then return end
+    local root = getRoot(char)
+    if not root then return end
+
     for _, child in pairs(char:GetDescendants()) do
         if child:IsA("BasePart") then
             pcall(function()
                 child.CustomPhysicalProperties = PhysicalProperties.new(100, 0.3, 0.5)
+                child.CanCollide = false
             end)
         end
     end
-    for _, v in pairs(char:GetChildren()) do
-        if v:IsA("BasePart") then
-            v.CanCollide = false
-            pcall(function() v.Massless = true end)
-            v.Velocity = Vector3.new(0, 0, 0)
-        end
-    end
-    local root = getRoot(char)
-    if not root then return end
-    local bav = Instance.new("BodyAngularVelocity")
-    bav.Name = "HH_FlingBAV"
-    bav.AngularVelocity = Vector3.new(0, 99999, 0)
-    bav.MaxTorque = Vector3.new(0, math.huge, 0)
-    bav.P = math.huge
-    bav.Parent = root
+
+    flingBav = Instance.new("BodyAngularVelocity")
+    flingBav.Name = "HH_FlingBAV"
+    flingBav.AngularVelocity = Vector3.new(0, 99999, 0)
+    flingBav.MaxTorque = Vector3.new(0, math.huge, 0)
+    flingBav.P = math.huge
+    flingBav.Parent = root
+
     flinging = true
+
+    flingNoclipConn = RunService.Stepped:Connect(function()
+        if not flinging then
+            flingNoclipConn:Disconnect()
+            flingNoclipConn = nil
+            return
+        end
+        local c = player.Character
+        if not c then return end
+        for _, p in pairs(c:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide = false end
+        end
+        local r = getRoot(c)
+        if r then r.Velocity = Vector3.new(r.Velocity.X, 0, r.Velocity.Z) end
+    end)
+
     local hum = char:FindFirstChildOfClass("Humanoid")
     if hum then
-        flingDiedConn = hum.Died:Connect(function()
-            Troll:StopFling()
-        end)
+        flingDiedConn = hum.Died:Connect(function() Troll:StopFling() end)
     end
+
     task.spawn(function()
         repeat
-            pcall(function() bav.AngularVelocity = Vector3.new(0, 99999, 0) end)
+            if flingBav and flingBav.Parent then
+                flingBav.AngularVelocity = Vector3.new(0, 99999, 0)
+            end
             task.wait(0.2)
-            pcall(function() bav.AngularVelocity = Vector3.new(0, 0, 0) end)
+            if flingBav and flingBav.Parent then
+                flingBav.AngularVelocity = Vector3.new(0, 0, 0)
+            end
             task.wait(0.1)
         until not flinging
     end)
@@ -119,20 +125,17 @@ end
 
 function Troll:StopFling()
     flinging = false
-    if flingDiedConn then flingDiedConn:Disconnect(); flingDiedConn = nil end
+    if flingDiedConn   then flingDiedConn:Disconnect();   flingDiedConn   = nil end
+    if flingNoclipConn then flingNoclipConn:Disconnect(); flingNoclipConn = nil end
+    if flingBav        then flingBav:Destroy();           flingBav        = nil end
     task.wait(0.1)
     local char = player.Character
     if not char then return end
-    local root = getRoot(char)
-    if root then
-        for _, v in pairs(root:GetChildren()) do
-            if v.Name == "HH_FlingBAV" then v:Destroy() end
-        end
-    end
     for _, child in pairs(char:GetDescendants()) do
         if child.ClassName == "Part" or child.ClassName == "MeshPart" then
             pcall(function()
                 child.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5)
+                child.CanCollide = true
             end)
         end
     end
@@ -161,6 +164,7 @@ function Troll:StartWalkFling()
                 c    = player.Character
                 root = getRoot(c)
             end
+            if not root then continue end
             local vel   = root.Velocity
             local movel = 0.1
             root.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
@@ -171,6 +175,7 @@ function Troll:StartWalkFling()
             RunService.Stepped:Wait()
             if c and c.Parent and root and root.Parent then
                 root.Velocity = vel + Vector3.new(0, movel, 0)
+                movel = movel * -1
             end
         until not walkFlinging
     end)
@@ -194,9 +199,7 @@ function Troll:StartAntiFling()
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player and p.Character then
                 for _, v in pairs(p.Character:GetDescendants()) do
-                    if v:IsA("BasePart") then
-                        v.CanCollide = false
-                    end
+                    if v:IsA("BasePart") then v.CanCollide = false end
                 end
             end
         end
@@ -204,10 +207,7 @@ function Troll:StartAntiFling()
 end
 
 function Troll:StopAntiFling()
-    if antiFlingConn then
-        antiFlingConn:Disconnect()
-        antiFlingConn = nil
-    end
+    if antiFlingConn then antiFlingConn:Disconnect(); antiFlingConn = nil end
 end
 
 function Troll:IsAntiFling()
