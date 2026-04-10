@@ -797,6 +797,7 @@ for _, opt in ipairs(QB_OPTIONS) do
         qbPanel.Visible = false
         currentEditSlot = nil
         saveConfig()
+    end)
 end
 
 local clearRow = Instance.new("TextButton")
