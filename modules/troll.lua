@@ -19,7 +19,7 @@ local walkFlingThread = nil
 local antiFlingConn   = nil
 local spectating      = false
 local specTarget      = nil
-local spectateMode    = "locked" -- "free" or "locked"
+local spectateMode    = "free" -- "free" or "locked"
 local lockedCamConn   = nil
 
 Troll.selectedTarget  = nil
@@ -35,7 +35,7 @@ function Troll:GetTarget()
     return self.selectedTarget
 end
 
-local function stopLockedCam()
+local function stopScriptedCam()
     if lockedCamConn then
         lockedCamConn:Disconnect()
         lockedCamConn = nil
@@ -43,21 +43,44 @@ local function stopLockedCam()
     workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
 end
 
-local function startLockedCam(targetPlayer)
-    stopLockedCam()
+local function startScriptedCam(targetPlayer, mode)
+    stopScriptedCam()
     workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
-    lockedCamConn = RunService.RenderStepped:Connect(function()
+
+    -- orbit state for fixed orbit
+    local orbitAngle = 0
+
+    lockedCamConn = RunService.RenderStepped:Connect(function(dt)
         if not spectating or not targetPlayer or not targetPlayer.Character then
-            stopLockedCam()
+            stopScriptedCam()
             return
         end
         local char = targetPlayer.Character
         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        -- Position camera at the target's head, looking where they look
-        local head = char:FindFirstChild("Head")
-        local eyePos = head and head.CFrame.Position or hrp.CFrame.Position + Vector3.new(0, 1.5, 0)
-        workspace.CurrentCamera.CFrame = CFrame.new(eyePos, eyePos + hrp.CFrame.LookVector * 10)
+
+        local head    = char:FindFirstChild("Head")
+        local eyePos  = head and head.CFrame.Position or (hrp.CFrame.Position + Vector3.new(0, 1.5, 0))
+        local bodyPos = hrp.CFrame.Position
+
+        if mode == "locked" then
+            -- Exact POV of target
+            workspace.CurrentCamera.CFrame = CFrame.new(eyePos, eyePos + hrp.CFrame.LookVector * 10)
+
+        elseif mode == "orbit" then
+            -- Fixed orbit: camera circles target at fixed distance, player controls angle
+            orbitAngle = orbitAngle + dt * 0.4
+            local dist   = 8
+            local height = 3
+            local offset = Vector3.new(math.cos(orbitAngle) * dist, height, math.sin(orbitAngle) * dist)
+            workspace.CurrentCamera.CFrame = CFrame.new(bodyPos + offset, bodyPos + Vector3.new(0, 1, 0))
+
+        elseif mode == "third" then
+            -- Auto third-person: fixed offset behind & above target, follows their rotation
+            local offset = hrp.CFrame:VectorToWorldSpace(Vector3.new(0, 4, 8))
+            local camPos = bodyPos + offset
+            workspace.CurrentCamera.CFrame = CFrame.new(camPos, bodyPos + Vector3.new(0, 1, 0))
+        end
     end)
 end
 
@@ -65,16 +88,16 @@ function Troll:StartSpectate(targetPlayer, mode)
     if not targetPlayer or not targetPlayer.Character then return false end
     local hum = targetPlayer.Character:FindFirstChildWhichIsA("Humanoid")
     if not hum then return false end
-    spectating = true
-    specTarget = targetPlayer
-    spectateMode = mode or spectateMode or "free"
+    spectating    = true
+    specTarget    = targetPlayer
+    spectateMode  = mode or spectateMode or "free"
     self.selectedTarget = targetPlayer
 
-    if spectateMode == "locked" then
-        startLockedCam(targetPlayer)
-    else
-        stopLockedCam()
+    if spectateMode == "free" then
+        stopScriptedCam()
         workspace.CurrentCamera.CameraSubject = hum
+    else
+        startScriptedCam(targetPlayer, spectateMode)
     end
 
     if self.onSpectateChanged then self.onSpectateChanged(targetPlayer) end
@@ -95,7 +118,7 @@ end
 function Troll:StopSpectate()
     spectating = false
     specTarget = nil
-    stopLockedCam()
+    stopScriptedCam()
     local myChar = player.Character
     local myHum  = myChar and myChar:FindFirstChildWhichIsA("Humanoid")
     workspace.CurrentCamera.CameraSubject = myHum or myChar
