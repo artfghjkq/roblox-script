@@ -25,6 +25,7 @@ local Scripts  = req("scripts.lua")
 local Invi     = req("invi.lua")
 local Troll    = req("troll.lua")
 Troll.inviModule = Invi  -- so ScareOnce can temporarily show avatar even when invisible
+Troll.configRef  = CONFIG -- so RushScare can restore noclip state after rush
 
 local COLORS         = ColLib.COLORS
 local createCorner   = ColLib.createCorner
