@@ -17,10 +17,13 @@ local flingDiedConn   = nil
 local walkFlinging    = false
 local walkFlingThread = nil
 local antiFlingConn   = nil
+local spectating      = false
+local specTarget      = nil
 
 Troll.selectedTarget  = nil
 Troll.scareReady      = true
 Troll.onScareReady    = nil
+Troll.onSpectateChanged = nil
 
 function Troll:SetTarget(targetPlayer)
     self.selectedTarget = targetPlayer
@@ -28,6 +31,35 @@ end
 
 function Troll:GetTarget()
     return self.selectedTarget
+end
+
+function Troll:StartSpectate(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then return false end
+    local hum = targetPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+    if not hum then return false end
+    spectating = true
+    specTarget = targetPlayer
+    self.selectedTarget = targetPlayer
+    workspace.CurrentCamera.CameraSubject = hum
+    if self.onSpectateChanged then self.onSpectateChanged(targetPlayer) end
+    return true
+end
+
+function Troll:StopSpectate()
+    spectating = false
+    specTarget = nil
+    local myChar = player.Character
+    local myHum  = myChar and myChar:FindFirstChildWhichIsA("Humanoid")
+    workspace.CurrentCamera.CameraSubject = myHum or myChar
+    if self.onSpectateChanged then self.onSpectateChanged(nil) end
+end
+
+function Troll:IsSpectating()
+    return spectating
+end
+
+function Troll:GetSpectateTarget()
+    return specTarget
 end
 
 function Troll:ScareOnce()
@@ -38,7 +70,7 @@ function Troll:ScareOnce()
     local tgtRoot = getRoot(tgt.Character)
     if not myRoot or not tgtRoot then return false end
 
-    scareCooldown  = true
+    scareCooldown   = true
     self.scareReady = false
 
     task.spawn(function()
@@ -50,11 +82,9 @@ function Troll:ScareOnce()
         task.wait(0.5)
         pcall(function() myRoot.CFrame = saved end)
         task.wait(2.5)
-        scareCooldown  = false
+        scareCooldown   = false
         self.scareReady = true
-        if self.onScareReady then
-            self.onScareReady()
-        end
+        if self.onScareReady then self.onScareReady() end
     end)
 
     return true
@@ -128,9 +158,22 @@ function Troll:StopFling()
     if flingDiedConn   then flingDiedConn:Disconnect();   flingDiedConn   = nil end
     if flingNoclipConn then flingNoclipConn:Disconnect(); flingNoclipConn = nil end
     if flingBav        then flingBav:Destroy();           flingBav        = nil end
-    task.wait(0.1)
+
     local char = player.Character
     if not char then return end
+    local root = getRoot(char)
+
+    if root then
+        root.Velocity        = Vector3.new(0, 0, 0)
+        root.RotVelocity     = Vector3.new(0, 0, 0)
+        pcall(function()
+            root.AssemblyLinearVelocity  = Vector3.new(0, 0, 0)
+            root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        end)
+    end
+
+    task.wait(0.05)
+
     for _, child in pairs(char:GetDescendants()) do
         if child.ClassName == "Part" or child.ClassName == "MeshPart" then
             pcall(function()
@@ -138,6 +181,11 @@ function Troll:StopFling()
                 child.CanCollide = true
             end)
         end
+    end
+
+    if root then
+        root.Velocity    = Vector3.new(0, 0, 0)
+        root.RotVelocity = Vector3.new(0, 0, 0)
     end
 end
 
@@ -186,6 +234,12 @@ function Troll:StopWalkFling()
     if walkFlingThread then
         task.cancel(walkFlingThread)
         walkFlingThread = nil
+    end
+    local char = player.Character
+    local root = getRoot(char)
+    if root then
+        root.Velocity    = Vector3.new(0, 0, 0)
+        root.RotVelocity = Vector3.new(0, 0, 0)
     end
 end
 

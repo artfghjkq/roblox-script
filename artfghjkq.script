@@ -937,67 +937,290 @@ Scripts:Init(contentContainers["SCRIPTS"], COLORS, galaxyGradient, createCorner,
 
 local trollContent = contentContainers["TROLL"]
 
--- ── SCARE SECTION HEADER ─────────────────────────────────────
-local scareHeader = Instance.new("TextLabel")
-scareHeader.Size = UDim2.new(1, -4, 0, 18)
-scareHeader.BackgroundTransparency = 1
-scareHeader.Text = "SCARE TARGET"
-scareHeader.Font = Enum.Font.GothamBold
-scareHeader.TextSize = 9
-scareHeader.TextColor3 = Color3.fromRGB(200, 140, 255)
-scareHeader.TextXAlignment = Enum.TextXAlignment.Left
-scareHeader.Parent = trollContent
+local SCARE_COL = Color3.fromRGB(200, 140, 255)
 
--- ── SELECTED TARGET DISPLAY ──────────────────────────────────
-local targetDisplay = Instance.new("Frame")
-targetDisplay.Size = UDim2.new(1, -4, 0, 28)
-targetDisplay.BackgroundColor3 = COLORS.DarkBG
-targetDisplay.Parent = trollContent
-createCorner(targetDisplay, 8)
-createStroke(targetDisplay, COLORS.Galaxy1, 1)
+local scareHubOpen = false
 
-local targetLabel = Instance.new("TextLabel")
-targetLabel.Size = UDim2.new(1, -8, 1, 0)
-targetLabel.Position = UDim2.new(0, 8, 0, 0)
-targetLabel.BackgroundTransparency = 1
-targetLabel.Text = "No target selected"
-targetLabel.Font = Enum.Font.GothamSemibold
-targetLabel.TextSize = 9
-targetLabel.TextColor3 = Color3.fromRGB(160, 140, 180)
-targetLabel.TextXAlignment = Enum.TextXAlignment.Left
-targetLabel.Parent = targetDisplay
+local scareHub = Instance.new("Frame")
+scareHub.Name = "ScareHub"
+scareHub.Size = UDim2.new(0, 220, 0, 280)
+scareHub.Position = UDim2.new(0.5, -110, 0.5, -140)
+scareHub.BackgroundColor3 = COLORS.Background
+scareHub.Active = true
+scareHub.Draggable = true
+scareHub.Visible = false
+scareHub.ZIndex = 20
+scareHub.Parent = screenGui
+createCorner(scareHub, 12)
+createStroke(scareHub, SCARE_COL, 2)
 
--- ── SCARE BUTTON (one-shot, cooldown-aware) ───────────────────
-local scareBtn = Instance.new("TextButton")
-scareBtn.Size = UDim2.new(1, -4, 0, 30)
-scareBtn.BackgroundColor3 = COLORS.Galaxy1
-scareBtn.Text = "👻  SCARE"
-scareBtn.TextColor3 = COLORS.White
-scareBtn.Font = Enum.Font.GothamBold
-scareBtn.TextSize = 10
-scareBtn.Parent = trollContent
-createCorner(scareBtn, 8)
-galaxyGradient(scareBtn, 90)
+local hubTopBar = Instance.new("Frame")
+hubTopBar.Size = UDim2.new(1, 0, 0, 36)
+hubTopBar.BackgroundColor3 = COLORS.Galaxy1
+hubTopBar.ZIndex = 20
+hubTopBar.Parent = scareHub
+createCorner(hubTopBar, 12)
+galaxyGradient(hubTopBar, 90)
 
-local function setScareBtnReady(ready)
+local hubTitle = Instance.new("TextLabel")
+hubTitle.Size = UDim2.new(1, -40, 1, 0)
+hubTitle.Position = UDim2.new(0, 10, 0, 0)
+hubTitle.BackgroundTransparency = 1
+hubTitle.Text = "👻 SCARE HUB"
+hubTitle.Font = Enum.Font.GothamBold
+hubTitle.TextSize = 11
+hubTitle.TextColor3 = COLORS.White
+hubTitle.TextXAlignment = Enum.TextXAlignment.Left
+hubTitle.ZIndex = 21
+hubTitle.Parent = hubTopBar
+
+local hubClose = Instance.new("TextButton")
+hubClose.Size = UDim2.new(0, 22, 0, 22)
+hubClose.Position = UDim2.new(1, -28, 0.5, -11)
+hubClose.BackgroundColor3 = COLORS.DarkBG
+hubClose.Text = "X"
+hubClose.TextColor3 = COLORS.White
+hubClose.Font = Enum.Font.GothamBold
+hubClose.TextSize = 10
+hubClose.ZIndex = 21
+hubClose.Parent = hubTopBar
+createCorner(hubClose, 5)
+
+local hubBody = Instance.new("Frame")
+hubBody.Size = UDim2.new(1, -12, 1, -44)
+hubBody.Position = UDim2.new(0, 6, 0, 40)
+hubBody.BackgroundTransparency = 1
+hubBody.ZIndex = 20
+hubBody.Parent = scareHub
+
+local hubLayout = Instance.new("UIListLayout", hubBody)
+hubLayout.SortOrder = Enum.SortOrder.LayoutOrder
+hubLayout.Padding = UDim.new(0, 5)
+
+local hubTargetDisplay = Instance.new("Frame")
+hubTargetDisplay.Size = UDim2.new(1, 0, 0, 26)
+hubTargetDisplay.BackgroundColor3 = COLORS.DarkBG
+hubTargetDisplay.ZIndex = 20
+hubTargetDisplay.Parent = hubBody
+createCorner(hubTargetDisplay, 6)
+createStroke(hubTargetDisplay, SCARE_COL, 1)
+
+local hubTargetLabel = Instance.new("TextLabel")
+hubTargetLabel.Size = UDim2.new(1, -8, 1, 0)
+hubTargetLabel.Position = UDim2.new(0, 8, 0, 0)
+hubTargetLabel.BackgroundTransparency = 1
+hubTargetLabel.Text = "No target selected"
+hubTargetLabel.Font = Enum.Font.GothamSemibold
+hubTargetLabel.TextSize = 9
+hubTargetLabel.TextColor3 = Color3.fromRGB(160, 140, 180)
+hubTargetLabel.TextXAlignment = Enum.TextXAlignment.Left
+hubTargetLabel.ZIndex = 21
+hubTargetLabel.Parent = hubTargetDisplay
+
+local hubSearchBox = Instance.new("TextBox")
+hubSearchBox.Size = UDim2.new(1, 0, 0, 26)
+hubSearchBox.BackgroundColor3 = COLORS.DarkBG
+hubSearchBox.PlaceholderText = "Search username / display name..."
+hubSearchBox.PlaceholderColor3 = Color3.fromRGB(100, 85, 120)
+hubSearchBox.Text = ""
+hubSearchBox.Font = Enum.Font.Gotham
+hubSearchBox.TextSize = 9
+hubSearchBox.TextColor3 = COLORS.White
+hubSearchBox.ClearTextOnFocus = false
+hubSearchBox.ZIndex = 21
+hubSearchBox.Parent = hubBody
+createCorner(hubSearchBox, 6)
+createStroke(hubSearchBox, COLORS.Galaxy1, 1)
+local sbPad = Instance.new("UIPadding", hubSearchBox)
+sbPad.PaddingLeft = UDim.new(0, 8)
+
+local hubListFrame = Instance.new("ScrollingFrame")
+hubListFrame.Size = UDim2.new(1, 0, 0, 120)
+hubListFrame.BackgroundTransparency = 1
+hubListFrame.BorderSizePixel = 0
+hubListFrame.ScrollBarThickness = 2
+hubListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+hubListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+hubListFrame.ZIndex = 20
+hubListFrame.Parent = hubBody
+
+local hubListLayout = Instance.new("UIListLayout", hubListFrame)
+hubListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+hubListLayout.Padding = UDim.new(0, 3)
+
+local hubStopSpecBtn = Instance.new("TextButton")
+hubStopSpecBtn.Size = UDim2.new(1, 0, 0, 24)
+hubStopSpecBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 80)
+hubStopSpecBtn.Text = "⬛  Stop Spectate"
+hubStopSpecBtn.TextColor3 = Color3.fromRGB(180, 120, 255)
+hubStopSpecBtn.Font = Enum.Font.GothamBold
+hubStopSpecBtn.TextSize = 9
+hubStopSpecBtn.Visible = false
+hubStopSpecBtn.ZIndex = 21
+hubStopSpecBtn.Parent = hubBody
+createCorner(hubStopSpecBtn, 6)
+createStroke(hubStopSpecBtn, SCARE_COL, 1)
+
+local hubScareBtn = Instance.new("TextButton")
+hubScareBtn.Size = UDim2.new(1, 0, 0, 32)
+hubScareBtn.BackgroundColor3 = COLORS.Galaxy1
+hubScareBtn.Text = "👻  SCARE"
+hubScareBtn.TextColor3 = COLORS.White
+hubScareBtn.Font = Enum.Font.GothamBold
+hubScareBtn.TextSize = 11
+hubScareBtn.ZIndex = 21
+hubScareBtn.Parent = hubBody
+createCorner(hubScareBtn, 8)
+galaxyGradient(hubScareBtn, 90)
+
+local function setHubScareReady(ready)
     if ready then
-        scareBtn.Text = "👻  SCARE"
-        scareBtn.BackgroundColor3 = COLORS.Galaxy1
-        scareBtn.TextColor3 = COLORS.White
-        tween(scareBtn, {BackgroundColor3 = COLORS.Galaxy1}, 0.2)
+        hubScareBtn.Text = "👻  SCARE"
+        tween(hubScareBtn, {BackgroundColor3 = COLORS.Galaxy1}, 0.2)
+        hubScareBtn.TextColor3 = COLORS.White
     else
-        scareBtn.Text = "⏳  Cooldown..."
-        tween(scareBtn, {BackgroundColor3 = COLORS.DarkBG}, 0.2)
-        scareBtn.TextColor3 = Color3.fromRGB(120, 100, 140)
+        hubScareBtn.Text = "⏳  Cooldown..."
+        tween(hubScareBtn, {BackgroundColor3 = COLORS.DarkBG}, 0.2)
+        hubScareBtn.TextColor3 = Color3.fromRGB(120, 100, 140)
     end
 end
 
-Troll.onScareReady = function()
-    setScareBtnReady(true)
-    Notif:Send("👻 Scare ready!", 2)
+local hubPlayerRows = {}
+
+local function buildHubPlayerList(filter)
+    for _, row in pairs(hubPlayerRows) do
+        if row and row.Parent then row:Destroy() end
+    end
+    hubPlayerRows = {}
+    filter = (filter or ""):lower()
+
+    local found = 0
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player then
+            local dn = (p.DisplayName or p.Name):lower()
+            local un = p.Name:lower()
+            if filter == "" or dn:find(filter, 1, true) or un:find(filter, 1, true) then
+                found = found + 1
+
+                local isSpec = Troll:GetSpectateTarget() == p
+                local isSel  = Troll:GetTarget() == p and not isSpec
+
+                local row = Instance.new("Frame")
+                row.Size = UDim2.new(1, 0, 0, 38)
+                row.BackgroundColor3 = isSpec and Color3.fromRGB(40, 15, 60) or COLORS.Frame
+                row.ZIndex = 21
+                row.Parent = hubListFrame
+                createCorner(row, 6)
+                if isSpec then createStroke(row, SCARE_COL, 1) end
+                table.insert(hubPlayerRows, row)
+
+                local nameCol = Instance.new("TextLabel")
+                nameCol.Size = UDim2.new(1, -114, 1, 0)
+                nameCol.Position = UDim2.new(0, 8, 0, 0)
+                nameCol.BackgroundTransparency = 1
+                nameCol.Text = p.DisplayName .. "\n@" .. p.Name
+                nameCol.Font = Enum.Font.GothamSemibold
+                nameCol.TextSize = 8
+                nameCol.TextColor3 = isSpec and SCARE_COL or COLORS.White
+                nameCol.TextXAlignment = Enum.TextXAlignment.Left
+                nameCol.TextYAlignment = Enum.TextYAlignment.Center
+                nameCol.ZIndex = 22
+                nameCol.Parent = row
+
+                local specBtn = Instance.new("TextButton")
+                specBtn.Size = UDim2.new(0, 48, 0, 20)
+                specBtn.Position = UDim2.new(1, -108, 0.5, -10)
+                specBtn.Font = Enum.Font.GothamBold
+                specBtn.TextSize = 7
+                specBtn.ZIndex = 22
+                specBtn.Parent = row
+                createCorner(specBtn, 5)
+                specBtn.Text = isSpec and "👁 SPEC" or "👁 SPEC"
+                specBtn.BackgroundColor3 = isSpec and SCARE_COL or COLORS.DarkBG
+                specBtn.TextColor3 = isSpec and COLORS.White or Color3.fromRGB(160, 140, 180)
+
+                local selBtn = Instance.new("TextButton")
+                selBtn.Size = UDim2.new(0, 48, 0, 20)
+                selBtn.Position = UDim2.new(1, -56, 0.5, -10)
+                selBtn.Font = Enum.Font.GothamBold
+                selBtn.TextSize = 7
+                selBtn.ZIndex = 22
+                selBtn.Parent = row
+                createCorner(selBtn, 5)
+                selBtn.Text = isSel and "✓ SEL" or "SELECT"
+                selBtn.BackgroundColor3 = isSel and COLORS.Galaxy1 or COLORS.DarkBG
+                selBtn.TextColor3 = isSel and COLORS.White or Color3.fromRGB(160, 140, 180)
+
+                local capP = p
+
+                specBtn.MouseButton1Click:Connect(function()
+                    if Troll:GetSpectateTarget() == capP then
+                        Troll:StopSpectate()
+                    else
+                        local ok = Troll:StartSpectate(capP)
+                        if ok then
+                            Notif:Send("👁 Spectating " .. capP.Name, 2)
+                        end
+                    end
+                    buildHubPlayerList(hubSearchBox.Text)
+                end)
+
+                selBtn.MouseButton1Click:Connect(function()
+                    if Troll:IsSpectating() then Troll:StopSpectate() end
+                    Troll:SetTarget(capP)
+                    hubTargetLabel.Text = capP.DisplayName .. " (@" .. capP.Name .. ")"
+                    hubTargetLabel.TextColor3 = SCARE_COL
+                    Notif:Send("Target: " .. capP.Name, 2)
+                    buildHubPlayerList(hubSearchBox.Text)
+                end)
+            end
+        end
+    end
+
+    if found == 0 then
+        local empty = Instance.new("TextLabel")
+        empty.Size = UDim2.new(1, 0, 0, 24)
+        empty.BackgroundTransparency = 1
+        empty.Text = filter ~= "" and "No results." or "No players in server."
+        empty.Font = Enum.Font.Gotham
+        empty.TextSize = 8
+        empty.TextColor3 = Color3.fromRGB(120, 100, 140)
+        empty.TextXAlignment = Enum.TextXAlignment.Left
+        empty.ZIndex = 21
+        empty.Parent = hubListFrame
+        table.insert(hubPlayerRows, empty)
+    end
 end
 
-scareBtn.MouseButton1Click:Connect(function()
+Troll.onSpectateChanged = function(specPlayer)
+    if specPlayer then
+        hubStopSpecBtn.Visible = true
+        hubTargetLabel.Text = "👁 " .. specPlayer.DisplayName .. " (@" .. specPlayer.Name .. ")"
+        hubTargetLabel.TextColor3 = SCARE_COL
+    else
+        hubStopSpecBtn.Visible = false
+        local tgt = Troll:GetTarget()
+        if tgt then
+            hubTargetLabel.Text = tgt.DisplayName .. " (@" .. tgt.Name .. ")"
+            hubTargetLabel.TextColor3 = SCARE_COL
+        else
+            hubTargetLabel.Text = "No target selected"
+            hubTargetLabel.TextColor3 = Color3.fromRGB(160, 140, 180)
+        end
+    end
+    buildHubPlayerList(hubSearchBox.Text)
+end
+
+hubStopSpecBtn.MouseButton1Click:Connect(function()
+    Troll:StopSpectate()
+    Notif:Send("Spectate stopped", 2)
+end)
+
+hubSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    buildHubPlayerList(hubSearchBox.Text)
+end)
+
+hubScareBtn.MouseButton1Click:Connect(function()
     if Troll:IsScareCooldown() then return end
     if not Troll:GetTarget() then
         Notif:Send("No target selected!", 2)
@@ -1005,178 +1228,39 @@ scareBtn.MouseButton1Click:Connect(function()
     end
     local ok = Troll:ScareOnce()
     if ok then
-        setScareBtnReady(false)
-        Notif:Send("Scaring " .. Troll:GetTarget().Name .. "...", 2)
-    end
-end)
-
--- ── PLAYER LIST ───────────────────────────────────────────────
-local playerListHeader = Instance.new("TextLabel")
-playerListHeader.Size = UDim2.new(1, -4, 0, 18)
-playerListHeader.BackgroundTransparency = 1
-playerListHeader.Text = "SELECT PLAYER"
-playerListHeader.Font = Enum.Font.GothamBold
-playerListHeader.TextSize = 9
-playerListHeader.TextColor3 = Color3.fromRGB(200, 140, 255)
-playerListHeader.TextXAlignment = Enum.TextXAlignment.Left
-playerListHeader.Parent = trollContent
-
-local playerRows = {}
-
-local function refreshPlayerList()
-    for _, row in pairs(playerRows) do
-        if row and row.Parent then row:Destroy() end
-    end
-    playerRows = {}
-
-    local allPlayers = game:GetService("Players"):GetPlayers()
-    for _, p in pairs(allPlayers) do
-        if p ~= game:GetService("Players").LocalPlayer then
-            local row = Instance.new("Frame")
-            row.Size = UDim2.new(1, -4, 0, 28)
-            row.BackgroundColor3 = COLORS.Frame
-            row.Parent = trollContent
-            createCorner(row, 6)
-            table.insert(playerRows, row)
-
-            local nameLabel = Instance.new("TextLabel")
-            nameLabel.Size = UDim2.new(1, -64, 1, 0)
-            nameLabel.Position = UDim2.new(0, 8, 0, 0)
-            nameLabel.BackgroundTransparency = 1
-            nameLabel.Text = p.Name
-            nameLabel.Font = Enum.Font.GothamSemibold
-            nameLabel.TextSize = 9
-            nameLabel.TextColor3 = COLORS.White
-            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-            nameLabel.Parent = row
-
-            local selBtn = Instance.new("TextButton")
-            selBtn.Size = UDim2.new(0, 52, 0, 20)
-            selBtn.Position = UDim2.new(1, -56, 0.5, -10)
-            selBtn.Font = Enum.Font.GothamBold
-            selBtn.TextSize = 8
-            selBtn.Parent = row
-            createCorner(selBtn, 5)
-
-            local isSelected = Troll:GetTarget() == p
-            selBtn.Text = isSelected and "✓ SEL" or "SELECT"
-            selBtn.BackgroundColor3 = isSelected and COLORS.Galaxy1 or COLORS.DarkBG
-            selBtn.TextColor3 = isSelected and COLORS.White or Color3.fromRGB(160, 140, 180)
-
-            local capP = p
-            selBtn.MouseButton1Click:Connect(function()
-                Troll:SetTarget(capP)
-                targetLabel.Text = "Target: " .. capP.Name
-                targetLabel.TextColor3 = Color3.fromRGB(180, 140, 255)
-                Notif:Send("Scare target: " .. capP.Name, 2)
-                refreshPlayerList()
-            end)
-        end
-    end
-
-    if #playerRows == 0 then
-        local emptyLabel = Instance.new("TextLabel")
-        emptyLabel.Size = UDim2.new(1, -4, 0, 24)
-        emptyLabel.BackgroundTransparency = 1
-        emptyLabel.Text = "No other players in server"
-        emptyLabel.Font = Enum.Font.Gotham
-        emptyLabel.TextSize = 8
-        emptyLabel.TextColor3 = Color3.fromRGB(120, 100, 140)
-        emptyLabel.TextXAlignment = Enum.TextXAlignment.Left
-        emptyLabel.Parent = trollContent
-        table.insert(playerRows, emptyLabel)
-    end
-end
-
-local refreshRow = Instance.new("TextButton")
-refreshRow.Size = UDim2.new(1, -4, 0, 24)
-refreshRow.BackgroundColor3 = COLORS.DarkBG
-refreshRow.Text = "↺  Refresh Player List"
-refreshRow.TextColor3 = Color3.fromRGB(180, 140, 255)
-refreshRow.Font = Enum.Font.GothamBold
-refreshRow.TextSize = 8
-refreshRow.TextXAlignment = Enum.TextXAlignment.Left
-refreshRow.Parent = trollContent
-createCorner(refreshRow, 6)
-local rrPad = Instance.new("UIPadding", refreshRow)
-rrPad.PaddingLeft = UDim.new(0, 8)
-
-refreshRow.MouseButton1Click:Connect(refreshPlayerList)
-
-refreshPlayerList()
-
--- ── QB SCARE BUTTON SETUP ─────────────────────────────────────
-local scareQbBtn = Instance.new("TextButton")
-scareQbBtn.Size = UDim2.new(0, 54, 0, 54)
-scareQbBtn.Position = UDim2.new(0, 20, 0.5, 60)
-scareQbBtn.BackgroundColor3 = COLORS.DarkBG
-scareQbBtn.Text = "👻"
-scareQbBtn.TextColor3 = Color3.fromRGB(200, 140, 255)
-scareQbBtn.Font = Enum.Font.GothamBold
-scareQbBtn.TextSize = 22
-scareQbBtn.Active = true
-scareQbBtn.Draggable = false
-scareQbBtn.ZIndex = 5
-scareQbBtn.Parent = screenGui
-createCorner(scareQbBtn, 10)
-createStroke(scareQbBtn, Color3.fromRGB(200, 140, 255), 2)
-
-local scareQbLabel = Instance.new("TextLabel")
-scareQbLabel.Size = UDim2.new(1, 0, 0, 12)
-scareQbLabel.Position = UDim2.new(0, 0, 1, 2)
-scareQbLabel.BackgroundTransparency = 1
-scareQbLabel.Text = "SCARE"
-scareQbLabel.Font = Enum.Font.GothamBold
-scareQbLabel.TextSize = 7
-scareQbLabel.TextColor3 = Color3.fromRGB(200, 140, 255)
-scareQbLabel.ZIndex = 5
-scareQbLabel.Parent = scareQbBtn
-
-local scareQbVisible = true
-
-local function updateScareQb(ready)
-    if ready then
-        scareQbBtn.TextColor3 = Color3.fromRGB(200, 140, 255)
-        tween(scareQbBtn, {BackgroundColor3 = COLORS.DarkBG}, 0.2)
-        createStroke(scareQbBtn, Color3.fromRGB(200, 140, 255), 2)
-        scareQbLabel.Text = "SCARE"
-        scareQbLabel.TextColor3 = Color3.fromRGB(200, 140, 255)
-    else
-        scareQbBtn.TextColor3 = Color3.fromRGB(100, 80, 120)
-        tween(scareQbBtn, {BackgroundColor3 = Color3.fromRGB(20, 15, 30)}, 0.2)
-        scareQbLabel.Text = "WAIT..."
-        scareQbLabel.TextColor3 = Color3.fromRGB(100, 80, 120)
-    end
-end
-
-Troll.onScareReady = function()
-    setScareBtnReady(true)
-    updateScareQb(true)
-    Notif:Send("👻 Scare ready!", 2)
-end
-
-scareQbBtn.MouseButton1Click:Connect(function()
-    if Troll:IsScareCooldown() then return end
-    if not Troll:GetTarget() then
-        Notif:Send("No target! Pick one in TROLL tab.", 3)
-        return
-    end
-    local ok = Troll:ScareOnce()
-    if ok then
-        setScareBtnReady(false)
-        updateScareQb(false)
+        setHubScareReady(false)
         Notif:Send("👻 Scaring " .. Troll:GetTarget().Name .. "...", 2)
     end
 end)
 
--- ── FLING TOGGLES ─────────────────────────────────────────────
+Troll.onScareReady = function()
+    setHubScareReady(true)
+    Notif:Send("👻 Scare ready!", 2)
+end
+
+hubClose.MouseButton1Click:Connect(function()
+    scareHubOpen = false
+    scareHub.Visible = false
+    CONFIG.Scare = false
+    if toggleSyncs["Scare"] then toggleSyncs["Scare"](false) end
+end)
+
+toggleSyncs["Scare"] = createToggle(trollContent, "Scare", "Scare", function(v)
+    scareHubOpen = v
+    scareHub.Visible = v
+    if v then
+        buildHubPlayerList("")
+        Notif:Send("Scare Hub opened", 2)
+    end
+end)
+
 local flingHeader = Instance.new("TextLabel")
 flingHeader.Size = UDim2.new(1, -4, 0, 18)
 flingHeader.BackgroundTransparency = 1
 flingHeader.Text = "FLING"
 flingHeader.Font = Enum.Font.GothamBold
 flingHeader.TextSize = 9
-flingHeader.TextColor3 = Color3.fromRGB(200, 140, 255)
+flingHeader.TextColor3 = SCARE_COL
 flingHeader.TextXAlignment = Enum.TextXAlignment.Left
 flingHeader.Parent = trollContent
 
