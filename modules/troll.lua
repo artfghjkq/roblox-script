@@ -336,7 +336,7 @@ function Troll:StartWalkFling()
                 c    = player.Character
                 root = getRoot(c)
             end
-            if not root then continue end
+            if root then
             local vel   = root.Velocity
             local movel = 0.1
             root.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
@@ -349,6 +349,7 @@ function Troll:StartWalkFling()
                 root.Velocity = vel + Vector3.new(0, movel, 0)
                 movel = movel * -1
             end
+            end -- if root
         until not walkFlinging
     end)
 end

@@ -70,6 +70,7 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
                 skeletons[plr] = nil
             end
             if beamTracers[plr] then beamTracers[plr].Visible = false end
+            continue
         end
 
         local rootPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
