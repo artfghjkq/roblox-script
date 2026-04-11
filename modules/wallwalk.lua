@@ -2,24 +2,6 @@
 -- Full GravityController wallwalk — exact provided code
 -- Called via loadstring(game:HttpGet(...))()
 
-script = Instance.new("LocalScript")
-
-repeat wait()
-	a = pcall(function()
-		game:WaitForChild("Players").LocalPlayer:WaitForChild("PlayerScripts").ChildAdded:Connect(function(c)
-			if c.Name == "PlayerScriptsLoader"then
-				c.Disabled = true
-			end
-		end)
-	end)
-	if a == true then break end
-until true == false
-
-game:WaitForChild("Players").LocalPlayer:WaitForChild("PlayerScripts").ChildAdded:Connect(function(c)
-	if c.Name == "PlayerScriptsLoader"then
-		c.Disabled = true
-	end
-end)
 
 function _CameraUI()
 	local Players = game:GetService("Players")
