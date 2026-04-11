@@ -423,17 +423,17 @@ function Troll:RushScare()
         local wasInvi = self.inviModule and self.inviModule:IsActive()
         if wasInvi then pcall(function() myRoot.Transparency = 0 end) end
 
-        -- Boost speed + BodyVelocity for smooth dash
-        myHum.WalkSpeed = self.rushSpeed or 100
+        -- Step size per frame: speed * dt (replicated via CFrame sets each Stepped)
+        local stepSpeed = self.rushSpeed or 100
 
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(math.huge, 0, math.huge)
-        bv.Velocity = Vector3.new(0, 0, 0)
-        bv.Parent   = myRoot
+        -- Disable noclip so we don't phase through floor
+        myHum.WalkSpeed = 0  -- freeze humanoid control, we move manually
 
         local reached = false
+        local elapsed = 0
 
-        rushScareConn = RunService.Heartbeat:Connect(function()
+        -- Use Stepped (physics step) so each CFrame set gets replicated to server
+        rushScareConn = RunService.Stepped:Connect(function(_, dt)
             if not rushScareActive then
                 if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
                 return
@@ -446,34 +446,41 @@ function Troll:RushScare()
             end
 
             local myPos  = myRoot.Position
-            local tgtPos = tgtRoot.Position
-            local dist   = (myPos - tgtPos).Magnitude
+            local tgtPos = Vector3.new(tgtRoot.Position.X, myPos.Y, tgtRoot.Position.Z)
+            local diff   = tgtPos - myPos
+            local dist   = diff.Magnitude
 
             if dist <= 4 then
                 reached = true
-                bv.Velocity = Vector3.new(0, 0, 0)
                 if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
                 return
             end
 
-            local dir = (tgtPos - myPos).Unit
-            bv.Velocity = dir * (self.rushSpeed or 100)
-            pcall(function()
-                myRoot.CFrame = CFrame.new(myPos, myPos + Vector3.new(dir.X, 0, dir.Z))
-            end)
+            elapsed = elapsed + dt
+            if elapsed >= 5 then
+                reached = true
+                if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
+                return
+            end
+
+            -- Move one step toward target, facing it
+            local dir     = diff.Unit
+            local step    = math.min(stepSpeed * dt, dist - 4)
+            local newPos  = myPos + dir * step
+            local faceCF  = CFrame.new(newPos, newPos + Vector3.new(dir.X, 0, dir.Z))
+            myRoot.CFrame = faceCF
         end)
 
-        -- Wait until reached or 5s timeout
-        local elapsed = 0
-        repeat task.wait(0.05); elapsed = elapsed + 0.05 until reached or elapsed >= 5
+        -- Wait until reached or timeout
+        repeat task.wait(0.05) until reached or elapsed >= 5
 
-        pcall(function() bv:Destroy() end)
+        if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
 
         -- Hold in front of target's face
         local holdTime    = self.rushHoldTime or 1
         local holdElapsed = 0
         local holdConn
-        holdConn = RunService.Heartbeat:Connect(function(dt)
+        holdConn = RunService.Stepped:Connect(function(_, dt)
             holdElapsed = holdElapsed + dt
             if holdElapsed >= holdTime then holdConn:Disconnect(); return end
             local tgtRoot = getRoot(tgt.Character)
