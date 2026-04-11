@@ -423,105 +423,91 @@ function Troll:RushScare()
         local wasInvi = self.inviModule and self.inviModule:IsActive()
         if wasInvi then pcall(function() myRoot.Transparency = 0 end) end
 
-        -- DO NOT touch CanCollide at all — user may be invisible/floating
-        -- Instead, use PathfindingService to get a natural route to target
-
+        -- Use PathfindingService + Humanoid:MoveTo so the character
+        -- walks naturally through the map without touching CanCollide at all
         local PathfindingService = game:GetService("PathfindingService")
-        local stepSpeed = self.rushSpeed or 100
-        myHum.WalkSpeed = 0
 
-        local reached = false
-        local elapsed = 0
+        myHum.WalkSpeed = self.rushSpeed or 100
 
-        -- Build path to target once, then follow each waypoint
-        local waypoints = {}
-        local waypointIndex = 1
+        local reached   = false
+        local elapsed   = 0
 
-        pcall(function()
+        local function doRush()
             local tgtRoot = getRoot(tgt.Character)
-            if not tgtRoot then return end
+            if not tgtRoot then reached = true return end
+
+            -- Compute path
             local path = PathfindingService:CreatePath({
-                AgentRadius     = 2,
-                AgentHeight     = 5,
-                AgentCanJump    = true,
-                AgentCanClimb   = false,
+                AgentRadius  = 2,
+                AgentHeight  = 5,
+                AgentCanJump = true,
+                AgentCanClimb = false,
             })
-            path:ComputeAsync(myRoot.Position, tgtRoot.Position)
-            if path.Status == Enum.PathStatus.Success then
+
+            local ok = pcall(function()
+                path:ComputeAsync(myRoot.Position, tgtRoot.Position)
+            end)
+
+            local waypoints = {}
+            if ok and path.Status == Enum.PathStatus.Success then
                 waypoints = path:GetWaypoints()
             end
-        end)
 
-        -- Fallback: straight line if pathfinding failed
-        if #waypoints == 0 then
-            local tgtRoot = getRoot(tgt.Character)
-            if tgtRoot then
-                waypoints = {
-                    {Position = myRoot.Position},
-                    {Position = tgtRoot.Position},
-                }
+            -- Walk each waypoint
+            for _, wp in ipairs(waypoints) do
+                if not rushScareActive then break end
+                local tgtRoot2 = getRoot(tgt.Character)
+                if not tgtRoot2 then break end
+
+                -- Stop if already close enough to final target
+                if (myRoot.Position - tgtRoot2.Position).Magnitude <= 4 then
+                    reached = true
+                    break
+                end
+
+                -- Jump waypoint
+                if wp.Action == Enum.PathWaypointAction.Jump then
+                    myHum.Jump = true
+                end
+
+                myHum:MoveTo(wp.Position)
+
+                -- Wait until we reach this waypoint or timeout per step
+                local stepTimer = 0
+                repeat
+                    task.wait(0.05)
+                    stepTimer  = stepTimer + 0.05
+                    elapsed    = elapsed + 0.05
+                until not rushScareActive
+                    or (myRoot.Position - wp.Position).Magnitude < 3
+                    or stepTimer > 3
+                    or elapsed > 10
+            end
+
+            -- Final check
+            local tgtRoot3 = getRoot(tgt.Character)
+            if tgtRoot3 and (myRoot.Position - tgtRoot3.Position).Magnitude <= 6 then
+                reached = true
+            end
+
+            -- If pathfinding failed or still not close, teleport as last resort
+            if not reached then
+                local tgtRoot4 = getRoot(tgt.Character)
+                if tgtRoot4 then
+                    myRoot.CFrame = CFrame.new(
+                        (tgtRoot4.CFrame * CFrame.new(0, 0, -4)).Position,
+                        tgtRoot4.Position
+                    )
+                    task.wait(0)
+                    task.wait(0)
+                    reached = true
+                end
             end
         end
 
-        rushScareConn = RunService.Stepped:Connect(function(_, dt)
-            if not rushScareActive then
-                if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
-                return
-            end
+        doRush()
 
-            local tgtRoot = getRoot(tgt.Character)
-            if not tgtRoot then
-                reached = true
-                if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
-                return
-            end
-
-            elapsed = elapsed + dt
-            if elapsed >= 8 then
-                reached = true
-                if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
-                return
-            end
-
-            local myPos  = myRoot.Position
-            local finalDist = (myPos - tgtRoot.Position).Magnitude
-            if finalDist <= 4 then
-                reached = true
-                if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
-                return
-            end
-
-            -- Advance to next waypoint if close enough
-            if waypointIndex <= #waypoints then
-                local wp = waypoints[waypointIndex]
-                local wpPos = Vector3.new(wp.Position.X, myPos.Y, wp.Position.Z)
-                local wpDist = (myPos - wpPos).Magnitude
-                if wpDist < 2 then
-                    waypointIndex = waypointIndex + 1
-                end
-            end
-
-            -- Get current target direction: next waypoint or final target
-            local targetPos
-            if waypointIndex <= #waypoints then
-                local wp = waypoints[waypointIndex]
-                targetPos = Vector3.new(wp.Position.X, myPos.Y, wp.Position.Z)
-            else
-                targetPos = Vector3.new(tgtRoot.Position.X, myPos.Y, tgtRoot.Position.Z)
-            end
-
-            local diff = targetPos - myPos
-            local dist = diff.Magnitude
-            if dist < 0.1 then return end
-
-            local dir  = diff.Unit
-            local step = math.min(stepSpeed * dt, dist)
-            local newPos = myPos + dir * step
-            myRoot.CFrame = CFrame.new(newPos, newPos + Vector3.new(dir.X, 0, dir.Z))
-        end)
-
-        repeat task.wait(0.05) until reached or elapsed >= 8
-        if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
+        myHum:MoveTo(myRoot.Position) -- stop movement
 
         -- Hold in front of target's face
         local holdTime    = self.rushHoldTime or 1
