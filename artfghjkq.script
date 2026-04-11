@@ -973,7 +973,7 @@ local SCARE_COL = Color3.fromRGB(200, 140, 255)
 
 local scareHubOpen = false
 
-local HUB_W, HUB_H = 250, 480
+local HUB_W, HUB_H = 250, 400
 local scareHub = Instance.new("Frame")
 scareHub.Name = "ScareHub"
 scareHub.Size = UDim2.new(0, HUB_W, 0, HUB_H)
@@ -1040,7 +1040,7 @@ createCorner(hubClose, 5)
 -- SCARE HUB: Single unified page (targets + scare on one scroll)
 -- ============================================================
 local hubPage = Instance.new("ScrollingFrame")
-hubPage.Size = UDim2.new(1, -12, 1, -44)
+hubPage.Size = UDim2.new(1, -12, 1, -42)
 hubPage.Position = UDim2.new(0, 6, 0, 40)
 hubPage.BackgroundTransparency = 1
 hubPage.BorderSizePixel = 0
@@ -1052,11 +1052,11 @@ hubPage.Parent = scareHub
 
 local hubPageLayout = Instance.new("UIListLayout", hubPage)
 hubPageLayout.SortOrder = Enum.SortOrder.LayoutOrder
-hubPageLayout.Padding = UDim.new(0, 5)
+hubPageLayout.Padding = UDim.new(0, 3)
 
 -- ── Current target display ────────────────────────────────────
 local hubTargetDisplay = Instance.new("Frame")
-hubTargetDisplay.Size = UDim2.new(1, 0, 0, 26)
+hubTargetDisplay.Size = UDim2.new(1, 0, 0, 22)
 hubTargetDisplay.BackgroundColor3 = COLORS.DarkBG
 hubTargetDisplay.LayoutOrder = 1
 hubTargetDisplay.ZIndex = 20
@@ -1078,7 +1078,7 @@ hubTargetLabel.Parent = hubTargetDisplay
 
 -- ── Player search ─────────────────────────────────────────────
 local hubSearchBox = Instance.new("TextBox")
-hubSearchBox.Size = UDim2.new(1, 0, 0, 24)
+hubSearchBox.Size = UDim2.new(1, 0, 0, 22)
 hubSearchBox.BackgroundColor3 = COLORS.DarkBG
 hubSearchBox.PlaceholderText = "Search player..."
 hubSearchBox.PlaceholderColor3 = Color3.fromRGB(100, 85, 120)
@@ -1097,7 +1097,7 @@ sbPad.PaddingLeft = UDim.new(0, 8)
 
 -- ── Player list ───────────────────────────────────────────────
 local hubListFrame = Instance.new("ScrollingFrame")
-hubListFrame.Size = UDim2.new(1, 0, 0, 110)
+hubListFrame.Size = UDim2.new(1, 0, 0, 72)
 hubListFrame.BackgroundTransparency = 1
 hubListFrame.BorderSizePixel = 0
 hubListFrame.ScrollBarThickness = 2
@@ -1113,7 +1113,7 @@ hubListLayout.Padding = UDim.new(0, 3)
 
 -- ── Spectate camera mode ──────────────────────────────────────
 local specModeRow = Instance.new("Frame")
-specModeRow.Size = UDim2.new(1, 0, 0, 50)
+specModeRow.Size = UDim2.new(1, 0, 0, 44)
 specModeRow.BackgroundColor3 = COLORS.DarkBG
 specModeRow.LayoutOrder = 4
 specModeRow.ZIndex = 20
@@ -1176,7 +1176,7 @@ for _, m in ipairs(specModes) do
 end
 
 local hubStopSpecBtn = Instance.new("TextButton")
-hubStopSpecBtn.Size = UDim2.new(1, 0, 0, 22)
+hubStopSpecBtn.Size = UDim2.new(1, 0, 0, 20)
 hubStopSpecBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 80)
 hubStopSpecBtn.Text = "Stop Spectate"
 hubStopSpecBtn.TextColor3 = Color3.fromRGB(180, 120, 255)
@@ -1313,7 +1313,7 @@ end)
 
 -- ── Divider ───────────────────────────────────────────────────
 local scareDivider = Instance.new("TextLabel")
-scareDivider.Size = UDim2.new(1, 0, 0, 14)
+scareDivider.Size = UDim2.new(1, 0, 0, 10)
 scareDivider.BackgroundTransparency = 1
 scareDivider.Text = "─── SCARE ───"
 scareDivider.Font = Enum.Font.GothamBold
@@ -1334,7 +1334,7 @@ pg2.Parent = hubPage
 
 local pg2Layout = Instance.new("UIListLayout", pg2)
 pg2Layout.SortOrder = Enum.SortOrder.LayoutOrder
-pg2Layout.Padding = UDim.new(0, 4)
+pg2Layout.Padding = UDim.new(0, 3)
 
 
 -- Scare type selector
@@ -1347,7 +1347,7 @@ local selectedScareType = "Scare"
 local scareTypeBtns = {}
 
 local scareTypeRow = Instance.new("Frame")
-scareTypeRow.Size = UDim2.new(1, 0, 0, 28)
+scareTypeRow.Size = UDim2.new(1, 0, 0, 26)
 scareTypeRow.BackgroundTransparency = 1
 scareTypeRow.LayoutOrder = 1
 scareTypeRow.ZIndex = 20
@@ -1373,7 +1373,7 @@ end
 
 -- Settings panels (one per type, stacked — only one visible at a time)
 local scareSettingsHolder = Instance.new("Frame")
-scareSettingsHolder.Size = UDim2.new(1, 0, 0, 100)
+scareSettingsHolder.Size = UDim2.new(1, 0, 0, 90)
 scareSettingsHolder.BackgroundTransparency = 1
 scareSettingsHolder.LayoutOrder = 2
 scareSettingsHolder.ZIndex = 20
@@ -1641,7 +1641,7 @@ end
 
 -- GO button
 local hubGoBtn = Instance.new("TextButton")
-hubGoBtn.Size = UDim2.new(1, 0, 0, 32)
+hubGoBtn.Size = UDim2.new(1, 0, 0, 28)
 hubGoBtn.BackgroundColor3 = SCARE_COL
 hubGoBtn.Text = "GO"
 hubGoBtn.TextColor3 = COLORS.White
