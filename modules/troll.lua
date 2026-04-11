@@ -610,7 +610,7 @@ function Troll:ComboScare()
         if wasInvi then pcall(function() myRoot.Transparency = 0 end) end
 
         -- ── PHASE 1: APPEAR ──────────────────────────────────
-        -- Teleport behind/beside target so they can see us appear
+        -- Teleport in FRONT of target so they see us before the chase
         local tgtRoot = getRoot(tgt.Character)
         if not tgtRoot then
             comboCooldown = false
@@ -618,8 +618,8 @@ function Troll:ComboScare()
         end
 
         local dist   = self.comboAppearDist or 10
-        -- Appear slightly to the side so it's visible, not directly behind
-        local appearCF = tgtRoot.CFrame * CFrame.new(dist * 0.4, 0, dist)
+        -- Appear directly IN FRONT of target (negative Z = in front of their LookVector)
+        local appearCF = tgtRoot.CFrame * CFrame.new(dist * 0.15, 0, -dist)
         appearCF = CFrame.new(appearCF.Position, tgtRoot.Position)
 
         myRoot.CFrame = appearCF

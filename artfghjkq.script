@@ -973,7 +973,7 @@ local SCARE_COL = Color3.fromRGB(200, 140, 255)
 
 local scareHubOpen = false
 
-local HUB_W, HUB_H = 230, 340
+local HUB_W, HUB_H = 250, 480
 local scareHub = Instance.new("Frame")
 scareHub.Name = "ScareHub"
 scareHub.Size = UDim2.new(0, HUB_W, 0, HUB_H)
@@ -1037,71 +1037,30 @@ hubClose.Parent = hubTopBar
 createCorner(hubClose, 5)
 
 -- ============================================================
--- SCARE HUB: Tab Bar (TARGET | SCARE)
+-- SCARE HUB: Single unified page (targets + scare on one scroll)
 -- ============================================================
-local hubTabBar = Instance.new("Frame")
-hubTabBar.Size = UDim2.new(1, -12, 0, 26)
-hubTabBar.Position = UDim2.new(0, 6, 0, 40)
-hubTabBar.BackgroundColor3 = COLORS.DarkBG
-hubTabBar.ZIndex = 20
-hubTabBar.Parent = scareHub
-createCorner(hubTabBar, 6)
+local hubPage = Instance.new("ScrollingFrame")
+hubPage.Size = UDim2.new(1, -12, 1, -44)
+hubPage.Position = UDim2.new(0, 6, 0, 40)
+hubPage.BackgroundTransparency = 1
+hubPage.BorderSizePixel = 0
+hubPage.ScrollBarThickness = 2
+hubPage.CanvasSize = UDim2.new(0, 0, 0, 0)
+hubPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
+hubPage.ZIndex = 20
+hubPage.Parent = scareHub
 
-local hubTabBtns = {}
-local hubPages   = {}
-local hubTabDefs = {"TARGET", "SCARE"}
+local hubPageLayout = Instance.new("UIListLayout", hubPage)
+hubPageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+hubPageLayout.Padding = UDim.new(0, 5)
 
-for i, tname in ipairs(hubTabDefs) do
-    local tb = Instance.new("TextButton")
-    tb.Size = UDim2.new(0.5, -4, 1, -4)
-    tb.Position = UDim2.new((i-1)*0.5, i==1 and 2 or 2, 0, 2)
-    tb.BackgroundColor3 = (i==1) and SCARE_COL or COLORS.Frame
-    tb.TextColor3 = (i==1) and COLORS.White or Color3.fromRGB(160,140,180)
-    tb.Font = Enum.Font.GothamBold
-    tb.TextSize = 9
-    tb.Text = tname
-    tb.ZIndex = 21
-    tb.Parent = hubTabBar
-    createCorner(tb, 5)
-    hubTabBtns[tname] = tb
-
-    local page = Instance.new("Frame")
-    page.Size = UDim2.new(1, -12, 1, -74)
-    page.Position = UDim2.new(0, 6, 0, 70)
-    page.BackgroundTransparency = 1
-    page.ZIndex = 20
-    page.Visible = (i==1)
-    page.Parent = scareHub
-    hubPages[tname] = page
-end
-
-local function switchHubTab(name)
-    for n, btn in pairs(hubTabBtns) do
-        btn.BackgroundColor3 = (n==name) and SCARE_COL or COLORS.Frame
-        btn.TextColor3 = (n==name) and COLORS.White or Color3.fromRGB(160,140,180)
-    end
-    for n, pg in pairs(hubPages) do pg.Visible = (n==name) end
-end
-
-for _, tname in ipairs(hubTabDefs) do
-    local cap = tname
-    hubTabBtns[cap].MouseButton1Click:Connect(function() switchHubTab(cap) end)
-end
-
--- ============================================================
--- PAGE 1: TARGET
--- ============================================================
-local pg1 = hubPages["TARGET"]
-
-local pg1Layout = Instance.new("UIListLayout", pg1)
-pg1Layout.SortOrder = Enum.SortOrder.LayoutOrder
-pg1Layout.Padding = UDim.new(0, 4)
-
+-- ── Current target display ────────────────────────────────────
 local hubTargetDisplay = Instance.new("Frame")
 hubTargetDisplay.Size = UDim2.new(1, 0, 0, 26)
 hubTargetDisplay.BackgroundColor3 = COLORS.DarkBG
+hubTargetDisplay.LayoutOrder = 1
 hubTargetDisplay.ZIndex = 20
-hubTargetDisplay.Parent = pg1
+hubTargetDisplay.Parent = hubPage
 createCorner(hubTargetDisplay, 6)
 createStroke(hubTargetDisplay, SCARE_COL, 1)
 
@@ -1117,8 +1076,9 @@ hubTargetLabel.TextXAlignment = Enum.TextXAlignment.Left
 hubTargetLabel.ZIndex = 21
 hubTargetLabel.Parent = hubTargetDisplay
 
+-- ── Player search ─────────────────────────────────────────────
 local hubSearchBox = Instance.new("TextBox")
-hubSearchBox.Size = UDim2.new(1, 0, 0, 26)
+hubSearchBox.Size = UDim2.new(1, 0, 0, 24)
 hubSearchBox.BackgroundColor3 = COLORS.DarkBG
 hubSearchBox.PlaceholderText = "Search player..."
 hubSearchBox.PlaceholderColor3 = Color3.fromRGB(100, 85, 120)
@@ -1127,32 +1087,37 @@ hubSearchBox.Font = Enum.Font.Gotham
 hubSearchBox.TextSize = 9
 hubSearchBox.TextColor3 = COLORS.White
 hubSearchBox.ClearTextOnFocus = false
+hubSearchBox.LayoutOrder = 2
 hubSearchBox.ZIndex = 21
-hubSearchBox.Parent = pg1
+hubSearchBox.Parent = hubPage
 createCorner(hubSearchBox, 6)
 createStroke(hubSearchBox, COLORS.Galaxy1, 1)
 local sbPad = Instance.new("UIPadding", hubSearchBox)
 sbPad.PaddingLeft = UDim.new(0, 8)
 
+-- ── Player list ───────────────────────────────────────────────
 local hubListFrame = Instance.new("ScrollingFrame")
-hubListFrame.Size = UDim2.new(1, 0, 0, 130)
+hubListFrame.Size = UDim2.new(1, 0, 0, 110)
 hubListFrame.BackgroundTransparency = 1
 hubListFrame.BorderSizePixel = 0
 hubListFrame.ScrollBarThickness = 2
 hubListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 hubListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+hubListFrame.LayoutOrder = 3
 hubListFrame.ZIndex = 20
-hubListFrame.Parent = pg1
+hubListFrame.Parent = hubPage
 
 local hubListLayout = Instance.new("UIListLayout", hubListFrame)
 hubListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 hubListLayout.Padding = UDim.new(0, 3)
 
+-- ── Spectate camera mode ──────────────────────────────────────
 local specModeRow = Instance.new("Frame")
 specModeRow.Size = UDim2.new(1, 0, 0, 50)
 specModeRow.BackgroundColor3 = COLORS.DarkBG
+specModeRow.LayoutOrder = 4
 specModeRow.ZIndex = 20
-specModeRow.Parent = pg1
+specModeRow.Parent = hubPage
 createCorner(specModeRow, 6)
 
 local specModeLabel = Instance.new("TextLabel")
@@ -1197,7 +1162,6 @@ local function setSpecModeUI(mode)
         specModeBtns[m.key].TextColor3       = active and COLORS.White or Color3.fromRGB(160,140,180)
     end
 end
-
 local specModeNotifs = {
     free="Cam: Free", locked="Cam: Locked (POV)",
     orbit="Cam: Fixed Orbit", third="Cam: 3rd Person",
@@ -1212,27 +1176,26 @@ for _, m in ipairs(specModes) do
 end
 
 local hubStopSpecBtn = Instance.new("TextButton")
-hubStopSpecBtn.Size = UDim2.new(1, 0, 0, 24)
+hubStopSpecBtn.Size = UDim2.new(1, 0, 0, 22)
 hubStopSpecBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 80)
 hubStopSpecBtn.Text = "Stop Spectate"
 hubStopSpecBtn.TextColor3 = Color3.fromRGB(180, 120, 255)
 hubStopSpecBtn.Font = Enum.Font.GothamBold
 hubStopSpecBtn.TextSize = 9
 hubStopSpecBtn.Visible = false
+hubStopSpecBtn.LayoutOrder = 5
 hubStopSpecBtn.ZIndex = 21
-hubStopSpecBtn.Parent = pg1
+hubStopSpecBtn.Parent = hubPage
 createCorner(hubStopSpecBtn, 6)
 createStroke(hubStopSpecBtn, SCARE_COL, 1)
 
 local hubPlayerRows = {}
-
 local function buildHubPlayerList(filter)
     for _, row in pairs(hubPlayerRows) do
         if row and row.Parent then row:Destroy() end
     end
     hubPlayerRows = {}
     filter = (filter or ""):lower()
-
     local found = 0
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= player then
@@ -1242,16 +1205,14 @@ local function buildHubPlayerList(filter)
                 found = found + 1
                 local isSpec = Troll:GetSpectateTarget() == p
                 local isSel  = Troll:GetTarget() == p and not isSpec
-
                 local row = Instance.new("Frame")
-                row.Size = UDim2.new(1, 0, 0, 36)
+                row.Size = UDim2.new(1, 0, 0, 34)
                 row.BackgroundColor3 = isSpec and Color3.fromRGB(40,15,60) or COLORS.Frame
                 row.ZIndex = 21
                 row.Parent = hubListFrame
                 createCorner(row, 6)
                 if isSpec then createStroke(row, SCARE_COL, 1) end
                 table.insert(hubPlayerRows, row)
-
                 local nameCol = Instance.new("TextLabel")
                 nameCol.Size = UDim2.new(1, -110, 1, 0)
                 nameCol.Position = UDim2.new(0, 8, 0, 0)
@@ -1264,10 +1225,9 @@ local function buildHubPlayerList(filter)
                 nameCol.TextYAlignment = Enum.TextYAlignment.Center
                 nameCol.ZIndex = 22
                 nameCol.Parent = row
-
                 local specBtn = Instance.new("TextButton")
-                specBtn.Size = UDim2.new(0, 46, 0, 20)
-                specBtn.Position = UDim2.new(1, -104, 0.5, -10)
+                specBtn.Size = UDim2.new(0, 44, 0, 20)
+                specBtn.Position = UDim2.new(1, -102, 0.5, -10)
                 specBtn.Font = Enum.Font.GothamBold
                 specBtn.TextSize = 7
                 specBtn.ZIndex = 22
@@ -1276,19 +1236,17 @@ local function buildHubPlayerList(filter)
                 specBtn.Text = "SPEC"
                 specBtn.BackgroundColor3 = isSpec and SCARE_COL or COLORS.DarkBG
                 specBtn.TextColor3 = isSpec and COLORS.White or Color3.fromRGB(160,140,180)
-
                 local selBtn = Instance.new("TextButton")
-                selBtn.Size = UDim2.new(0, 46, 0, 20)
+                selBtn.Size = UDim2.new(0, 44, 0, 20)
                 selBtn.Position = UDim2.new(1, -54, 0.5, -10)
                 selBtn.Font = Enum.Font.GothamBold
                 selBtn.TextSize = 7
                 selBtn.ZIndex = 22
                 selBtn.Parent = row
                 createCorner(selBtn, 5)
-                selBtn.Text = isSel and "SEL" or "SELECT"
+                selBtn.Text = isSel and "SEL â" or "SELECT"
                 selBtn.BackgroundColor3 = isSel and COLORS.Galaxy1 or COLORS.DarkBG
                 selBtn.TextColor3 = isSel and COLORS.White or Color3.fromRGB(160,140,180)
-
                 local capP = p
                 specBtn.MouseButton1Click:Connect(function()
                     if Troll:GetSpectateTarget() == capP then
@@ -1310,7 +1268,6 @@ local function buildHubPlayerList(filter)
             end
         end
     end
-
     if found == 0 then
         local empty = Instance.new("TextLabel")
         empty.Size = UDim2.new(1, 0, 0, 24)
@@ -1354,14 +1311,31 @@ hubSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
     buildHubPlayerList(hubSearchBox.Text)
 end)
 
--- ============================================================
--- PAGE 2: SCARE
--- ============================================================
-local pg2 = hubPages["SCARE"]
+-- ── Divider ───────────────────────────────────────────────────
+local scareDivider = Instance.new("TextLabel")
+scareDivider.Size = UDim2.new(1, 0, 0, 14)
+scareDivider.BackgroundTransparency = 1
+scareDivider.Text = "─── SCARE ───"
+scareDivider.Font = Enum.Font.GothamBold
+scareDivider.TextSize = 8
+scareDivider.TextColor3 = SCARE_COL
+scareDivider.LayoutOrder = 6
+scareDivider.ZIndex = 20
+scareDivider.Parent = hubPage
+
+-- ── pg2: scare controls container ────────────────────────────
+local pg2 = Instance.new("Frame")
+pg2.Size = UDim2.new(1, 0, 0, 0)
+pg2.AutomaticSize = Enum.AutomaticSize.Y
+pg2.BackgroundTransparency = 1
+pg2.LayoutOrder = 7
+pg2.ZIndex = 20
+pg2.Parent = hubPage
 
 local pg2Layout = Instance.new("UIListLayout", pg2)
 pg2Layout.SortOrder = Enum.SortOrder.LayoutOrder
 pg2Layout.Padding = UDim.new(0, 4)
+
 
 -- Scare type selector
 local scareTypes = {
@@ -1375,6 +1349,7 @@ local scareTypeBtns = {}
 local scareTypeRow = Instance.new("Frame")
 scareTypeRow.Size = UDim2.new(1, 0, 0, 28)
 scareTypeRow.BackgroundTransparency = 1
+scareTypeRow.LayoutOrder = 1
 scareTypeRow.ZIndex = 20
 scareTypeRow.Parent = pg2
 
@@ -1400,6 +1375,7 @@ end
 local scareSettingsHolder = Instance.new("Frame")
 scareSettingsHolder.Size = UDim2.new(1, 0, 0, 100)
 scareSettingsHolder.BackgroundTransparency = 1
+scareSettingsHolder.LayoutOrder = 2
 scareSettingsHolder.ZIndex = 20
 scareSettingsHolder.Parent = pg2
 
@@ -1472,7 +1448,7 @@ createCorner(autoEmoteBtn, 4)
 -- Emote popup
 local emotePopup = Instance.new("Frame")
 emotePopup.Size = UDim2.new(0, HUB_W-12, 0, 160)
-emotePopup.Position = UDim2.new(0, 6, 0, 70)
+emotePopup.Position = UDim2.new(0, 6, 0, 200)
 emotePopup.BackgroundColor3 = COLORS.DarkBG
 emotePopup.ZIndex = 30; emotePopup.Visible = false
 emotePopup.Parent = scareHub
@@ -1671,6 +1647,7 @@ hubGoBtn.Text = "GO"
 hubGoBtn.TextColor3 = COLORS.White
 hubGoBtn.Font = Enum.Font.GothamBold
 hubGoBtn.TextSize = 13
+hubGoBtn.LayoutOrder = 3
 hubGoBtn.ZIndex = 21
 hubGoBtn.Parent = pg2
 createCorner(hubGoBtn, 8)
