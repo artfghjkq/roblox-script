@@ -24,6 +24,7 @@ local ESP      = req("esp.lua")
 local Scripts  = req("scripts.lua")
 local Invi     = req("invi.lua")
 local Troll    = req("troll.lua")
+Troll.inviModule = Invi  -- so ScareOnce can temporarily show avatar even when invisible
 
 local COLORS         = ColLib.COLORS
 local createCorner   = ColLib.createCorner

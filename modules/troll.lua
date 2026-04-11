@@ -19,7 +19,7 @@ local walkFlingThread = nil
 local antiFlingConn   = nil
 local spectating      = false
 local specTarget      = nil
-local spectateMode    = "locked" -- "free" or "locked"
+local spectateMode    = "free" -- "free" or "locked"
 local lockedCamConn   = nil
 
 Troll.selectedTarget  = nil
@@ -133,11 +133,15 @@ function Troll:GetSpectateTarget()
     return specTarget
 end
 
+-- Optional: set this from main script so ScareOnce can temporarily disable invi
+Troll.inviModule = nil
+
 function Troll:ScareOnce()
     if scareCooldown then return false end
     local tgt = self.selectedTarget
     if not tgt or not tgt.Character then return false end
-    local myRoot  = getRoot(player.Character)
+    local myChar  = player.Character
+    local myRoot  = getRoot(myChar)
     local tgtRoot = getRoot(tgt.Character)
     if not myRoot or not tgtRoot then return false end
 
@@ -146,12 +150,58 @@ function Troll:ScareOnce()
 
     task.spawn(function()
         local saved = myRoot.CFrame
-        myRoot.CFrame = CFrame.new(
-            tgtRoot.Position + tgtRoot.CFrame.LookVector * 2,
-            tgtRoot.Position
-        )
-        task.wait(0.5)
+
+        -- Step 1: Temporarily un-invisible so target can actually see us
+        local wasInvi = self.inviModule and self.inviModule:IsActive()
+        if wasInvi then
+            -- Restore HRP transparency so we appear visible
+            pcall(function()
+                myRoot.Transparency = 0
+            end)
+            -- Re-add body parts briefly if they were destroyed
+            -- (invi destroys parts, so we need to respawn char — instead just make HRP visible)
+        end
+
+        -- Step 2: Teleport directly in front of target (face-to-face)
+        local targetCF = tgtRoot.CFrame
+        local spawnCF  = targetCF * CFrame.new(0, 0, -6) -- 6 studs in front (visible but not too close)
+        -- Face the target
+        spawnCF = CFrame.new(spawnCF.Position, tgtRoot.Position)
+
+        myRoot.CFrame = spawnCF
+
+        -- Step 3: Wait for physics/network replication (critical!)
+        task.wait(0)   -- yield so engine flushes CFrame to server
+        task.wait(0)   -- second yield for good measure
+
+        -- Step 4: Hold position for target to see us
+        local holdTime = 1
+        local elapsed  = 0
+        local stepConn
+        stepConn = RunService.Stepped:Connect(function(_, dt)
+            elapsed = elapsed + dt
+            if elapsed >= holdTime then
+                stepConn:Disconnect()
+                return
+            end
+            -- Keep re-applying CFrame so network latency can't undo it
+            pcall(function()
+                myRoot.CFrame = CFrame.new(spawnCF.Position, tgtRoot.Position)
+            end)
+        end)
+
+        task.wait(holdTime + 0.05)
+
+        -- Step 5: Return to original position
         pcall(function() myRoot.CFrame = saved end)
+
+        -- Step 6: Restore invisibility state
+        if wasInvi then
+            pcall(function()
+                myRoot.Transparency = 1
+            end)
+        end
+
         task.wait(2.5)
         scareCooldown   = false
         self.scareReady = true
