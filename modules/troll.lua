@@ -134,7 +134,9 @@ function Troll:GetSpectateTarget()
 end
 
 -- Optional: set this from main script so ScareOnce can temporarily disable invi
-Troll.inviModule = nil
+Troll.inviModule   = nil
+Troll.scareHoldTime = 1   -- seconds to stay in front of target (editable from UI)
+Troll.scareDistance = 6   -- studs in front of target (editable from UI)
 
 function Troll:ScareOnce()
     if scareCooldown then return false end
@@ -163,8 +165,10 @@ function Troll:ScareOnce()
         end
 
         -- Step 2: Teleport directly in front of target (face-to-face)
+        local dist     = self.scareDistance or 6
+        local holdTime = self.scareHoldTime or 1
         local targetCF = tgtRoot.CFrame
-        local spawnCF  = targetCF * CFrame.new(0, 0, -10) -- 6 studs in front (visible but not too close)
+        local spawnCF  = targetCF * CFrame.new(0, 0, -dist)
         -- Face the target
         spawnCF = CFrame.new(spawnCF.Position, tgtRoot.Position)
 
@@ -175,7 +179,6 @@ function Troll:ScareOnce()
         task.wait(0)   -- second yield for good measure
 
         -- Step 4: Hold position for target to see us
-        local holdTime = 1
         local elapsed  = 0
         local stepConn
         stepConn = RunService.Stepped:Connect(function(_, dt)
@@ -387,6 +390,126 @@ end
 
 function Troll:IsAntiFling()
     return antiFlingConn ~= nil
+end
+
+-- ============================================================
+-- RUSH SCARE
+-- ============================================================
+local rushScareActive = false
+local rushScareConn   = nil
+local rushCooldown    = false
+
+Troll.rushSpeed    = 100
+Troll.rushHoldTime = 1
+Troll.onRushReady  = nil
+
+function Troll:RushScare()
+    if rushCooldown then return false end
+    local tgt = self.selectedTarget
+    if not tgt or not tgt.Character then return false end
+    local myChar = player.Character
+    local myRoot = getRoot(myChar)
+    local myHum  = myChar and myChar:FindFirstChildWhichIsA("Humanoid")
+    if not myRoot or not myHum then return false end
+
+    rushCooldown    = true
+    rushScareActive = true
+
+    task.spawn(function()
+        local savedSpeed = myHum.WalkSpeed
+        local savedCF    = myRoot.CFrame
+
+        -- Show avatar if invisible
+        local wasInvi = self.inviModule and self.inviModule:IsActive()
+        if wasInvi then pcall(function() myRoot.Transparency = 0 end) end
+
+        -- Boost speed + BodyVelocity for smooth dash
+        myHum.WalkSpeed = self.rushSpeed or 100
+
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(math.huge, 0, math.huge)
+        bv.Velocity = Vector3.new(0, 0, 0)
+        bv.Parent   = myRoot
+
+        local reached = false
+
+        rushScareConn = RunService.Heartbeat:Connect(function()
+            if not rushScareActive then
+                if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
+                return
+            end
+            local tgtRoot = getRoot(tgt.Character)
+            if not tgtRoot then
+                reached = true
+                if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
+                return
+            end
+
+            local myPos  = myRoot.Position
+            local tgtPos = tgtRoot.Position
+            local dist   = (myPos - tgtPos).Magnitude
+
+            if dist <= 4 then
+                reached = true
+                bv.Velocity = Vector3.new(0, 0, 0)
+                if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
+                return
+            end
+
+            local dir = (tgtPos - myPos).Unit
+            bv.Velocity = dir * (self.rushSpeed or 100)
+            pcall(function()
+                myRoot.CFrame = CFrame.new(myPos, myPos + Vector3.new(dir.X, 0, dir.Z))
+            end)
+        end)
+
+        -- Wait until reached or 5s timeout
+        local elapsed = 0
+        repeat task.wait(0.05); elapsed = elapsed + 0.05 until reached or elapsed >= 5
+
+        pcall(function() bv:Destroy() end)
+
+        -- Hold in front of target's face
+        local holdTime    = self.rushHoldTime or 1
+        local holdElapsed = 0
+        local holdConn
+        holdConn = RunService.Heartbeat:Connect(function(dt)
+            holdElapsed = holdElapsed + dt
+            if holdElapsed >= holdTime then holdConn:Disconnect(); return end
+            local tgtRoot = getRoot(tgt.Character)
+            if tgtRoot then
+                pcall(function()
+                    myRoot.CFrame = CFrame.new(
+                        (tgtRoot.CFrame * CFrame.new(0, 0, -4)).Position,
+                        tgtRoot.Position
+                    )
+                end)
+            end
+        end)
+
+        task.wait(holdTime + 0.05)
+
+        -- Restore everything
+        rushScareActive = false
+        myHum.WalkSpeed = savedSpeed
+        pcall(function() myRoot.CFrame = savedCF end)
+        if wasInvi then pcall(function() myRoot.Transparency = 1 end) end
+
+        task.wait(2.5)
+        rushCooldown = false
+        if self.onRushReady then self.onRushReady() end
+    end)
+
+    return true
+end
+
+function Troll:StopRushScare()
+    rushScareActive = false
+    if rushScareConn then rushScareConn:Disconnect(); rushScareConn = nil end
+end
+
+function Troll:IsRushCooldown()
+    return rushCooldown
 end
 
 return Troll
