@@ -19,7 +19,7 @@ end
 
 -- ScreenGui
 local NotifGui = Instance.new("ScreenGui")
-NotifGui.Name = "artfghjkq_notif"
+NotifGui.Name = "HALO-HALO"
 NotifGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 NotifGui.ResetOnSpawn = false
 NotifGui.IgnoreGuiInset = true
