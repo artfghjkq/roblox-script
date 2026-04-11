@@ -147,15 +147,22 @@ function Troll:ScareOnce()
     task.spawn(function()
         local saved = myRoot.CFrame
 
-        -- Flatten the target's look direction to horizontal only (ignore camera tilt)
-        local flatLook = Vector3.new(tgtRoot.CFrame.LookVector.X, 0, tgtRoot.CFrame.LookVector.Z).Unit
-        local spawnPos = tgtRoot.Position - flatLook * 2
+        -- Get target's flat forward direction (ignore Y tilt from camera)
+        local tgtLook = tgtRoot.CFrame.LookVector
+        local flatLook = Vector3.new(tgtLook.X, 0, tgtLook.Z)
+        if flatLook.Magnitude < 0.01 then flatLook = Vector3.new(0, 0, 1) end
+        flatLook = flatLook.Unit
 
-        -- Place us at same Y as target, directly in front, facing them
-        myRoot.CFrame = CFrame.lookAt(
-            Vector3.new(spawnPos.X, tgtRoot.Position.Y, spawnPos.Z),
-            Vector3.new(tgtRoot.Position.X, tgtRoot.Position.Y, tgtRoot.Position.Z)
+        -- Appear in FRONT of target = opposite of where they're looking
+        -- Their LookVector points away from their face, so we go in that direction
+        local spawnPos = Vector3.new(
+            tgtRoot.Position.X + flatLook.X * 2,
+            tgtRoot.Position.Y,
+            tgtRoot.Position.Z + flatLook.Z * 2
         )
+
+        -- Face back toward the target
+        myRoot.CFrame = CFrame.lookAt(spawnPos, Vector3.new(tgtRoot.Position.X, spawnPos.Y, tgtRoot.Position.Z))
 
         task.wait(0.5)
         pcall(function() myRoot.CFrame = saved end)
