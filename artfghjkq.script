@@ -4,7 +4,21 @@
 local BASE_URL = "https://raw.githubusercontent.com/artfghjkq/roblox-script/refs/heads/main/modules/"
 
 local function req(file)
-    return loadstring(game:HttpGet(BASE_URL .. file))()
+    local ok, raw = pcall(function()
+        return game:HttpGet(BASE_URL .. file)
+    end)
+    if not ok or not raw or raw == "" then
+        error("[HALO-HALO] Failed to fetch: " .. file .. "\n" .. tostring(raw), 2)
+    end
+    local fn, err = loadstring(raw)
+    if not fn then
+        error("[HALO-HALO] Syntax error in: " .. file .. "\n" .. tostring(err), 2)
+    end
+    local ok2, result = pcall(fn)
+    if not ok2 then
+        error("[HALO-HALO] Runtime error in: " .. file .. "\n" .. tostring(result), 2)
+    end
+    return result
 end
 
 -- Services
