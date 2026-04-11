@@ -447,7 +447,7 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     end)
 
     -- ── SCARE section ─────────────────────────────────────────
-    sectionHeader("SCARE", 4):LayoutOrder = 4
+    sectionHeader("SCARE", 4)
 
     -- Type selector
     local typeRow = Instance.new("Frame")
