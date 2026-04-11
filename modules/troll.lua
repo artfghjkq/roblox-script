@@ -509,22 +509,51 @@ function Troll:RushScare()
 
         myHum:MoveTo(myRoot.Position) -- stop movement
 
-        -- Hold in front of target's face
+        -- Hold in front of target's face + glitch/twitch effect
         local holdTime    = self.rushHoldTime or 1
         local holdElapsed = 0
+        local twitchTimer = 0
+        local twitchInterval = 0.07 -- how often to twitch (seconds)
+        local twitchPhase = 0       -- cycles through offsets
+
         local holdConn
         holdConn = RunService.Stepped:Connect(function(_, dt)
             holdElapsed = holdElapsed + dt
             if holdElapsed >= holdTime then holdConn:Disconnect(); return end
+
             local tgtRoot = getRoot(tgt.Character)
-            if tgtRoot then
-                pcall(function()
-                    myRoot.CFrame = CFrame.new(
-                        (tgtRoot.CFrame * CFrame.new(0, 0, -4)).Position,
-                        tgtRoot.Position
-                    )
-                end)
+            if not tgtRoot then holdConn:Disconnect(); return end
+
+            -- Base position: in front of target's face
+            local baseCF = CFrame.new(
+                (tgtRoot.CFrame * CFrame.new(0, 0, -4)).Position,
+                tgtRoot.Position
+            )
+
+            -- Glitch offsets: rapid random-ish displacement
+            twitchTimer = twitchTimer + dt
+            if twitchTimer >= twitchInterval then
+                twitchTimer = 0
+                twitchPhase = twitchPhase + 1
             end
+
+            -- Alternate between different offsets per phase for twitch look
+            local offsets = {
+                Vector3.new( 0.4,  0.3,  0),
+                Vector3.new(-0.5,  0,    0.2),
+                Vector3.new( 0,   -0.4,  0.3),
+                Vector3.new( 0.3,  0.5, -0.2),
+                Vector3.new(-0.2, -0.3,  0),
+                Vector3.new( 0,    0,    0),   -- back to center (flicker)
+                Vector3.new( 0.6,  0,   -0.3),
+                Vector3.new( 0,    0,    0),   -- center again
+            }
+            local idx = (twitchPhase % #offsets) + 1
+            local glitchOffset = offsets[idx]
+
+            pcall(function()
+                myRoot.CFrame = baseCF + glitchOffset
+            end)
         end)
 
         task.wait(holdTime + 0.05)
