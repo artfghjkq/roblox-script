@@ -19,7 +19,7 @@ local walkFlingThread = nil
 local antiFlingConn   = nil
 local spectating      = false
 local specTarget      = nil
-local spectateMode    = "free" -- "free" or "locked"
+local spectateMode    = "locked" -- "free" or "locked"
 local lockedCamConn   = nil
 
 Troll.selectedTarget  = nil
@@ -146,24 +146,10 @@ function Troll:ScareOnce()
 
     task.spawn(function()
         local saved = myRoot.CFrame
-
-        -- Get target's flat forward direction (ignore Y tilt from camera)
-        local tgtLook = tgtRoot.CFrame.LookVector
-        local flatLook = Vector3.new(tgtLook.X, 0, tgtLook.Z)
-        if flatLook.Magnitude < 0.01 then flatLook = Vector3.new(0, 0, 1) end
-        flatLook = flatLook.Unit
-
-        -- Appear in FRONT of target = opposite of where they're looking
-        -- Their LookVector points away from their face, so we go in that direction
-        local spawnPos = Vector3.new(
-            tgtRoot.Position.X + flatLook.X * 2,
-            tgtRoot.Position.Y,
-            tgtRoot.Position.Z + flatLook.Z * 2
+        myRoot.CFrame = CFrame.new(
+            tgtRoot.Position + tgtRoot.CFrame.LookVector * 2,
+            tgtRoot.Position
         )
-
-        -- Face back toward the target
-        myRoot.CFrame = CFrame.lookAt(spawnPos, Vector3.new(tgtRoot.Position.X, spawnPos.Y, tgtRoot.Position.Z))
-
         task.wait(0.5)
         pcall(function() myRoot.CFrame = saved end)
         task.wait(2.5)
