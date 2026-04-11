@@ -164,7 +164,7 @@ function Troll:ScareOnce()
 
         -- Step 2: Teleport directly in front of target (face-to-face)
         local targetCF = tgtRoot.CFrame
-        local spawnCF  = targetCF * CFrame.new(0, 0, -6) -- 6 studs in front (visible but not too close)
+        local spawnCF  = targetCF * CFrame.new(0, 0, -10) -- 6 studs in front (visible but not too close)
         -- Face the target
         spawnCF = CFrame.new(spawnCF.Position, tgtRoot.Position)
 
