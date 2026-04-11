@@ -581,4 +581,188 @@ function Troll:IsRushCooldown()
     return rushCooldown
 end
 
+-- ============================================================
+-- COMBO SCARE: Appear → Chase → Hold+Twitch
+-- ============================================================
+local comboCooldown = false
+Troll.comboAppearDist = 10  -- studs away to first appear
+Troll.comboHoldTime   = 1   -- hold time after reaching target
+Troll.comboRushSpeed  = 100 -- speed during chase phase
+Troll.onComboReady    = nil
+
+function Troll:ComboScare()
+    if comboCooldown then return false end
+    local tgt = self.selectedTarget
+    if not tgt or not tgt.Character then return false end
+    local myChar = player.Character
+    local myRoot = getRoot(myChar)
+    local myHum  = myChar and myChar:FindFirstChildWhichIsA("Humanoid")
+    if not myRoot or not myHum then return false end
+
+    comboCooldown = true
+
+    task.spawn(function()
+        local savedSpeed = myHum.WalkSpeed
+        local savedCF    = myRoot.CFrame
+
+        local wasInvi = self.inviModule and self.inviModule:IsActive()
+        if wasInvi then pcall(function() myRoot.Transparency = 0 end) end
+
+        -- ── PHASE 1: APPEAR ──────────────────────────────────
+        -- Teleport behind/beside target so they can see us appear
+        local tgtRoot = getRoot(tgt.Character)
+        if not tgtRoot then
+            comboCooldown = false
+            return
+        end
+
+        local dist   = self.comboAppearDist or 10
+        -- Appear slightly to the side so it's visible, not directly behind
+        local appearCF = tgtRoot.CFrame * CFrame.new(dist * 0.4, 0, dist)
+        appearCF = CFrame.new(appearCF.Position, tgtRoot.Position)
+
+        myRoot.CFrame = appearCF
+        task.wait(0) -- flush to server
+        task.wait(0)
+
+        -- Hold appear position briefly (let target notice)
+        local appearHold = 0.6
+        local appearElapsed = 0
+        local appearConn
+        appearConn = RunService.Stepped:Connect(function(_, dt)
+            appearElapsed = appearElapsed + dt
+            if appearElapsed >= appearHold then appearConn:Disconnect(); return end
+            local tr = getRoot(tgt.Character)
+            if tr then
+                pcall(function()
+                    myRoot.CFrame = CFrame.new(myRoot.Position, tr.Position)
+                end)
+            end
+        end)
+        task.wait(appearHold + 0.05)
+
+        -- ── PHASE 2: CHASE ───────────────────────────────────
+        local PathfindingService = game:GetService("PathfindingService")
+        myHum.WalkSpeed = self.comboRushSpeed or 100
+
+        local reached = false
+        local elapsed = 0
+
+        local function doChase()
+            local tr = getRoot(tgt.Character)
+            if not tr then reached = true return end
+
+            local path = PathfindingService:CreatePath({
+                AgentRadius   = 2,
+                AgentHeight   = 5,
+                AgentCanJump  = true,
+                AgentCanClimb = false,
+            })
+            pcall(function() path:ComputeAsync(myRoot.Position, tr.Position) end)
+
+            local waypoints = {}
+            if path.Status == Enum.PathStatus.Success then
+                waypoints = path:GetWaypoints()
+            end
+
+            for _, wp in ipairs(waypoints) do
+                if not comboCooldown then break end
+                local tr2 = getRoot(tgt.Character)
+                if not tr2 then break end
+                if (myRoot.Position - tr2.Position).Magnitude <= 4 then
+                    reached = true; break
+                end
+                if wp.Action == Enum.PathWaypointAction.Jump then
+                    myHum.Jump = true
+                end
+                myHum:MoveTo(wp.Position)
+                local stepTimer = 0
+                repeat
+                    task.wait(0.05)
+                    stepTimer = stepTimer + 0.05
+                    elapsed   = elapsed + 0.05
+                until (myRoot.Position - wp.Position).Magnitude < 3
+                    or stepTimer > 3
+                    or elapsed > 10
+            end
+
+            local tr3 = getRoot(tgt.Character)
+            if tr3 and (myRoot.Position - tr3.Position).Magnitude <= 6 then
+                reached = true
+            end
+
+            -- Fallback teleport
+            if not reached then
+                local tr4 = getRoot(tgt.Character)
+                if tr4 then
+                    myRoot.CFrame = CFrame.new(
+                        (tr4.CFrame * CFrame.new(0, 0, -4)).Position,
+                        tr4.Position
+                    )
+                    task.wait(0); task.wait(0)
+                    reached = true
+                end
+            end
+        end
+
+        doChase()
+        myHum:MoveTo(myRoot.Position)
+
+        -- ── PHASE 3: HOLD + TWITCH ───────────────────────────
+        local holdTime     = self.comboHoldTime or 1
+        local holdElapsed  = 0
+        local twitchTimer  = 0
+        local twitchPhase  = 0
+        local offsets = {
+            Vector3.new( 0.4,  0.3,  0),
+            Vector3.new(-0.5,  0,    0.2),
+            Vector3.new( 0,   -0.4,  0.3),
+            Vector3.new( 0.3,  0.5, -0.2),
+            Vector3.new(-0.2, -0.3,  0),
+            Vector3.new( 0,    0,    0),
+            Vector3.new( 0.6,  0,   -0.3),
+            Vector3.new( 0,    0,    0),
+        }
+
+        local holdConn
+        holdConn = RunService.Stepped:Connect(function(_, dt)
+            holdElapsed = holdElapsed + dt
+            if holdElapsed >= holdTime then holdConn:Disconnect(); return end
+            local tr = getRoot(tgt.Character)
+            if not tr then holdConn:Disconnect(); return end
+
+            local baseCF = CFrame.new(
+                (tr.CFrame * CFrame.new(0, 0, -4)).Position,
+                tr.Position
+            )
+            twitchTimer = twitchTimer + dt
+            if twitchTimer >= 0.07 then
+                twitchTimer = 0
+                twitchPhase = twitchPhase + 1
+            end
+            local idx = (twitchPhase % #offsets) + 1
+            pcall(function()
+                myRoot.CFrame = baseCF + offsets[idx]
+            end)
+        end)
+
+        task.wait(holdTime + 0.05)
+
+        -- ── RESTORE ──────────────────────────────────────────
+        myHum.WalkSpeed = savedSpeed
+        pcall(function() myRoot.CFrame = savedCF end)
+        if wasInvi then pcall(function() myRoot.Transparency = 1 end) end
+
+        task.wait(2.5)
+        comboCooldown = false
+        if self.onComboReady then self.onComboReady() end
+    end)
+
+    return true
+end
+
+function Troll:IsComboCooldown()
+    return comboCooldown
+end
+
 return Troll

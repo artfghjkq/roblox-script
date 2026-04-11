@@ -946,7 +946,7 @@ local scareHubOpen = false
 
 local scareHub = Instance.new("Frame")
 scareHub.Name = "ScareHub"
-scareHub.Size = UDim2.new(0, 220, 0, 660)
+scareHub.Size = UDim2.new(0, 220, 0, 830)
 scareHub.Position = UDim2.new(0.5, -110, 0.5, -140)
 scareHub.BackgroundColor3 = COLORS.Background
 scareHub.Active = true
@@ -1466,7 +1466,7 @@ end
 
 -- Minimize logic (declared here, after all hubBody children exist)
 local scareHubMinimized = false
-local scareHubFullSize  = UDim2.new(0, 220, 0, 660)
+local scareHubFullSize  = UDim2.new(0, 220, 0, 830)
 local scareHubMinSize   = UDim2.new(0, 220, 0, 36)
 
 hubMinimize.MouseButton1Click:Connect(function()
@@ -1772,7 +1772,117 @@ Troll.onRushReady = function()
     setRushReady(true)
     Notif:Send("🏃 Rush ready!", 2)
 end
-hubClose.MouseButton1Click:Connect(function()
+
+-- ============================================================
+-- COMBO SCARE PANEL: Appear → Chase → Hold+Twitch
+-- ============================================================
+local COMBO_COL = Color3.fromRGB(255, 80, 180)
+
+local comboSettingsFrame = Instance.new("Frame")
+comboSettingsFrame.Size = UDim2.new(1, 0, 0, 96)
+comboSettingsFrame.BackgroundColor3 = COLORS.DarkBG
+comboSettingsFrame.ZIndex = 21
+comboSettingsFrame.Parent = hubBody
+createCorner(comboSettingsFrame, 6)
+createStroke(comboSettingsFrame, COMBO_COL, 1)
+
+local comboHeader = Instance.new("TextLabel")
+comboHeader.Size = UDim2.new(1, -8, 0, 14)
+comboHeader.Position = UDim2.new(0, 8, 0, 4)
+comboHeader.BackgroundTransparency = 1
+comboHeader.Text = "COMBO SCARE  (Appear -> Chase -> Twitch)"
+comboHeader.Font = Enum.Font.GothamBold
+comboHeader.TextSize = 7
+comboHeader.TextColor3 = COMBO_COL
+comboHeader.TextXAlignment = Enum.TextXAlignment.Left
+comboHeader.ZIndex = 22
+comboHeader.Parent = comboSettingsFrame
+
+local function makeComboRow(parent, label, yPos, default, minV, maxV, key)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0, 100, 0, 18)
+    lbl.Position = UDim2.new(0, 8, 0, yPos)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = label
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextSize = 8
+    lbl.TextColor3 = Color3.fromRGB(220, 170, 210)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 22
+    lbl.Parent = parent
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0, 60, 0, 18)
+    box.Position = UDim2.new(1, -68, 0, yPos)
+    box.BackgroundColor3 = COLORS.Frame
+    box.Text = tostring(default)
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 9
+    box.TextColor3 = COLORS.White
+    box.ClearTextOnFocus = false
+    box.ZIndex = 22
+    box.Parent = parent
+    createCorner(box, 4)
+    createStroke(box, COMBO_COL, 1)
+    local p = Instance.new("UIPadding", box)
+    p.PaddingLeft = UDim.new(0, 5)
+
+    box.FocusLost:Connect(function()
+        local v = tonumber(box.Text)
+        if v and v > 0 then
+            Troll[key] = math.clamp(v, minV, maxV)
+            box.Text = tostring(Troll[key])
+        else
+            box.Text = tostring(Troll[key] or default)
+        end
+    end)
+    return box
+end
+
+makeComboRow(comboSettingsFrame, "Appear Dist (studs):", 20,  10,  1,  30,  "comboAppearDist")
+makeComboRow(comboSettingsFrame, "Chase Speed:",         44, 100, 10, 500,  "comboRushSpeed")
+makeComboRow(comboSettingsFrame, "Hold Time (s):",       68,   1, 0.1,  5,  "comboHoldTime")
+
+local hubComboBtn = Instance.new("TextButton")
+hubComboBtn.Size = UDim2.new(1, 0, 0, 30)
+hubComboBtn.BackgroundColor3 = COMBO_COL
+hubComboBtn.Text = "COMBO SCARE"
+hubComboBtn.TextColor3 = COLORS.White
+hubComboBtn.Font = Enum.Font.GothamBold
+hubComboBtn.TextSize = 11
+hubComboBtn.ZIndex = 21
+hubComboBtn.Parent = hubBody
+createCorner(hubComboBtn, 8)
+
+local function setComboReady(ready)
+    if ready then
+        hubComboBtn.Text = "COMBO SCARE"
+        tween(hubComboBtn, {BackgroundColor3 = COMBO_COL}, 0.2)
+        hubComboBtn.TextColor3 = COLORS.White
+    else
+        hubComboBtn.Text = "Cooldown..."
+        tween(hubComboBtn, {BackgroundColor3 = COLORS.DarkBG}, 0.2)
+        hubComboBtn.TextColor3 = Color3.fromRGB(120, 100, 140)
+    end
+end
+
+hubComboBtn.MouseButton1Click:Connect(function()
+    if Troll:IsComboCooldown() then return end
+    if not Troll:GetTarget() then
+        Notif:Send("No target selected!", 2)
+        return
+    end
+    local ok = Troll:ComboScare()
+    if ok then
+        setComboReady(false)
+        Notif:Send("Combo: " .. Troll:GetTarget().Name .. "!", 2)
+    end
+end)
+
+Troll.onComboReady = function()
+    setComboReady(true)
+    Notif:Send("Combo ready!", 2)
+end
     scareHubOpen = false
     scareHub.Visible = false
     CONFIG.Scare = false
