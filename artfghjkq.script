@@ -8,7 +8,8 @@ local function req(file)
 end
 
 -- Services
-local player         = game.Players.LocalPlayer
+local Players        = game:GetService("Players")
+local player         = Players.LocalPlayer
 local RunService     = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui        = game:GetService("CoreGui")
@@ -41,7 +42,7 @@ end)
 local rainbowHue = 0
 
 -- ESP cleanup on player leave
-game.Players.PlayerRemoving:Connect(function(plr)
+Players.PlayerRemoving:Connect(function(plr)
     ESP:Cleanup(plr)
 end)
 
@@ -974,6 +975,18 @@ hubTitle.TextXAlignment = Enum.TextXAlignment.Left
 hubTitle.ZIndex = 21
 hubTitle.Parent = hubTopBar
 
+local hubMinimize = Instance.new("TextButton")
+hubMinimize.Size = UDim2.new(0, 22, 0, 22)
+hubMinimize.Position = UDim2.new(1, -56, 0.5, -11)
+hubMinimize.BackgroundColor3 = COLORS.DarkBG
+hubMinimize.Text = "_"
+hubMinimize.TextColor3 = COLORS.White
+hubMinimize.Font = Enum.Font.GothamBold
+hubMinimize.TextSize = 14
+hubMinimize.ZIndex = 21
+hubMinimize.Parent = hubTopBar
+createCorner(hubMinimize, 5)
+
 local hubClose = Instance.new("TextButton")
 hubClose.Size = UDim2.new(0, 22, 0, 22)
 hubClose.Position = UDim2.new(1, -28, 0.5, -11)
@@ -985,6 +998,24 @@ hubClose.TextSize = 10
 hubClose.ZIndex = 21
 hubClose.Parent = hubTopBar
 createCorner(hubClose, 5)
+
+-- Minimize state for Scare Hub
+local scareHubMinimized = false
+local scareHubFullSize = UDim2.new(0, 220, 0, 280)
+local scareHubMinSize  = UDim2.new(0, 220, 0, 36)
+
+hubMinimize.MouseButton1Click:Connect(function()
+    scareHubMinimized = not scareHubMinimized
+    if scareHubMinimized then
+        tween(scareHub, {Size = scareHubMinSize}, 0.25, Enum.EasingStyle.Quad)
+        hubMinimize.Text = "▲"
+        hubBody.Visible = false
+    else
+        hubBody.Visible = true
+        tween(scareHub, {Size = scareHubFullSize}, 0.3, Enum.EasingStyle.Back)
+        hubMinimize.Text = "_"
+    end
+end)
 
 local hubBody = Instance.new("Frame")
 hubBody.Size = UDim2.new(1, -12, 1, -44)
@@ -1305,6 +1336,10 @@ local menuOpen = false
 iconBtn.MouseButton1Click:Connect(function()
     menuOpen = not menuOpen
     mainFrame.Visible = menuOpen
+    -- Also minimize/restore Scare Hub together with main hub
+    if scareHubOpen then
+        scareHub.Visible = menuOpen
+    end
     if menuOpen then
         mainFrame.Size = UDim2.new(0, 0, 0, 0)
         tween(mainFrame, {Size = UDim2.new(0, FRAME_W, 0, FRAME_H)}, 0.4, Enum.EasingStyle.Back)
@@ -1314,6 +1349,10 @@ end)
 closeBtn.MouseButton1Click:Connect(function()
     menuOpen = false
     mainFrame.Visible = false
+    -- Hide Scare Hub too when main hub is closed
+    if scareHubOpen then
+        scareHub.Visible = false
+    end
 end)
 
 RunService.Heartbeat:Connect(function()
