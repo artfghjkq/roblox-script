@@ -4,21 +4,36 @@
 local BASE_URL = "https://raw.githubusercontent.com/artfghjkq/roblox-script/refs/heads/main/modules/"
 
 local function req(file)
-    local ok, raw = pcall(function()
-        return game:HttpGet(BASE_URL .. file)
-    end)
-    if not ok or not raw or raw == "" then
-        error("[HALO-HALO] Failed to fetch: " .. file .. "\n" .. tostring(raw), 2)
+    local url = BASE_URL .. file
+    local raw = nil
+
+    -- Retry up to 3 times (handles GitHub rate limits / network blips)
+    for attempt = 1, 3 do
+        local ok, result = pcall(function()
+            return game:HttpGet(url)
+        end)
+        if ok and result and result ~= "" and not result:find("^<!") then
+            raw = result
+            break
+        end
+        if attempt < 3 then task.wait(1) end
     end
+
+    if not raw then
+        error("[HALO-HALO] Could not fetch: " .. file .. " (check GitHub & HTTP enabled)", 2)
+    end
+
     local fn, err = loadstring(raw)
     if not fn then
         error("[HALO-HALO] Syntax error in: " .. file .. "\n" .. tostring(err), 2)
     end
-    local ok2, result = pcall(fn)
+
+    local ok2, result2 = pcall(fn)
     if not ok2 then
-        error("[HALO-HALO] Runtime error in: " .. file .. "\n" .. tostring(result), 2)
+        error("[HALO-HALO] Runtime error in: " .. file .. "\n" .. tostring(result2), 2)
     end
-    return result
+
+    return result2
 end
 
 -- Services
