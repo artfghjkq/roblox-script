@@ -951,6 +951,7 @@ scareHub.Active = true
 scareHub.Draggable = true
 scareHub.Visible = false
 scareHub.ZIndex = 20
+scareHub.ClipsDescendants = true
 scareHub.Parent = screenGui
 createCorner(scareHub, 12)
 createStroke(scareHub, SCARE_COL, 2)
@@ -998,24 +999,6 @@ hubClose.TextSize = 10
 hubClose.ZIndex = 21
 hubClose.Parent = hubTopBar
 createCorner(hubClose, 5)
-
--- Minimize state for Scare Hub
-local scareHubMinimized = false
-local scareHubFullSize = UDim2.new(0, 220, 0, 280)
-local scareHubMinSize  = UDim2.new(0, 220, 0, 36)
-
-hubMinimize.MouseButton1Click:Connect(function()
-    scareHubMinimized = not scareHubMinimized
-    if scareHubMinimized then
-        tween(scareHub, {Size = scareHubMinSize}, 0.25, Enum.EasingStyle.Quad)
-        hubMinimize.Text = "▲"
-        hubBody.Visible = false
-    else
-        hubBody.Visible = true
-        tween(scareHub, {Size = scareHubFullSize}, 0.3, Enum.EasingStyle.Back)
-        hubMinimize.Text = "_"
-    end
-end)
 
 local hubBody = Instance.new("Frame")
 hubBody.Size = UDim2.new(1, -12, 1, -44)
@@ -1115,6 +1098,22 @@ local function setHubScareReady(ready)
         hubScareBtn.TextColor3 = Color3.fromRGB(120, 100, 140)
     end
 end
+
+-- Minimize logic (declared here, after all hubBody children exist)
+local scareHubMinimized = false
+local scareHubFullSize  = UDim2.new(0, 220, 0, 280)
+local scareHubMinSize   = UDim2.new(0, 220, 0, 36)
+
+hubMinimize.MouseButton1Click:Connect(function()
+    scareHubMinimized = not scareHubMinimized
+    if scareHubMinimized then
+        tween(scareHub, {Size = scareHubMinSize}, 0.25, Enum.EasingStyle.Quad)
+        hubMinimize.Text = "▲"
+    else
+        tween(scareHub, {Size = scareHubFullSize}, 0.3, Enum.EasingStyle.Back)
+        hubMinimize.Text = "_"
+    end
+end)
 
 local hubPlayerRows = {}
 
@@ -1336,10 +1335,6 @@ local menuOpen = false
 iconBtn.MouseButton1Click:Connect(function()
     menuOpen = not menuOpen
     mainFrame.Visible = menuOpen
-    -- Also minimize/restore Scare Hub together with main hub
-    if scareHubOpen then
-        scareHub.Visible = menuOpen
-    end
     if menuOpen then
         mainFrame.Size = UDim2.new(0, 0, 0, 0)
         tween(mainFrame, {Size = UDim2.new(0, FRAME_W, 0, FRAME_H)}, 0.4, Enum.EasingStyle.Back)
@@ -1349,10 +1344,6 @@ end)
 closeBtn.MouseButton1Click:Connect(function()
     menuOpen = false
     mainFrame.Visible = false
-    -- Hide Scare Hub too when main hub is closed
-    if scareHubOpen then
-        scareHub.Visible = false
-    end
 end)
 
 RunService.Heartbeat:Connect(function()
