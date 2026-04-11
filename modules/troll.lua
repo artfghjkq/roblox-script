@@ -19,7 +19,7 @@ local walkFlingThread = nil
 local antiFlingConn   = nil
 local spectating      = false
 local specTarget      = nil
-local spectateMode    = "free" -- "free" or "locked"
+local spectateMode    = "locked" -- "free" or "locked"
 local lockedCamConn   = nil
 
 Troll.selectedTarget  = nil
@@ -124,7 +124,7 @@ function Troll:ScareOnce()
     task.spawn(function()
         local saved = myRoot.CFrame
         myRoot.CFrame = CFrame.new(
-            tgtRoot.Position + tgtRoot.CFrame.LookVector * 2,
+            tgtRoot.Position - tgtRoot.CFrame.LookVector * 2,
             tgtRoot.Position
         )
         task.wait(0.5)
