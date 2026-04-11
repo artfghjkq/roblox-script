@@ -973,11 +973,10 @@ local SCARE_COL = Color3.fromRGB(200, 140, 255)
 
 local scareHubOpen = false
 
-local HUB_W, HUB_H = 230, 340
 local scareHub = Instance.new("Frame")
 scareHub.Name = "ScareHub"
-scareHub.Size = UDim2.new(0, HUB_W, 0, HUB_H)
-scareHub.Position = UDim2.new(0.5, -HUB_W/2, 0.5, -HUB_H/2)
+scareHub.Size = UDim2.new(0, 220, 0, 830)
+scareHub.Position = UDim2.new(0.5, -110, 0.5, -140)
 scareHub.BackgroundColor3 = COLORS.Background
 scareHub.Active = true
 scareHub.Draggable = true
@@ -988,10 +987,6 @@ scareHub.Parent = screenGui
 createCorner(scareHub, 12)
 createStroke(scareHub, SCARE_COL, 2)
 
-
--- ============================================================
--- SCARE HUB: Top Bar
--- ============================================================
 local hubTopBar = Instance.new("Frame")
 hubTopBar.Size = UDim2.new(1, 0, 0, 36)
 hubTopBar.BackgroundColor3 = COLORS.Galaxy1
@@ -1001,10 +996,10 @@ createCorner(hubTopBar, 12)
 galaxyGradient(hubTopBar, 90)
 
 local hubTitle = Instance.new("TextLabel")
-hubTitle.Size = UDim2.new(1, -56, 1, 0)
+hubTitle.Size = UDim2.new(1, -40, 1, 0)
 hubTitle.Position = UDim2.new(0, 10, 0, 0)
 hubTitle.BackgroundTransparency = 1
-hubTitle.Text = "SCARE HUB"
+hubTitle.Text = "👻 SCARE HUB"
 hubTitle.Font = Enum.Font.GothamBold
 hubTitle.TextSize = 11
 hubTitle.TextColor3 = COLORS.White
@@ -1014,7 +1009,7 @@ hubTitle.Parent = hubTopBar
 
 local hubMinimize = Instance.new("TextButton")
 hubMinimize.Size = UDim2.new(0, 22, 0, 22)
-hubMinimize.Position = UDim2.new(1, -52, 0.5, -11)
+hubMinimize.Position = UDim2.new(1, -56, 0.5, -11)
 hubMinimize.BackgroundColor3 = COLORS.DarkBG
 hubMinimize.Text = "_"
 hubMinimize.TextColor3 = COLORS.White
@@ -1026,7 +1021,7 @@ createCorner(hubMinimize, 5)
 
 local hubClose = Instance.new("TextButton")
 hubClose.Size = UDim2.new(0, 22, 0, 22)
-hubClose.Position = UDim2.new(1, -26, 0.5, -11)
+hubClose.Position = UDim2.new(1, -28, 0.5, -11)
 hubClose.BackgroundColor3 = COLORS.DarkBG
 hubClose.Text = "X"
 hubClose.TextColor3 = COLORS.White
@@ -1036,72 +1031,22 @@ hubClose.ZIndex = 21
 hubClose.Parent = hubTopBar
 createCorner(hubClose, 5)
 
--- ============================================================
--- SCARE HUB: Tab Bar (TARGET | SCARE)
--- ============================================================
-local hubTabBar = Instance.new("Frame")
-hubTabBar.Size = UDim2.new(1, -12, 0, 26)
-hubTabBar.Position = UDim2.new(0, 6, 0, 40)
-hubTabBar.BackgroundColor3 = COLORS.DarkBG
-hubTabBar.ZIndex = 20
-hubTabBar.Parent = scareHub
-createCorner(hubTabBar, 6)
+local hubBody = Instance.new("Frame")
+hubBody.Size = UDim2.new(1, -12, 1, -44)
+hubBody.Position = UDim2.new(0, 6, 0, 40)
+hubBody.BackgroundTransparency = 1
+hubBody.ZIndex = 20
+hubBody.Parent = scareHub
 
-local hubTabBtns = {}
-local hubPages   = {}
-local hubTabDefs = {"TARGET", "SCARE"}
-
-for i, tname in ipairs(hubTabDefs) do
-    local tb = Instance.new("TextButton")
-    tb.Size = UDim2.new(0.5, -4, 1, -4)
-    tb.Position = UDim2.new((i-1)*0.5, i==1 and 2 or 2, 0, 2)
-    tb.BackgroundColor3 = (i==1) and SCARE_COL or COLORS.Frame
-    tb.TextColor3 = (i==1) and COLORS.White or Color3.fromRGB(160,140,180)
-    tb.Font = Enum.Font.GothamBold
-    tb.TextSize = 9
-    tb.Text = tname
-    tb.ZIndex = 21
-    tb.Parent = hubTabBar
-    createCorner(tb, 5)
-    hubTabBtns[tname] = tb
-
-    local page = Instance.new("Frame")
-    page.Size = UDim2.new(1, -12, 1, -74)
-    page.Position = UDim2.new(0, 6, 0, 70)
-    page.BackgroundTransparency = 1
-    page.ZIndex = 20
-    page.Visible = (i==1)
-    page.Parent = scareHub
-    hubPages[tname] = page
-end
-
-local function switchHubTab(name)
-    for n, btn in pairs(hubTabBtns) do
-        btn.BackgroundColor3 = (n==name) and SCARE_COL or COLORS.Frame
-        btn.TextColor3 = (n==name) and COLORS.White or Color3.fromRGB(160,140,180)
-    end
-    for n, pg in pairs(hubPages) do pg.Visible = (n==name) end
-end
-
-for _, tname in ipairs(hubTabDefs) do
-    local cap = tname
-    hubTabBtns[cap].MouseButton1Click:Connect(function() switchHubTab(cap) end)
-end
-
--- ============================================================
--- PAGE 1: TARGET
--- ============================================================
-local pg1 = hubPages["TARGET"]
-
-local pg1Layout = Instance.new("UIListLayout", pg1)
-pg1Layout.SortOrder = Enum.SortOrder.LayoutOrder
-pg1Layout.Padding = UDim.new(0, 4)
+local hubLayout = Instance.new("UIListLayout", hubBody)
+hubLayout.SortOrder = Enum.SortOrder.LayoutOrder
+hubLayout.Padding = UDim.new(0, 5)
 
 local hubTargetDisplay = Instance.new("Frame")
 hubTargetDisplay.Size = UDim2.new(1, 0, 0, 26)
 hubTargetDisplay.BackgroundColor3 = COLORS.DarkBG
 hubTargetDisplay.ZIndex = 20
-hubTargetDisplay.Parent = pg1
+hubTargetDisplay.Parent = hubBody
 createCorner(hubTargetDisplay, 6)
 createStroke(hubTargetDisplay, SCARE_COL, 1)
 
@@ -1120,7 +1065,7 @@ hubTargetLabel.Parent = hubTargetDisplay
 local hubSearchBox = Instance.new("TextBox")
 hubSearchBox.Size = UDim2.new(1, 0, 0, 26)
 hubSearchBox.BackgroundColor3 = COLORS.DarkBG
-hubSearchBox.PlaceholderText = "Search player..."
+hubSearchBox.PlaceholderText = "Search username / display name..."
 hubSearchBox.PlaceholderColor3 = Color3.fromRGB(100, 85, 120)
 hubSearchBox.Text = ""
 hubSearchBox.Font = Enum.Font.Gotham
@@ -1128,36 +1073,37 @@ hubSearchBox.TextSize = 9
 hubSearchBox.TextColor3 = COLORS.White
 hubSearchBox.ClearTextOnFocus = false
 hubSearchBox.ZIndex = 21
-hubSearchBox.Parent = pg1
+hubSearchBox.Parent = hubBody
 createCorner(hubSearchBox, 6)
 createStroke(hubSearchBox, COLORS.Galaxy1, 1)
 local sbPad = Instance.new("UIPadding", hubSearchBox)
 sbPad.PaddingLeft = UDim.new(0, 8)
 
 local hubListFrame = Instance.new("ScrollingFrame")
-hubListFrame.Size = UDim2.new(1, 0, 0, 130)
+hubListFrame.Size = UDim2.new(1, 0, 0, 120)
 hubListFrame.BackgroundTransparency = 1
 hubListFrame.BorderSizePixel = 0
 hubListFrame.ScrollBarThickness = 2
 hubListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 hubListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 hubListFrame.ZIndex = 20
-hubListFrame.Parent = pg1
+hubListFrame.Parent = hubBody
 
 local hubListLayout = Instance.new("UIListLayout", hubListFrame)
 hubListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 hubListLayout.Padding = UDim.new(0, 3)
 
+-- Spectate mode toggle row (4 modes)
 local specModeRow = Instance.new("Frame")
-specModeRow.Size = UDim2.new(1, 0, 0, 50)
+specModeRow.Size = UDim2.new(1, 0, 0, 52)
 specModeRow.BackgroundColor3 = COLORS.DarkBG
 specModeRow.ZIndex = 20
-specModeRow.Parent = pg1
+specModeRow.Parent = hubBody
 createCorner(specModeRow, 6)
 
 local specModeLabel = Instance.new("TextLabel")
 specModeLabel.Size = UDim2.new(1, -8, 0, 16)
-specModeLabel.Position = UDim2.new(0, 8, 0, 2)
+specModeLabel.Position = UDim2.new(0, 8, 0, 4)
 specModeLabel.BackgroundTransparency = 1
 specModeLabel.Text = "Spectate Camera:"
 specModeLabel.Font = Enum.Font.GothamBold
@@ -1173,15 +1119,20 @@ local specModes = {
     {key="orbit",  label="Orbit"},
     {key="third",  label="3rd P"},
 }
+
 local specModeBtns = {}
-local smBtnW = 46
+local btnW = 46
+local btnGap = 4
+local totalW = (#specModes * btnW) + ((#specModes - 1) * btnGap)
+local startX = (220 - 12 - totalW) / 2  -- centered in frame (220 wide, 12px padding)
+
 for i, m in ipairs(specModes) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, smBtnW, 0, 20)
-    btn.Position = UDim2.new(0, 4 + (i-1)*(smBtnW+3), 0, 24)
-    btn.BackgroundColor3 = (m.key=="free") and COLORS.Galaxy1 or COLORS.Frame
+    btn.Size = UDim2.new(0, btnW, 0, 20)
+    btn.Position = UDim2.new(0, startX + (i-1)*(btnW+btnGap), 0, 26)
+    btn.BackgroundColor3 = (m.key == "free") and COLORS.Galaxy1 or COLORS.Frame
     btn.Text = m.label
-    btn.TextColor3 = (m.key=="free") and COLORS.White or Color3.fromRGB(160,140,180)
+    btn.TextColor3 = (m.key == "free") and COLORS.White or Color3.fromRGB(160, 140, 180)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 7
     btn.ZIndex = 21
@@ -1192,37 +1143,371 @@ end
 
 local function setSpecModeUI(mode)
     for _, m in ipairs(specModes) do
+        local btn = specModeBtns[m.key]
         local active = (m.key == mode)
-        specModeBtns[m.key].BackgroundColor3 = active and COLORS.Galaxy1 or COLORS.Frame
-        specModeBtns[m.key].TextColor3       = active and COLORS.White or Color3.fromRGB(160,140,180)
+        btn.BackgroundColor3 = active and COLORS.Galaxy1 or COLORS.Frame
+        btn.TextColor3       = active and COLORS.White or Color3.fromRGB(160, 140, 180)
     end
 end
 
 local specModeNotifs = {
-    free="Cam: Free", locked="Cam: Locked (POV)",
-    orbit="Cam: Fixed Orbit", third="Cam: 3rd Person",
+    free   = "Cam: Free",
+    locked = "Cam: Locked (POV)",
+    orbit  = "Cam: Fixed Orbit",
+    third  = "Cam: 3rd Person",
 }
+
 for _, m in ipairs(specModes) do
     local capKey = m.key
     specModeBtns[capKey].MouseButton1Click:Connect(function()
         Troll:SetSpectateMode(capKey)
         setSpecModeUI(capKey)
-        if Troll:IsSpectating() then Notif:Send(specModeNotifs[capKey], 1) end
+        if Troll:IsSpectating() then
+            Notif:Send(specModeNotifs[capKey], 1)
+        end
     end)
 end
 
 local hubStopSpecBtn = Instance.new("TextButton")
 hubStopSpecBtn.Size = UDim2.new(1, 0, 0, 24)
 hubStopSpecBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 80)
-hubStopSpecBtn.Text = "Stop Spectate"
+hubStopSpecBtn.Text = "⬛  Stop Spectate"
 hubStopSpecBtn.TextColor3 = Color3.fromRGB(180, 120, 255)
 hubStopSpecBtn.Font = Enum.Font.GothamBold
 hubStopSpecBtn.TextSize = 9
 hubStopSpecBtn.Visible = false
 hubStopSpecBtn.ZIndex = 21
-hubStopSpecBtn.Parent = pg1
+hubStopSpecBtn.Parent = hubBody
 createCorner(hubStopSpecBtn, 6)
 createStroke(hubStopSpecBtn, SCARE_COL, 1)
+
+-- ============================================================
+-- SCARE SETTINGS: Hold Time + Stud Distance
+-- ============================================================
+local scareSettingsFrame = Instance.new("Frame")
+scareSettingsFrame.Size = UDim2.new(1, 0, 0, 70)
+scareSettingsFrame.BackgroundColor3 = COLORS.DarkBG
+scareSettingsFrame.ZIndex = 21
+scareSettingsFrame.Parent = hubBody
+createCorner(scareSettingsFrame, 6)
+createStroke(scareSettingsFrame, SCARE_COL, 1)
+
+local scareSettingsLabel = Instance.new("TextLabel")
+scareSettingsLabel.Size = UDim2.new(1, -8, 0, 14)
+scareSettingsLabel.Position = UDim2.new(0, 8, 0, 4)
+scareSettingsLabel.BackgroundTransparency = 1
+scareSettingsLabel.Text = "SCARE SETTINGS"
+scareSettingsLabel.Font = Enum.Font.GothamBold
+scareSettingsLabel.TextSize = 8
+scareSettingsLabel.TextColor3 = SCARE_COL
+scareSettingsLabel.TextXAlignment = Enum.TextXAlignment.Left
+scareSettingsLabel.ZIndex = 22
+scareSettingsLabel.Parent = scareSettingsFrame
+
+-- Hold Time input
+local holdTimeLabel = Instance.new("TextLabel")
+holdTimeLabel.Size = UDim2.new(0, 80, 0, 18)
+holdTimeLabel.Position = UDim2.new(0, 8, 0, 20)
+holdTimeLabel.BackgroundTransparency = 1
+holdTimeLabel.Text = "Hold Time (s):"
+holdTimeLabel.Font = Enum.Font.Gotham
+holdTimeLabel.TextSize = 8
+holdTimeLabel.TextColor3 = Color3.fromRGB(180, 160, 200)
+holdTimeLabel.TextXAlignment = Enum.TextXAlignment.Left
+holdTimeLabel.ZIndex = 22
+holdTimeLabel.Parent = scareSettingsFrame
+
+local holdTimeBox = Instance.new("TextBox")
+holdTimeBox.Size = UDim2.new(0, 60, 0, 18)
+holdTimeBox.Position = UDim2.new(1, -68, 0, 20)
+holdTimeBox.BackgroundColor3 = COLORS.Frame
+holdTimeBox.Text = tostring(Troll.scareHoldTime or 1)
+holdTimeBox.Font = Enum.Font.GothamBold
+holdTimeBox.TextSize = 9
+holdTimeBox.TextColor3 = COLORS.White
+holdTimeBox.ClearTextOnFocus = false
+holdTimeBox.ZIndex = 22
+holdTimeBox.Parent = scareSettingsFrame
+createCorner(holdTimeBox, 4)
+createStroke(holdTimeBox, COLORS.Galaxy1, 1)
+local htPad = Instance.new("UIPadding", holdTimeBox)
+htPad.PaddingLeft = UDim.new(0, 5)
+
+holdTimeBox.FocusLost:Connect(function()
+    local v = tonumber(holdTimeBox.Text)
+    if v and v > 0 then
+        Troll.scareHoldTime = math.clamp(v, 0.1, 5)
+        holdTimeBox.Text = tostring(Troll.scareHoldTime)
+    else
+        holdTimeBox.Text = tostring(Troll.scareHoldTime or 1)
+    end
+end)
+
+-- Stud Distance input
+local studLabel = Instance.new("TextLabel")
+studLabel.Size = UDim2.new(0, 80, 0, 18)
+studLabel.Position = UDim2.new(0, 8, 0, 44)
+studLabel.BackgroundTransparency = 1
+studLabel.Text = "Distance (studs):"
+studLabel.Font = Enum.Font.Gotham
+studLabel.TextSize = 8
+studLabel.TextColor3 = Color3.fromRGB(180, 160, 200)
+studLabel.TextXAlignment = Enum.TextXAlignment.Left
+studLabel.ZIndex = 22
+studLabel.Parent = scareSettingsFrame
+
+local studBox = Instance.new("TextBox")
+studBox.Size = UDim2.new(0, 60, 0, 18)
+studBox.Position = UDim2.new(1, -68, 0, 44)
+studBox.BackgroundColor3 = COLORS.Frame
+studBox.Text = tostring(Troll.scareDistance or 6)
+studBox.Font = Enum.Font.GothamBold
+studBox.TextSize = 9
+studBox.TextColor3 = COLORS.White
+studBox.ClearTextOnFocus = false
+studBox.ZIndex = 22
+studBox.Parent = scareSettingsFrame
+createCorner(studBox, 4)
+createStroke(studBox, COLORS.Galaxy1, 1)
+local sdPad = Instance.new("UIPadding", studBox)
+sdPad.PaddingLeft = UDim.new(0, 5)
+
+studBox.FocusLost:Connect(function()
+    local v = tonumber(studBox.Text)
+    if v and v > 0 then
+        Troll.scareDistance = math.clamp(v, 1, 30)
+        studBox.Text = tostring(Troll.scareDistance)
+    else
+        studBox.Text = tostring(Troll.scareDistance or 6)
+    end
+end)
+
+-- ============================================================
+-- EMOTE PICKER
+-- ============================================================
+local emoteFrame = Instance.new("Frame")
+emoteFrame.Size = UDim2.new(1, 0, 0, 100)
+emoteFrame.BackgroundColor3 = COLORS.DarkBG
+emoteFrame.ZIndex = 21
+emoteFrame.Parent = hubBody
+createCorner(emoteFrame, 6)
+createStroke(emoteFrame, SCARE_COL, 1)
+
+local emoteHeaderRow = Instance.new("Frame")
+emoteHeaderRow.Size = UDim2.new(1, -8, 0, 18)
+emoteHeaderRow.Position = UDim2.new(0, 4, 0, 4)
+emoteHeaderRow.BackgroundTransparency = 1
+emoteHeaderRow.ZIndex = 22
+emoteHeaderRow.Parent = emoteFrame
+
+local emoteLabel = Instance.new("TextLabel")
+emoteLabel.Size = UDim2.new(0.6, 0, 1, 0)
+emoteLabel.BackgroundTransparency = 1
+emoteLabel.Text = "EMOTES"
+emoteLabel.Font = Enum.Font.GothamBold
+emoteLabel.TextSize = 8
+emoteLabel.TextColor3 = SCARE_COL
+emoteLabel.TextXAlignment = Enum.TextXAlignment.Left
+emoteLabel.ZIndex = 22
+emoteLabel.Parent = emoteHeaderRow
+
+-- Auto Emote toggle (inline with header)
+local autoEmoteOn = false
+local autoEmoteBtn = Instance.new("TextButton")
+autoEmoteBtn.Size = UDim2.new(0, 90, 0, 16)
+autoEmoteBtn.Position = UDim2.new(1, -90, 0, 1)
+autoEmoteBtn.BackgroundColor3 = COLORS.Frame
+autoEmoteBtn.Text = "AUTO EMOTE: OFF"
+autoEmoteBtn.Font = Enum.Font.GothamBold
+autoEmoteBtn.TextSize = 7
+autoEmoteBtn.TextColor3 = Color3.fromRGB(160, 140, 180)
+autoEmoteBtn.ZIndex = 22
+autoEmoteBtn.Parent = emoteHeaderRow
+createCorner(autoEmoteBtn, 4)
+
+-- Emote scroll list
+local emoteScroll = Instance.new("ScrollingFrame")
+emoteScroll.Size = UDim2.new(1, -8, 0, 72)
+emoteScroll.Position = UDim2.new(0, 4, 0, 24)
+emoteScroll.BackgroundTransparency = 1
+emoteScroll.BorderSizePixel = 0
+emoteScroll.ScrollBarThickness = 2
+emoteScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+emoteScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+emoteScroll.ZIndex = 22
+emoteScroll.Parent = emoteFrame
+
+local emoteListLayout = Instance.new("UIListLayout", emoteScroll)
+emoteListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+emoteListLayout.Padding = UDim.new(0, 3)
+
+local selectedEmote = nil
+local emoteRowBtns = {}
+
+local function buildEmoteList()
+    for _, v in pairs(emoteScroll:GetChildren()) do
+        if v:IsA("TextButton") then v:Destroy() end
+    end
+    emoteRowBtns = {}
+    selectedEmote = nil
+
+    -- Get equipped emotes from HumanoidDescription
+    local success, emotes = pcall(function()
+        local hd = Players:GetHumanoidDescriptionFromUserId(player.UserId)
+        local list = {}
+        -- Emotes are stored as {[emoteName] = {assetId, position}}
+        local equipped = hd:GetEquippedEmotes()
+        for _, e in ipairs(equipped) do
+            table.insert(list, {name = e.Name, id = e.AssetId})
+        end
+        return list
+    end)
+
+    if not success or not emotes or #emotes == 0 then
+        local noEmote = Instance.new("TextLabel")
+        noEmote.Size = UDim2.new(1, 0, 0, 20)
+        noEmote.BackgroundTransparency = 1
+        noEmote.Text = "No equipped emotes found."
+        noEmote.Font = Enum.Font.Gotham
+        noEmote.TextSize = 8
+        noEmote.TextColor3 = Color3.fromRGB(120, 100, 140)
+        noEmote.TextXAlignment = Enum.TextXAlignment.Left
+        noEmote.ZIndex = 23
+        noEmote.Parent = emoteScroll
+        return
+    end
+
+    for _, emote in ipairs(emotes) do
+        local capEmote = emote
+        local eBtn = Instance.new("TextButton")
+        eBtn.Size = UDim2.new(1, 0, 0, 20)
+        eBtn.BackgroundColor3 = COLORS.Frame
+        eBtn.Text = "▶  " .. capEmote.name
+        eBtn.Font = Enum.Font.GothamSemibold
+        eBtn.TextSize = 8
+        eBtn.TextColor3 = Color3.fromRGB(180, 160, 200)
+        eBtn.TextXAlignment = Enum.TextXAlignment.Left
+        eBtn.ZIndex = 23
+        eBtn.Parent = emoteScroll
+        createCorner(eBtn, 4)
+        local ePad = Instance.new("UIPadding", eBtn)
+        ePad.PaddingLeft = UDim.new(0, 6)
+        emoteRowBtns[capEmote.name] = eBtn
+
+        eBtn.MouseButton1Click:Connect(function()
+            -- Deselect previous
+            for n, b in pairs(emoteRowBtns) do
+                b.BackgroundColor3 = COLORS.Frame
+                b.TextColor3 = Color3.fromRGB(180, 160, 200)
+            end
+            selectedEmote = capEmote.name
+            eBtn.BackgroundColor3 = COLORS.Galaxy1
+            eBtn.TextColor3 = COLORS.White
+            -- Play emote immediately
+            pcall(function()
+                local hum = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid")
+                if hum then
+                    hum:PlayEmote(capEmote.name)
+                end
+            end)
+        end)
+    end
+end
+
+-- Refresh emote button
+local emoteRefreshBtn = Instance.new("TextButton")
+emoteRefreshBtn.Size = UDim2.new(0, 16, 0, 16)
+emoteRefreshBtn.Position = UDim2.new(0.38, 0, 0, 1)
+emoteRefreshBtn.BackgroundColor3 = COLORS.Frame
+emoteRefreshBtn.Text = "↻"
+emoteRefreshBtn.Font = Enum.Font.GothamBold
+emoteRefreshBtn.TextSize = 10
+emoteRefreshBtn.TextColor3 = SCARE_COL
+emoteRefreshBtn.ZIndex = 22
+emoteRefreshBtn.Parent = emoteHeaderRow
+createCorner(emoteRefreshBtn, 4)
+
+emoteRefreshBtn.MouseButton1Click:Connect(function()
+    buildEmoteList()
+    Notif:Send("Emotes refreshed", 1)
+end)
+
+-- Auto emote logic
+local autoEmoteConn = nil
+
+local function setAutoEmote(state)
+    autoEmoteOn = state
+    if state then
+        autoEmoteBtn.BackgroundColor3 = COLORS.Galaxy1
+        autoEmoteBtn.TextColor3 = COLORS.White
+        autoEmoteBtn.Text = "AUTO EMOTE: ON"
+        autoEmoteConn = RunService.Heartbeat:Connect(function()
+            if not selectedEmote then return end
+            pcall(function()
+                local hum = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid")
+                if hum then hum:PlayEmote(selectedEmote) end
+            end)
+        end)
+    else
+        autoEmoteBtn.BackgroundColor3 = COLORS.Frame
+        autoEmoteBtn.TextColor3 = Color3.fromRGB(160, 140, 180)
+        autoEmoteBtn.Text = "AUTO EMOTE: OFF"
+        if autoEmoteConn then autoEmoteConn:Disconnect(); autoEmoteConn = nil end
+    end
+end
+
+autoEmoteBtn.MouseButton1Click:Connect(function()
+    if not selectedEmote and not autoEmoteOn then
+        Notif:Send("Select an emote first!", 2)
+        return
+    end
+    setAutoEmote(not autoEmoteOn)
+end)
+
+-- Build emote list once hub is opened (done in toggleSyncs["Scare"] below)
+
+-- ============================================================
+-- SCARE BUTTON
+-- ============================================================
+local hubScareBtn = Instance.new("TextButton")
+hubScareBtn.Size = UDim2.new(1, 0, 0, 32)
+hubScareBtn.BackgroundColor3 = COLORS.Galaxy1
+hubScareBtn.Text = "👻  SCARE"
+hubScareBtn.TextColor3 = COLORS.White
+hubScareBtn.Font = Enum.Font.GothamBold
+hubScareBtn.TextSize = 11
+hubScareBtn.ZIndex = 21
+hubScareBtn.Parent = hubBody
+createCorner(hubScareBtn, 8)
+galaxyGradient(hubScareBtn, 90)
+
+local function setHubScareReady(ready)
+    if ready then
+        hubScareBtn.Text = "👻  SCARE"
+        tween(hubScareBtn, {BackgroundColor3 = COLORS.Galaxy1}, 0.2)
+        hubScareBtn.TextColor3 = COLORS.White
+    else
+        hubScareBtn.Text = "⏳  Cooldown..."
+        tween(hubScareBtn, {BackgroundColor3 = COLORS.DarkBG}, 0.2)
+        hubScareBtn.TextColor3 = Color3.fromRGB(120, 100, 140)
+    end
+end
+
+-- Minimize logic (declared here, after all hubBody children exist)
+local scareHubMinimized = false
+local scareHubFullSize  = UDim2.new(0, 220, 0, 830)
+local scareHubMinSize   = UDim2.new(0, 220, 0, 36)
+
+hubMinimize.MouseButton1Click:Connect(function()
+    scareHubMinimized = not scareHubMinimized
+    if scareHubMinimized then
+        tween(scareHub, {Size = scareHubMinSize}, 0.25, Enum.EasingStyle.Quad)
+        hubMinimize.Text = "▲"
+    else
+        tween(scareHub, {Size = scareHubFullSize}, 0.3, Enum.EasingStyle.Back)
+        hubMinimize.Text = "_"
+    end
+end)
 
 local hubPlayerRows = {}
 
@@ -1240,12 +1525,13 @@ local function buildHubPlayerList(filter)
             local un = p.Name:lower()
             if filter == "" or dn:find(filter, 1, true) or un:find(filter, 1, true) then
                 found = found + 1
+
                 local isSpec = Troll:GetSpectateTarget() == p
                 local isSel  = Troll:GetTarget() == p and not isSpec
 
                 local row = Instance.new("Frame")
-                row.Size = UDim2.new(1, 0, 0, 36)
-                row.BackgroundColor3 = isSpec and Color3.fromRGB(40,15,60) or COLORS.Frame
+                row.Size = UDim2.new(1, 0, 0, 38)
+                row.BackgroundColor3 = isSpec and Color3.fromRGB(40, 15, 60) or COLORS.Frame
                 row.ZIndex = 21
                 row.Parent = hubListFrame
                 createCorner(row, 6)
@@ -1253,7 +1539,7 @@ local function buildHubPlayerList(filter)
                 table.insert(hubPlayerRows, row)
 
                 local nameCol = Instance.new("TextLabel")
-                nameCol.Size = UDim2.new(1, -110, 1, 0)
+                nameCol.Size = UDim2.new(1, -114, 1, 0)
                 nameCol.Position = UDim2.new(0, 8, 0, 0)
                 nameCol.BackgroundTransparency = 1
                 nameCol.Text = p.DisplayName .. "\n@" .. p.Name
@@ -1266,39 +1552,43 @@ local function buildHubPlayerList(filter)
                 nameCol.Parent = row
 
                 local specBtn = Instance.new("TextButton")
-                specBtn.Size = UDim2.new(0, 46, 0, 20)
-                specBtn.Position = UDim2.new(1, -104, 0.5, -10)
+                specBtn.Size = UDim2.new(0, 48, 0, 20)
+                specBtn.Position = UDim2.new(1, -108, 0.5, -10)
                 specBtn.Font = Enum.Font.GothamBold
                 specBtn.TextSize = 7
                 specBtn.ZIndex = 22
                 specBtn.Parent = row
                 createCorner(specBtn, 5)
-                specBtn.Text = "SPEC"
+                specBtn.Text = isSpec and "👁 SPEC" or "👁 SPEC"
                 specBtn.BackgroundColor3 = isSpec and SCARE_COL or COLORS.DarkBG
-                specBtn.TextColor3 = isSpec and COLORS.White or Color3.fromRGB(160,140,180)
+                specBtn.TextColor3 = isSpec and COLORS.White or Color3.fromRGB(160, 140, 180)
 
                 local selBtn = Instance.new("TextButton")
-                selBtn.Size = UDim2.new(0, 46, 0, 20)
-                selBtn.Position = UDim2.new(1, -54, 0.5, -10)
+                selBtn.Size = UDim2.new(0, 48, 0, 20)
+                selBtn.Position = UDim2.new(1, -56, 0.5, -10)
                 selBtn.Font = Enum.Font.GothamBold
                 selBtn.TextSize = 7
                 selBtn.ZIndex = 22
                 selBtn.Parent = row
                 createCorner(selBtn, 5)
-                selBtn.Text = isSel and "SEL" or "SELECT"
+                selBtn.Text = isSel and "✓ SEL" or "SELECT"
                 selBtn.BackgroundColor3 = isSel and COLORS.Galaxy1 or COLORS.DarkBG
-                selBtn.TextColor3 = isSel and COLORS.White or Color3.fromRGB(160,140,180)
+                selBtn.TextColor3 = isSel and COLORS.White or Color3.fromRGB(160, 140, 180)
 
                 local capP = p
+
                 specBtn.MouseButton1Click:Connect(function()
                     if Troll:GetSpectateTarget() == capP then
                         Troll:StopSpectate()
                     else
                         local ok = Troll:StartSpectate(capP, Troll:GetSpectateMode())
-                        if ok then Notif:Send("Spectating " .. capP.Name, 2) end
+                        if ok then
+                            Notif:Send("👁 Spectating " .. capP.Name, 2)
+                        end
                     end
                     buildHubPlayerList(hubSearchBox.Text)
                 end)
+
                 selBtn.MouseButton1Click:Connect(function()
                     if Troll:IsSpectating() then Troll:StopSpectate() end
                     Troll:SetTarget(capP)
@@ -1318,7 +1608,7 @@ local function buildHubPlayerList(filter)
         empty.Text = filter ~= "" and "No results." or "No players in server."
         empty.Font = Enum.Font.Gotham
         empty.TextSize = 8
-        empty.TextColor3 = Color3.fromRGB(120,100,140)
+        empty.TextColor3 = Color3.fromRGB(120, 100, 140)
         empty.TextXAlignment = Enum.TextXAlignment.Left
         empty.ZIndex = 21
         empty.Parent = hubListFrame
@@ -1329,7 +1619,7 @@ end
 Troll.onSpectateChanged = function(specPlayer)
     if specPlayer then
         hubStopSpecBtn.Visible = true
-        hubTargetLabel.Text = "Spectating: " .. specPlayer.DisplayName
+        hubTargetLabel.Text = "👁 " .. specPlayer.DisplayName .. " (@" .. specPlayer.Name .. ")"
         hubTargetLabel.TextColor3 = SCARE_COL
     else
         hubStopSpecBtn.Visible = false
@@ -1339,7 +1629,7 @@ Troll.onSpectateChanged = function(specPlayer)
             hubTargetLabel.TextColor3 = SCARE_COL
         else
             hubTargetLabel.Text = "No target selected"
-            hubTargetLabel.TextColor3 = Color3.fromRGB(160,140,180)
+            hubTargetLabel.TextColor3 = Color3.fromRGB(160, 140, 180)
         end
     end
     buildHubPlayerList(hubSearchBox.Text)
@@ -1354,70 +1644,205 @@ hubSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
     buildHubPlayerList(hubSearchBox.Text)
 end)
 
+hubScareBtn.MouseButton1Click:Connect(function()
+    if Troll:IsScareCooldown() then return end
+    if not Troll:GetTarget() then
+        Notif:Send("No target selected!", 2)
+        return
+    end
+    local ok = Troll:ScareOnce()
+    if ok then
+        setHubScareReady(false)
+        Notif:Send("👻 Scaring " .. Troll:GetTarget().Name .. "...", 2)
+    end
+end)
+
+Troll.onScareReady = function()
+    setHubScareReady(true)
+    Notif:Send("👻 Scare ready!", 2)
+end
+
 -- ============================================================
--- PAGE 2: SCARE
+-- RUSH SCARE PANEL
 -- ============================================================
-local pg2 = hubPages["SCARE"]
+local rushSettingsFrame = Instance.new("Frame")
+rushSettingsFrame.Size = UDim2.new(1, 0, 0, 70)
+rushSettingsFrame.BackgroundColor3 = COLORS.DarkBG
+rushSettingsFrame.ZIndex = 21
+rushSettingsFrame.Parent = hubBody
+createCorner(rushSettingsFrame, 6)
+createStroke(rushSettingsFrame, Color3.fromRGB(255, 160, 80), 1)
 
-local pg2Layout = Instance.new("UIListLayout", pg2)
-pg2Layout.SortOrder = Enum.SortOrder.LayoutOrder
-pg2Layout.Padding = UDim.new(0, 4)
+local rushHeaderLabel = Instance.new("TextLabel")
+rushHeaderLabel.Size = UDim2.new(1, -8, 0, 14)
+rushHeaderLabel.Position = UDim2.new(0, 8, 0, 4)
+rushHeaderLabel.BackgroundTransparency = 1
+rushHeaderLabel.Text = "RUSH SCARE"
+rushHeaderLabel.Font = Enum.Font.GothamBold
+rushHeaderLabel.TextSize = 8
+rushHeaderLabel.TextColor3 = Color3.fromRGB(255, 160, 80)
+rushHeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
+rushHeaderLabel.ZIndex = 22
+rushHeaderLabel.Parent = rushSettingsFrame
 
--- Scare type selector
-local scareTypes = {
-    {key="Scare",  label="SCARE",       col=SCARE_COL},
-    {key="Rush",   label="RUSH",        col=Color3.fromRGB(255,160,80)},
-    {key="Combo",  label="COMBO",       col=Color3.fromRGB(255,80,180)},
-}
-local selectedScareType = "Scare"
-local scareTypeBtns = {}
+local rushSpeedLabel = Instance.new("TextLabel")
+rushSpeedLabel.Size = UDim2.new(0, 80, 0, 18)
+rushSpeedLabel.Position = UDim2.new(0, 8, 0, 20)
+rushSpeedLabel.BackgroundTransparency = 1
+rushSpeedLabel.Text = "Rush Speed:"
+rushSpeedLabel.Font = Enum.Font.Gotham
+rushSpeedLabel.TextSize = 8
+rushSpeedLabel.TextColor3 = Color3.fromRGB(220, 180, 140)
+rushSpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+rushSpeedLabel.ZIndex = 22
+rushSpeedLabel.Parent = rushSettingsFrame
 
-local scareTypeRow = Instance.new("Frame")
-scareTypeRow.Size = UDim2.new(1, 0, 0, 28)
-scareTypeRow.BackgroundTransparency = 1
-scareTypeRow.ZIndex = 20
-scareTypeRow.Parent = pg2
+local rushSpeedBox = Instance.new("TextBox")
+rushSpeedBox.Size = UDim2.new(0, 60, 0, 18)
+rushSpeedBox.Position = UDim2.new(1, -68, 0, 20)
+rushSpeedBox.BackgroundColor3 = COLORS.Frame
+rushSpeedBox.Text = tostring(Troll.rushSpeed or 100)
+rushSpeedBox.Font = Enum.Font.GothamBold
+rushSpeedBox.TextSize = 9
+rushSpeedBox.TextColor3 = COLORS.White
+rushSpeedBox.ClearTextOnFocus = false
+rushSpeedBox.ZIndex = 22
+rushSpeedBox.Parent = rushSettingsFrame
+createCorner(rushSpeedBox, 4)
+createStroke(rushSpeedBox, Color3.fromRGB(255, 160, 80), 1)
+local rsPad = Instance.new("UIPadding", rushSpeedBox)
+rsPad.PaddingLeft = UDim.new(0, 5)
 
-do
-    local bw = math.floor((HUB_W - 12 - (#scareTypes-1)*4) / #scareTypes)
-    for i, st in ipairs(scareTypes) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, bw, 0, 26)
-        btn.Position = UDim2.new(0, (i-1)*(bw+4), 0, 0)
-        btn.BackgroundColor3 = (st.key == selectedScareType) and st.col or COLORS.DarkBG
-        btn.TextColor3 = (st.key == selectedScareType) and COLORS.White or Color3.fromRGB(160,140,180)
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 8
-        btn.Text = st.label
-        btn.ZIndex = 21
-        btn.Parent = scareTypeRow
-        createCorner(btn, 6)
-        scareTypeBtns[st.key] = btn
+rushSpeedBox.FocusLost:Connect(function()
+    local v = tonumber(rushSpeedBox.Text)
+    if v and v > 0 then
+        Troll.rushSpeed = math.clamp(v, 10, 500)
+        rushSpeedBox.Text = tostring(Troll.rushSpeed)
+    else
+        rushSpeedBox.Text = tostring(Troll.rushSpeed or 100)
+    end
+end)
+
+local rushHoldLabel = Instance.new("TextLabel")
+rushHoldLabel.Size = UDim2.new(0, 80, 0, 18)
+rushHoldLabel.Position = UDim2.new(0, 8, 0, 44)
+rushHoldLabel.BackgroundTransparency = 1
+rushHoldLabel.Text = "Hold Time (s):"
+rushHoldLabel.Font = Enum.Font.Gotham
+rushHoldLabel.TextSize = 8
+rushHoldLabel.TextColor3 = Color3.fromRGB(220, 180, 140)
+rushHoldLabel.TextXAlignment = Enum.TextXAlignment.Left
+rushHoldLabel.ZIndex = 22
+rushHoldLabel.Parent = rushSettingsFrame
+
+local rushHoldBox = Instance.new("TextBox")
+rushHoldBox.Size = UDim2.new(0, 60, 0, 18)
+rushHoldBox.Position = UDim2.new(1, -68, 0, 44)
+rushHoldBox.BackgroundColor3 = COLORS.Frame
+rushHoldBox.Text = tostring(Troll.rushHoldTime or 1)
+rushHoldBox.Font = Enum.Font.GothamBold
+rushHoldBox.TextSize = 9
+rushHoldBox.TextColor3 = COLORS.White
+rushHoldBox.ClearTextOnFocus = false
+rushHoldBox.ZIndex = 22
+rushHoldBox.Parent = rushSettingsFrame
+createCorner(rushHoldBox, 4)
+createStroke(rushHoldBox, Color3.fromRGB(255, 160, 80), 1)
+local rhPad = Instance.new("UIPadding", rushHoldBox)
+rhPad.PaddingLeft = UDim.new(0, 5)
+
+rushHoldBox.FocusLost:Connect(function()
+    local v = tonumber(rushHoldBox.Text)
+    if v and v > 0 then
+        Troll.rushHoldTime = math.clamp(v, 0.1, 5)
+        rushHoldBox.Text = tostring(Troll.rushHoldTime)
+    else
+        rushHoldBox.Text = tostring(Troll.rushHoldTime or 1)
+    end
+end)
+
+local hubRushBtn = Instance.new("TextButton")
+hubRushBtn.Size = UDim2.new(1, 0, 0, 30)
+hubRushBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 20)
+hubRushBtn.Text = "🏃  RUSH SCARE"
+hubRushBtn.TextColor3 = COLORS.White
+hubRushBtn.Font = Enum.Font.GothamBold
+hubRushBtn.TextSize = 11
+hubRushBtn.ZIndex = 21
+hubRushBtn.Parent = hubBody
+createCorner(hubRushBtn, 8)
+
+local function setRushReady(ready)
+    if ready then
+        hubRushBtn.Text = "🏃  RUSH SCARE"
+        tween(hubRushBtn, {BackgroundColor3 = Color3.fromRGB(200, 100, 20)}, 0.2)
+        hubRushBtn.TextColor3 = COLORS.White
+    else
+        hubRushBtn.Text = "⏳  Cooldown..."
+        tween(hubRushBtn, {BackgroundColor3 = COLORS.DarkBG}, 0.2)
+        hubRushBtn.TextColor3 = Color3.fromRGB(120, 100, 140)
     end
 end
 
--- Settings panels (one per type, stacked — only one visible at a time)
-local scareSettingsHolder = Instance.new("Frame")
-scareSettingsHolder.Size = UDim2.new(1, 0, 0, 100)
-scareSettingsHolder.BackgroundTransparency = 1
-scareSettingsHolder.ZIndex = 20
-scareSettingsHolder.Parent = pg2
+hubRushBtn.MouseButton1Click:Connect(function()
+    if Troll:IsRushCooldown() then return end
+    if not Troll:GetTarget() then
+        Notif:Send("No target selected!", 2)
+        return
+    end
+    local ok = Troll:RushScare()
+    if ok then
+        setRushReady(false)
+        Notif:Send("🏃 Rushing " .. Troll:GetTarget().Name .. "!", 2)
+    end
+end)
 
-local function makeInputRow(parent, yPos, labelTxt, default)
+Troll.onRushReady = function()
+    setRushReady(true)
+    Notif:Send("🏃 Rush ready!", 2)
+end
+
+-- ============================================================
+-- COMBO SCARE PANEL: Appear → Chase → Hold+Twitch
+-- ============================================================
+local COMBO_COL = Color3.fromRGB(255, 80, 180)
+
+local comboSettingsFrame = Instance.new("Frame")
+comboSettingsFrame.Size = UDim2.new(1, 0, 0, 96)
+comboSettingsFrame.BackgroundColor3 = COLORS.DarkBG
+comboSettingsFrame.ZIndex = 21
+comboSettingsFrame.Parent = hubBody
+createCorner(comboSettingsFrame, 6)
+createStroke(comboSettingsFrame, COMBO_COL, 1)
+
+local comboHeader = Instance.new("TextLabel")
+comboHeader.Size = UDim2.new(1, -8, 0, 14)
+comboHeader.Position = UDim2.new(0, 8, 0, 4)
+comboHeader.BackgroundTransparency = 1
+comboHeader.Text = "COMBO SCARE  (Appear -> Chase -> Twitch)"
+comboHeader.Font = Enum.Font.GothamBold
+comboHeader.TextSize = 7
+comboHeader.TextColor3 = COMBO_COL
+comboHeader.TextXAlignment = Enum.TextXAlignment.Left
+comboHeader.ZIndex = 22
+comboHeader.Parent = comboSettingsFrame
+
+local function makeComboRow(parent, label, yPos, default, minV, maxV, key)
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(0.6, 0, 0, 18)
+    lbl.Size = UDim2.new(0, 100, 0, 18)
     lbl.Position = UDim2.new(0, 8, 0, yPos)
     lbl.BackgroundTransparency = 1
-    lbl.Text = labelTxt
+    lbl.Text = label
     lbl.Font = Enum.Font.Gotham
     lbl.TextSize = 8
-    lbl.TextColor3 = Color3.fromRGB(200,170,220)
+    lbl.TextColor3 = Color3.fromRGB(220, 170, 210)
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.ZIndex = 22
     lbl.Parent = parent
+
     local box = Instance.new("TextBox")
-    box.Size = UDim2.new(0, 55, 0, 18)
-    box.Position = UDim2.new(1, -63, 0, yPos)
+    box.Size = UDim2.new(0, 60, 0, 18)
+    box.Position = UDim2.new(1, -68, 0, yPos)
     box.BackgroundColor3 = COLORS.Frame
     box.Text = tostring(default)
     box.Font = Enum.Font.GothamBold
@@ -1427,312 +1852,66 @@ local function makeInputRow(parent, yPos, labelTxt, default)
     box.ZIndex = 22
     box.Parent = parent
     createCorner(box, 4)
-    local p = Instance.new("UIPadding", box); p.PaddingLeft = UDim.new(0,5)
+    createStroke(box, COMBO_COL, 1)
+    local p = Instance.new("UIPadding", box)
+    p.PaddingLeft = UDim.new(0, 5)
+
+    box.FocusLost:Connect(function()
+        local v = tonumber(box.Text)
+        if v and v > 0 then
+            Troll[key] = math.clamp(v, minV, maxV)
+            box.Text = tostring(Troll[key])
+        else
+            box.Text = tostring(Troll[key] or default)
+        end
+    end)
     return box
 end
 
--- SCARE panel
-local panelScare = Instance.new("Frame")
-panelScare.Size = UDim2.new(1, 0, 1, 0)
-panelScare.BackgroundColor3 = COLORS.DarkBG
-panelScare.ZIndex = 21; panelScare.Visible = true
-panelScare.Parent = scareSettingsHolder
-createCorner(panelScare, 6); createStroke(panelScare, SCARE_COL, 1)
+makeComboRow(comboSettingsFrame, "Appear Dist (studs):", 20,  10,  1,  30,  "comboAppearDist")
+makeComboRow(comboSettingsFrame, "Chase Speed:",         44, 100, 10, 500,  "comboRushSpeed")
+makeComboRow(comboSettingsFrame, "Hold Time (s):",       68,   1, 0.1,  5,  "comboHoldTime")
 
-local holdTimeBox = makeInputRow(panelScare, 6,  "Hold Time (s):",    Troll.scareHoldTime or 1)
-local studBox     = makeInputRow(panelScare, 30, "Distance (studs):", Troll.scareDistance or 6)
+local hubComboBtn = Instance.new("TextButton")
+hubComboBtn.Size = UDim2.new(1, 0, 0, 30)
+hubComboBtn.BackgroundColor3 = COMBO_COL
+hubComboBtn.Text = "COMBO SCARE"
+hubComboBtn.TextColor3 = COLORS.White
+hubComboBtn.Font = Enum.Font.GothamBold
+hubComboBtn.TextSize = 11
+hubComboBtn.ZIndex = 21
+hubComboBtn.Parent = hubBody
+createCorner(hubComboBtn, 8)
 
-local emoteLbl = Instance.new("TextLabel")
-emoteLbl.Size = UDim2.new(0.45, 0, 0, 18); emoteLbl.Position = UDim2.new(0, 8, 0, 54)
-emoteLbl.BackgroundTransparency = 1; emoteLbl.Text = "Emote:"
-emoteLbl.Font = Enum.Font.Gotham; emoteLbl.TextSize = 8
-emoteLbl.TextColor3 = Color3.fromRGB(200,170,220)
-emoteLbl.TextXAlignment = Enum.TextXAlignment.Left
-emoteLbl.ZIndex = 22; emoteLbl.Parent = panelScare
-
-local selectedEmote = nil
-local emotePickBtn = Instance.new("TextButton")
-emotePickBtn.Size = UDim2.new(0, 90, 0, 18); emotePickBtn.Position = UDim2.new(1, -98, 0, 54)
-emotePickBtn.BackgroundColor3 = COLORS.Frame; emotePickBtn.Text = "none"
-emotePickBtn.Font = Enum.Font.GothamSemibold; emotePickBtn.TextSize = 8
-emotePickBtn.TextColor3 = Color3.fromRGB(160,140,180)
-emotePickBtn.ZIndex = 22; emotePickBtn.Parent = panelScare
-createCorner(emotePickBtn, 4); createStroke(emotePickBtn, SCARE_COL, 1)
-
-local autoEmoteOn = false
-local autoEmoteConn = nil
-local autoEmoteBtn = Instance.new("TextButton")
-autoEmoteBtn.Size = UDim2.new(1, -16, 0, 18); autoEmoteBtn.Position = UDim2.new(0, 8, 0, 76)
-autoEmoteBtn.BackgroundColor3 = COLORS.Frame; autoEmoteBtn.Text = "AUTO EMOTE: OFF"
-autoEmoteBtn.Font = Enum.Font.GothamBold; autoEmoteBtn.TextSize = 8
-autoEmoteBtn.TextColor3 = Color3.fromRGB(160,140,180)
-autoEmoteBtn.ZIndex = 22; autoEmoteBtn.Parent = panelScare
-createCorner(autoEmoteBtn, 4)
-
--- Emote popup
-local emotePopup = Instance.new("Frame")
-emotePopup.Size = UDim2.new(0, HUB_W-12, 0, 160)
-emotePopup.Position = UDim2.new(0, 6, 0, 70)
-emotePopup.BackgroundColor3 = COLORS.DarkBG
-emotePopup.ZIndex = 30; emotePopup.Visible = false
-emotePopup.Parent = scareHub
-createCorner(emotePopup, 8); createStroke(emotePopup, SCARE_COL, 2)
-
-local epTitle = Instance.new("TextLabel")
-epTitle.Size = UDim2.new(1,-8,0,18); epTitle.Position = UDim2.new(0,8,0,4)
-epTitle.BackgroundTransparency = 1; epTitle.Text = "Select Emote"
-epTitle.Font = Enum.Font.GothamBold; epTitle.TextSize = 9
-epTitle.TextColor3 = SCARE_COL; epTitle.TextXAlignment = Enum.TextXAlignment.Left
-epTitle.ZIndex = 31; epTitle.Parent = emotePopup
-
-local epClose = Instance.new("TextButton")
-epClose.Size = UDim2.new(0,18,0,18); epClose.Position = UDim2.new(1,-22,0,2)
-epClose.BackgroundColor3 = COLORS.Frame; epClose.Text = "X"
-epClose.Font = Enum.Font.GothamBold; epClose.TextSize = 8
-epClose.TextColor3 = COLORS.White; epClose.ZIndex = 31; epClose.Parent = emotePopup
-createCorner(epClose, 4)
-
-local emoteScroll = Instance.new("ScrollingFrame")
-emoteScroll.Size = UDim2.new(1,-8,1,-26); emoteScroll.Position = UDim2.new(0,4,0,24)
-emoteScroll.BackgroundTransparency = 1; emoteScroll.BorderSizePixel = 0
-emoteScroll.ScrollBarThickness = 2
-emoteScroll.CanvasSize = UDim2.new(0,0,0,0)
-emoteScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-emoteScroll.ZIndex = 31; emoteScroll.Parent = emotePopup
-local emoteListLayout = Instance.new("UIListLayout", emoteScroll)
-emoteListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-emoteListLayout.Padding = UDim.new(0,3)
-
-local emoteRowBtns = {}
-
-local function buildEmoteList()
-    for _, v in pairs(emoteScroll:GetChildren()) do
-        if v:IsA("TextButton") then v:Destroy() end
+local function setComboReady(ready)
+    if ready then
+        hubComboBtn.Text = "COMBO SCARE"
+        tween(hubComboBtn, {BackgroundColor3 = COMBO_COL}, 0.2)
+        hubComboBtn.TextColor3 = COLORS.White
+    else
+        hubComboBtn.Text = "Cooldown..."
+        tween(hubComboBtn, {BackgroundColor3 = COLORS.DarkBG}, 0.2)
+        hubComboBtn.TextColor3 = Color3.fromRGB(120, 100, 140)
     end
-    emoteRowBtns = {}
-    local ok2, emotes = pcall(function()
-        local hd = Players:GetHumanoidDescriptionFromUserId(player.UserId)
-        local list = {}
-        for _, e in ipairs(hd:GetEquippedEmotes()) do
-            table.insert(list, {name=e.Name, id=e.AssetId})
-        end
-        return list
-    end)
-    if not ok2 or not emotes or #emotes == 0 then
-        local noE = Instance.new("TextLabel")
-        noE.Size = UDim2.new(1,0,0,20); noE.BackgroundTransparency = 1
-        noE.Text = "No equipped emotes."; noE.Font = Enum.Font.Gotham
-        noE.TextSize = 8; noE.TextColor3 = Color3.fromRGB(120,100,140)
-        noE.ZIndex = 32; noE.Parent = emoteScroll
+end
+
+hubComboBtn.MouseButton1Click:Connect(function()
+    if Troll:IsComboCooldown() then return end
+    if not Troll:GetTarget() then
+        Notif:Send("No target selected!", 2)
         return
     end
-    for _, emote in ipairs(emotes) do
-        local capEmote = emote
-        local eBtn = Instance.new("TextButton")
-        eBtn.Size = UDim2.new(1,0,0,20)
-        eBtn.BackgroundColor3 = (selectedEmote==capEmote.name) and COLORS.Galaxy1 or COLORS.Frame
-        eBtn.Text = capEmote.name
-        eBtn.Font = Enum.Font.GothamSemibold; eBtn.TextSize = 8
-        eBtn.TextColor3 = (selectedEmote==capEmote.name) and COLORS.White or Color3.fromRGB(180,160,200)
-        eBtn.TextXAlignment = Enum.TextXAlignment.Left
-        eBtn.ZIndex = 32; eBtn.Parent = emoteScroll
-        createCorner(eBtn, 4)
-        local ePad = Instance.new("UIPadding", eBtn); ePad.PaddingLeft = UDim.new(0,6)
-        emoteRowBtns[capEmote.name] = eBtn
-        eBtn.MouseButton1Click:Connect(function()
-            for _, b in pairs(emoteRowBtns) do
-                b.BackgroundColor3 = COLORS.Frame
-                b.TextColor3 = Color3.fromRGB(180,160,200)
-            end
-            selectedEmote = capEmote.name
-            emotePickBtn.Text = capEmote.name
-            emotePickBtn.TextColor3 = SCARE_COL
-            eBtn.BackgroundColor3 = COLORS.Galaxy1
-            eBtn.TextColor3 = COLORS.White
-            emotePopup.Visible = false
-            pcall(function()
-                local hum = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid")
-                if hum then hum:PlayEmote(capEmote.name) end
-            end)
-        end)
-    end
-end
-
-emotePickBtn.MouseButton1Click:Connect(function()
-    buildEmoteList(); emotePopup.Visible = not emotePopup.Visible
-end)
-epClose.MouseButton1Click:Connect(function() emotePopup.Visible = false end)
-
-local function setAutoEmote(state)
-    autoEmoteOn = state
-    if state then
-        autoEmoteBtn.BackgroundColor3 = COLORS.Galaxy1
-        autoEmoteBtn.TextColor3 = COLORS.White
-        autoEmoteBtn.Text = "AUTO EMOTE: ON"
-        autoEmoteConn = RunService.Heartbeat:Connect(function()
-            if not selectedEmote then return end
-            pcall(function()
-                local hum = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid")
-                if hum then hum:PlayEmote(selectedEmote) end
-            end)
-        end)
-    else
-        autoEmoteBtn.BackgroundColor3 = COLORS.Frame
-        autoEmoteBtn.TextColor3 = Color3.fromRGB(160,140,180)
-        autoEmoteBtn.Text = "AUTO EMOTE: OFF"
-        if autoEmoteConn then autoEmoteConn:Disconnect(); autoEmoteConn = nil end
-    end
-end
-autoEmoteBtn.MouseButton1Click:Connect(function()
-    if not selectedEmote and not autoEmoteOn then Notif:Send("Select an emote first!", 2); return end
-    setAutoEmote(not autoEmoteOn)
-end)
-
-holdTimeBox.FocusLost:Connect(function()
-    local v = tonumber(holdTimeBox.Text)
-    if v and v > 0 then Troll.scareHoldTime = math.clamp(v,0.1,5)
-    else holdTimeBox.Text = tostring(Troll.scareHoldTime or 1) end
-end)
-studBox.FocusLost:Connect(function()
-    local v = tonumber(studBox.Text)
-    if v and v > 0 then Troll.scareDistance = math.clamp(v,1,30)
-    else studBox.Text = tostring(Troll.scareDistance or 6) end
-end)
-
--- RUSH panel
-local panelRush = Instance.new("Frame")
-panelRush.Size = UDim2.new(1,0,1,0)
-panelRush.BackgroundColor3 = COLORS.DarkBG
-panelRush.ZIndex = 21; panelRush.Visible = false
-panelRush.Parent = scareSettingsHolder
-createCorner(panelRush, 6); createStroke(panelRush, Color3.fromRGB(255,160,80), 1)
-
-local rushSpeedBox = makeInputRow(panelRush, 6,  "Rush Speed:",    Troll.rushSpeed or 100)
-local rushHoldBox  = makeInputRow(panelRush, 30, "Hold Time (s):", Troll.rushHoldTime or 1)
-rushSpeedBox.FocusLost:Connect(function()
-    local v = tonumber(rushSpeedBox.Text)
-    if v and v > 0 then Troll.rushSpeed = math.clamp(v,10,500)
-    else rushSpeedBox.Text = tostring(Troll.rushSpeed or 100) end
-end)
-rushHoldBox.FocusLost:Connect(function()
-    local v = tonumber(rushHoldBox.Text)
-    if v and v > 0 then Troll.rushHoldTime = math.clamp(v,0.1,5)
-    else rushHoldBox.Text = tostring(Troll.rushHoldTime or 1) end
-end)
-
--- COMBO panel
-local panelCombo = Instance.new("Frame")
-panelCombo.Size = UDim2.new(1,0,1,0)
-panelCombo.BackgroundColor3 = COLORS.DarkBG
-panelCombo.ZIndex = 21; panelCombo.Visible = false
-panelCombo.Parent = scareSettingsHolder
-createCorner(panelCombo, 6); createStroke(panelCombo, Color3.fromRGB(255,80,180), 1)
-
-local comboAppearBox = makeInputRow(panelCombo, 6,  "Appear Dist:",   Troll.comboAppearDist or 10)
-local comboSpeedBox  = makeInputRow(panelCombo, 30, "Chase Speed:",   Troll.comboRushSpeed or 100)
-local comboHoldBox   = makeInputRow(panelCombo, 54, "Hold Time (s):", Troll.comboHoldTime or 1)
-comboAppearBox.FocusLost:Connect(function()
-    local v = tonumber(comboAppearBox.Text)
-    if v and v > 0 then Troll.comboAppearDist = math.clamp(v,1,30)
-    else comboAppearBox.Text = tostring(Troll.comboAppearDist or 10) end
-end)
-comboSpeedBox.FocusLost:Connect(function()
-    local v = tonumber(comboSpeedBox.Text)
-    if v and v > 0 then Troll.comboRushSpeed = math.clamp(v,10,500)
-    else comboSpeedBox.Text = tostring(Troll.comboRushSpeed or 100) end
-end)
-comboHoldBox.FocusLost:Connect(function()
-    local v = tonumber(comboHoldBox.Text)
-    if v and v > 0 then Troll.comboHoldTime = math.clamp(v,0.1,5)
-    else comboHoldBox.Text = tostring(Troll.comboHoldTime or 1) end
-end)
-
--- Switch scare type
-local scarePanels = {Scare=panelScare, Rush=panelRush, Combo=panelCombo}
-local function selectScareType(key)
-    selectedScareType = key
-    for _, st in ipairs(scareTypes) do
-        local active = (st.key == key)
-        scareTypeBtns[st.key].BackgroundColor3 = active and st.col or COLORS.DarkBG
-        scareTypeBtns[st.key].TextColor3 = active and COLORS.White or Color3.fromRGB(160,140,180)
-    end
-    for k, panel in pairs(scarePanels) do panel.Visible = (k==key) end
-end
-for _, st in ipairs(scareTypes) do
-    local capKey = st.key
-    scareTypeBtns[capKey].MouseButton1Click:Connect(function() selectScareType(capKey) end)
-end
-
--- GO button
-local hubGoBtn = Instance.new("TextButton")
-hubGoBtn.Size = UDim2.new(1, 0, 0, 32)
-hubGoBtn.BackgroundColor3 = SCARE_COL
-hubGoBtn.Text = "GO"
-hubGoBtn.TextColor3 = COLORS.White
-hubGoBtn.Font = Enum.Font.GothamBold
-hubGoBtn.TextSize = 13
-hubGoBtn.ZIndex = 21
-hubGoBtn.Parent = pg2
-createCorner(hubGoBtn, 8)
-galaxyGradient(hubGoBtn, 90)
-
-local function setGoReady(ready)
-    if ready then
-        tween(hubGoBtn, {BackgroundColor3 = SCARE_COL}, 0.2)
-        hubGoBtn.TextColor3 = COLORS.White
-        hubGoBtn.Text = "GO"
-    else
-        tween(hubGoBtn, {BackgroundColor3 = COLORS.DarkBG}, 0.2)
-        hubGoBtn.TextColor3 = Color3.fromRGB(120,100,140)
-        hubGoBtn.Text = "Cooldown..."
-    end
-end
-
-hubGoBtn.MouseButton1Click:Connect(function()
-    if not Troll:GetTarget() then Notif:Send("No target selected!", 2); return end
-    local name = Troll:GetTarget().Name
-    if selectedScareType == "Scare" then
-        if Troll:IsScareCooldown() then return end
-        local ok = Troll:ScareOnce()
-        if ok then setGoReady(false); Notif:Send("Scaring " .. name, 2) end
-    elseif selectedScareType == "Rush" then
-        if Troll:IsRushCooldown() then return end
-        local ok = Troll:RushScare()
-        if ok then setGoReady(false); Notif:Send("Rushing " .. name, 2) end
-    elseif selectedScareType == "Combo" then
-        if Troll:IsComboCooldown() then return end
-        local ok = Troll:ComboScare()
-        if ok then setGoReady(false); Notif:Send("Combo on " .. name, 2) end
+    local ok = Troll:ComboScare()
+    if ok then
+        setComboReady(false)
+        Notif:Send("Combo: " .. Troll:GetTarget().Name .. "!", 2)
     end
 end)
 
-Troll.onScareReady = function()
-    if selectedScareType == "Scare" then setGoReady(true); Notif:Send("Scare ready!", 2) end
-end
-Troll.onRushReady = function()
-    if selectedScareType == "Rush" then setGoReady(true); Notif:Send("Rush ready!", 2) end
-end
 Troll.onComboReady = function()
-    if selectedScareType == "Combo" then setGoReady(true); Notif:Send("Combo ready!", 2) end
+    setComboReady(true)
+    Notif:Send("Combo ready!", 2)
 end
-
--- ============================================================
--- SCARE HUB: Minimize + Close
--- ============================================================
-local scareHubMinimized = false
-local scareHubFullSize  = UDim2.new(0, HUB_W, 0, HUB_H)
-local scareHubMinSize   = UDim2.new(0, HUB_W, 0, 36)
-
-hubMinimize.MouseButton1Click:Connect(function()
-    scareHubMinimized = not scareHubMinimized
-    if scareHubMinimized then
-        tween(scareHub, {Size = scareHubMinSize}, 0.25, Enum.EasingStyle.Quad)
-        hubMinimize.Text = "+"
-    else
-        tween(scareHub, {Size = scareHubFullSize}, 0.3, Enum.EasingStyle.Back)
-        hubMinimize.Text = "_"
-    end
-end)
 
 hubClose.MouseButton1Click:Connect(function()
     scareHubOpen = false
