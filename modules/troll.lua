@@ -19,6 +19,8 @@ local walkFlingThread = nil
 local antiFlingConn   = nil
 local spectating      = false
 local specTarget      = nil
+local spectateMode    = "free" -- "free" or "locked"
+local lockedCamConn   = nil
 
 Troll.selectedTarget  = nil
 Troll.scareReady      = true
@@ -33,21 +35,67 @@ function Troll:GetTarget()
     return self.selectedTarget
 end
 
-function Troll:StartSpectate(targetPlayer)
+local function stopLockedCam()
+    if lockedCamConn then
+        lockedCamConn:Disconnect()
+        lockedCamConn = nil
+    end
+    workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+end
+
+local function startLockedCam(targetPlayer)
+    stopLockedCam()
+    workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
+    lockedCamConn = RunService.RenderStepped:Connect(function()
+        if not spectating or not targetPlayer or not targetPlayer.Character then
+            stopLockedCam()
+            return
+        end
+        local char = targetPlayer.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        -- Position camera at the target's head, looking where they look
+        local head = char:FindFirstChild("Head")
+        local eyePos = head and head.CFrame.Position or hrp.CFrame.Position + Vector3.new(0, 1.5, 0)
+        workspace.CurrentCamera.CFrame = CFrame.new(eyePos, eyePos + hrp.CFrame.LookVector * 10)
+    end)
+end
+
+function Troll:StartSpectate(targetPlayer, mode)
     if not targetPlayer or not targetPlayer.Character then return false end
     local hum = targetPlayer.Character:FindFirstChildWhichIsA("Humanoid")
     if not hum then return false end
     spectating = true
     specTarget = targetPlayer
+    spectateMode = mode or spectateMode or "free"
     self.selectedTarget = targetPlayer
-    workspace.CurrentCamera.CameraSubject = hum
+
+    if spectateMode == "locked" then
+        startLockedCam(targetPlayer)
+    else
+        stopLockedCam()
+        workspace.CurrentCamera.CameraSubject = hum
+    end
+
     if self.onSpectateChanged then self.onSpectateChanged(targetPlayer) end
     return true
+end
+
+function Troll:SetSpectateMode(mode)
+    spectateMode = mode
+    if spectating and specTarget then
+        self:StartSpectate(specTarget, mode)
+    end
+end
+
+function Troll:GetSpectateMode()
+    return spectateMode
 end
 
 function Troll:StopSpectate()
     spectating = false
     specTarget = nil
+    stopLockedCam()
     local myChar = player.Character
     local myHum  = myChar and myChar:FindFirstChildWhichIsA("Humanoid")
     workspace.CurrentCamera.CameraSubject = myHum or myChar

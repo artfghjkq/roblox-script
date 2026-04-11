@@ -944,7 +944,7 @@ local scareHubOpen = false
 
 local scareHub = Instance.new("Frame")
 scareHub.Name = "ScareHub"
-scareHub.Size = UDim2.new(0, 220, 0, 280)
+scareHub.Size = UDim2.new(0, 220, 0, 310)
 scareHub.Position = UDim2.new(0.5, -110, 0.5, -140)
 scareHub.BackgroundColor3 = COLORS.Background
 scareHub.Active = true
@@ -1062,6 +1062,76 @@ local hubListLayout = Instance.new("UIListLayout", hubListFrame)
 hubListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 hubListLayout.Padding = UDim.new(0, 3)
 
+-- Spectate mode toggle row
+local specModeRow = Instance.new("Frame")
+specModeRow.Size = UDim2.new(1, 0, 0, 26)
+specModeRow.BackgroundColor3 = COLORS.DarkBG
+specModeRow.ZIndex = 20
+specModeRow.Parent = hubBody
+createCorner(specModeRow, 6)
+
+local specModeLabel = Instance.new("TextLabel")
+specModeLabel.Size = UDim2.new(0.4, 0, 1, 0)
+specModeLabel.Position = UDim2.new(0, 8, 0, 0)
+specModeLabel.BackgroundTransparency = 1
+specModeLabel.Text = "Cam:"
+specModeLabel.Font = Enum.Font.GothamBold
+specModeLabel.TextSize = 8
+specModeLabel.TextColor3 = Color3.fromRGB(160, 140, 180)
+specModeLabel.TextXAlignment = Enum.TextXAlignment.Left
+specModeLabel.ZIndex = 21
+specModeLabel.Parent = specModeRow
+
+local freeModeBtn = Instance.new("TextButton")
+freeModeBtn.Size = UDim2.new(0, 60, 0, 18)
+freeModeBtn.Position = UDim2.new(0.4, 0, 0.5, -9)
+freeModeBtn.BackgroundColor3 = COLORS.Galaxy1  -- default selected
+freeModeBtn.Text = "Free"
+freeModeBtn.TextColor3 = COLORS.White
+freeModeBtn.Font = Enum.Font.GothamBold
+freeModeBtn.TextSize = 8
+freeModeBtn.ZIndex = 21
+freeModeBtn.Parent = specModeRow
+createCorner(freeModeBtn, 5)
+
+local lockedModeBtn = Instance.new("TextButton")
+lockedModeBtn.Size = UDim2.new(0, 60, 0, 18)
+lockedModeBtn.Position = UDim2.new(1, -64, 0.5, -9)
+lockedModeBtn.BackgroundColor3 = COLORS.DarkBG
+lockedModeBtn.Text = "Locked"
+lockedModeBtn.TextColor3 = Color3.fromRGB(160, 140, 180)
+lockedModeBtn.Font = Enum.Font.GothamBold
+lockedModeBtn.TextSize = 8
+lockedModeBtn.ZIndex = 21
+lockedModeBtn.Parent = specModeRow
+createCorner(lockedModeBtn, 5)
+
+local function setSpecModeUI(mode)
+    if mode == "free" then
+        freeModeBtn.BackgroundColor3  = COLORS.Galaxy1
+        freeModeBtn.TextColor3        = COLORS.White
+        lockedModeBtn.BackgroundColor3 = COLORS.DarkBG
+        lockedModeBtn.TextColor3      = Color3.fromRGB(160, 140, 180)
+    else
+        lockedModeBtn.BackgroundColor3 = COLORS.Galaxy1
+        lockedModeBtn.TextColor3       = COLORS.White
+        freeModeBtn.BackgroundColor3   = COLORS.DarkBG
+        freeModeBtn.TextColor3         = Color3.fromRGB(160, 140, 180)
+    end
+end
+
+freeModeBtn.MouseButton1Click:Connect(function()
+    Troll:SetSpectateMode("free")
+    setSpecModeUI("free")
+    if Troll:IsSpectating() then Notif:Send("Cam: Free", 1) end
+end)
+
+lockedModeBtn.MouseButton1Click:Connect(function()
+    Troll:SetSpectateMode("locked")
+    setSpecModeUI("locked")
+    if Troll:IsSpectating() then Notif:Send("Cam: Locked to target", 1) end
+end)
+
 local hubStopSpecBtn = Instance.new("TextButton")
 hubStopSpecBtn.Size = UDim2.new(1, 0, 0, 24)
 hubStopSpecBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 80)
@@ -1101,7 +1171,7 @@ end
 
 -- Minimize logic (declared here, after all hubBody children exist)
 local scareHubMinimized = false
-local scareHubFullSize  = UDim2.new(0, 220, 0, 280)
+local scareHubFullSize  = UDim2.new(0, 220, 0, 310)
 local scareHubMinSize   = UDim2.new(0, 220, 0, 36)
 
 hubMinimize.MouseButton1Click:Connect(function()
@@ -1187,7 +1257,7 @@ local function buildHubPlayerList(filter)
                     if Troll:GetSpectateTarget() == capP then
                         Troll:StopSpectate()
                     else
-                        local ok = Troll:StartSpectate(capP)
+                        local ok = Troll:StartSpectate(capP, Troll:GetSpectateMode())
                         if ok then
                             Notif:Send("👁 Spectating " .. capP.Name, 2)
                         end
