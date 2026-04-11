@@ -1076,220 +1076,202 @@ hubTargetLabel.TextXAlignment = Enum.TextXAlignment.Left
 hubTargetLabel.ZIndex = 21
 hubTargetLabel.Parent = hubTargetDisplay
 
--- ── Player search ─────────────────────────────────────────────
-local hubSearchBox = Instance.new("TextBox")
-hubSearchBox.Size = UDim2.new(1, 0, 0, 22)
-hubSearchBox.BackgroundColor3 = COLORS.DarkBG
-hubSearchBox.PlaceholderText = "Search player..."
-hubSearchBox.PlaceholderColor3 = Color3.fromRGB(100, 85, 120)
-hubSearchBox.Text = ""
-hubSearchBox.Font = Enum.Font.Gotham
-hubSearchBox.TextSize = 9
-hubSearchBox.TextColor3 = COLORS.White
-hubSearchBox.ClearTextOnFocus = false
-hubSearchBox.LayoutOrder = 2
-hubSearchBox.ZIndex = 21
-hubSearchBox.Parent = hubPage
-createCorner(hubSearchBox, 6)
-createStroke(hubSearchBox, COLORS.Galaxy1, 1)
-local sbPad = Instance.new("UIPadding", hubSearchBox)
-sbPad.PaddingLeft = UDim.new(0, 8)
+-- ── Player dropdown row ───────────────────────────────────────
+-- One compact row: [Player Name ▼] [SPEC toggle] [Free|Locked|Orbit|3rdP]
+local playerRow = Instance.new("Frame")
+playerRow.Size = UDim2.new(1, 0, 0, 26)
+playerRow.BackgroundTransparency = 1
+playerRow.LayoutOrder = 2
+playerRow.ZIndex = 20
+playerRow.Parent = hubPage
 
--- ── Player list ───────────────────────────────────────────────
-local hubListFrame = Instance.new("ScrollingFrame")
-hubListFrame.Size = UDim2.new(1, 0, 0, 72)
-hubListFrame.BackgroundTransparency = 1
-hubListFrame.BorderSizePixel = 0
-hubListFrame.ScrollBarThickness = 2
-hubListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-hubListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-hubListFrame.LayoutOrder = 3
-hubListFrame.ZIndex = 20
-hubListFrame.Parent = hubPage
+-- Dropdown button (left side, ~40% width)
+local dropBtn = Instance.new("TextButton")
+dropBtn.Size = UDim2.new(0, 95, 1, 0)
+dropBtn.Position = UDim2.new(0, 0, 0, 0)
+dropBtn.BackgroundColor3 = COLORS.DarkBG
+dropBtn.Font = Enum.Font.GothamSemibold
+dropBtn.TextSize = 8
+dropBtn.Text = "Select player â¼"
+dropBtn.TextColor3 = Color3.fromRGB(160, 140, 180)
+dropBtn.TextTruncate = Enum.TextTruncate.AtEnd
+dropBtn.ZIndex = 21
+dropBtn.Parent = playerRow
+createCorner(dropBtn, 6)
+createStroke(dropBtn, SCARE_COL, 1)
+local dpPad = Instance.new("UIPadding", dropBtn)
+dpPad.PaddingLeft = UDim.new(0, 6)
+dpPad.PaddingRight = UDim.new(0, 4)
 
-local hubListLayout = Instance.new("UIListLayout", hubListFrame)
-hubListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-hubListLayout.Padding = UDim.new(0, 3)
+-- SPEC toggle button
+local specToggleBtn = Instance.new("TextButton")
+specToggleBtn.Size = UDim2.new(0, 36, 1, 0)
+specToggleBtn.Position = UDim2.new(0, 99, 0, 0)
+specToggleBtn.BackgroundColor3 = COLORS.DarkBG
+specToggleBtn.Font = Enum.Font.GothamBold
+specToggleBtn.TextSize = 7
+specToggleBtn.Text = "SPEC"
+specToggleBtn.TextColor3 = Color3.fromRGB(160, 140, 180)
+specToggleBtn.ZIndex = 21
+specToggleBtn.Parent = playerRow
+createCorner(specToggleBtn, 6)
+createStroke(specToggleBtn, COLORS.Frame, 1)
 
--- ── Spectate camera mode ──────────────────────────────────────
-local specModeRow = Instance.new("Frame")
-specModeRow.Size = UDim2.new(1, 0, 0, 44)
-specModeRow.BackgroundColor3 = COLORS.DarkBG
-specModeRow.LayoutOrder = 4
-specModeRow.ZIndex = 20
-specModeRow.Parent = hubPage
-createCorner(specModeRow, 6)
-
-local specModeLabel = Instance.new("TextLabel")
-specModeLabel.Size = UDim2.new(1, -8, 0, 16)
-specModeLabel.Position = UDim2.new(0, 8, 0, 2)
-specModeLabel.BackgroundTransparency = 1
-specModeLabel.Text = "Spectate Camera:"
-specModeLabel.Font = Enum.Font.GothamBold
-specModeLabel.TextSize = 8
-specModeLabel.TextColor3 = Color3.fromRGB(160, 140, 180)
-specModeLabel.TextXAlignment = Enum.TextXAlignment.Left
-specModeLabel.ZIndex = 21
-specModeLabel.Parent = specModeRow
-
-local specModes = {
-    {key="free",   label="Free"},
-    {key="locked", label="Locked"},
-    {key="orbit",  label="Orbit"},
-    {key="third",  label="3rd P"},
-}
-local specModeBtns = {}
-local smBtnW = 46
-for i, m in ipairs(specModes) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, smBtnW, 0, 20)
-    btn.Position = UDim2.new(0, 4 + (i-1)*(smBtnW+3), 0, 24)
-    btn.BackgroundColor3 = (m.key=="free") and COLORS.Galaxy1 or COLORS.Frame
-    btn.Text = m.label
-    btn.TextColor3 = (m.key=="free") and COLORS.White or Color3.fromRGB(160,140,180)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 7
-    btn.ZIndex = 21
-    btn.Parent = specModeRow
-    createCorner(btn, 5)
-    specModeBtns[m.key] = btn
+-- Cam mode buttons (right side, 4 small buttons)
+local camModes = {"Free","Lock","Orb","3rd"}
+local camKeys  = {"free","locked","orbit","third"}
+local camBtns  = {}
+local camBtnW  = 26
+local camStartX = 139
+for i, lbl in ipairs(camModes) do
+    local cb = Instance.new("TextButton")
+    cb.Size = UDim2.new(0, camBtnW, 1, 0)
+    cb.Position = UDim2.new(0, camStartX + (i-1)*(camBtnW+2), 0, 0)
+    cb.BackgroundColor3 = (i==1) and COLORS.Galaxy1 or COLORS.Frame
+    cb.Font = Enum.Font.GothamBold
+    cb.TextSize = 6
+    cb.Text = lbl
+    cb.TextColor3 = (i==1) and COLORS.White or Color3.fromRGB(160,140,180)
+    cb.ZIndex = 21
+    cb.Parent = playerRow
+    createCorner(cb, 5)
+    camBtns[camKeys[i]] = cb
 end
 
-local function setSpecModeUI(mode)
-    for _, m in ipairs(specModes) do
-        local active = (m.key == mode)
-        specModeBtns[m.key].BackgroundColor3 = active and COLORS.Galaxy1 or COLORS.Frame
-        specModeBtns[m.key].TextColor3       = active and COLORS.White or Color3.fromRGB(160,140,180)
+local function setCamModeUI(mode)
+    for _, k in ipairs(camKeys) do
+        camBtns[k].BackgroundColor3 = (k==mode) and COLORS.Galaxy1 or COLORS.Frame
+        camBtns[k].TextColor3       = (k==mode) and COLORS.White or Color3.fromRGB(160,140,180)
     end
 end
-local specModeNotifs = {
+local camModeNotifs = {
     free="Cam: Free", locked="Cam: Locked (POV)",
     orbit="Cam: Fixed Orbit", third="Cam: 3rd Person",
 }
-for _, m in ipairs(specModes) do
-    local capKey = m.key
-    specModeBtns[capKey].MouseButton1Click:Connect(function()
-        Troll:SetSpectateMode(capKey)
-        setSpecModeUI(capKey)
-        if Troll:IsSpectating() then Notif:Send(specModeNotifs[capKey], 1) end
+for _, k in ipairs(camKeys) do
+    local capK = k
+    camBtns[capK].MouseButton1Click:Connect(function()
+        Troll:SetSpectateMode(capK)
+        setCamModeUI(capK)
+        if Troll:IsSpectating() then Notif:Send(camModeNotifs[capK], 1) end
     end)
 end
 
-local hubStopSpecBtn = Instance.new("TextButton")
-hubStopSpecBtn.Size = UDim2.new(1, 0, 0, 20)
-hubStopSpecBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 80)
-hubStopSpecBtn.Text = "Stop Spectate"
-hubStopSpecBtn.TextColor3 = Color3.fromRGB(180, 120, 255)
-hubStopSpecBtn.Font = Enum.Font.GothamBold
-hubStopSpecBtn.TextSize = 9
-hubStopSpecBtn.Visible = false
-hubStopSpecBtn.LayoutOrder = 5
-hubStopSpecBtn.ZIndex = 21
-hubStopSpecBtn.Parent = hubPage
-createCorner(hubStopSpecBtn, 6)
-createStroke(hubStopSpecBtn, SCARE_COL, 1)
-
-local hubPlayerRows = {}
-local function buildHubPlayerList(filter)
-    for _, row in pairs(hubPlayerRows) do
-        if row and row.Parent then row:Destroy() end
+-- SPEC toggle logic
+local function refreshSpecToggle()
+    local isSpec = Troll:IsSpectating() and Troll:GetSpectateTarget() == Troll:GetTarget()
+    specToggleBtn.BackgroundColor3 = isSpec and SCARE_COL or COLORS.DarkBG
+    specToggleBtn.TextColor3 = isSpec and COLORS.White or Color3.fromRGB(160,140,180)
+    createStroke(specToggleBtn, isSpec and SCARE_COL or COLORS.Frame, 1)
+end
+specToggleBtn.MouseButton1Click:Connect(function()
+    local tgt = Troll:GetTarget()
+    if not tgt then Notif:Send("Select a target first!", 2); return end
+    if Troll:IsSpectating() and Troll:GetSpectateTarget() == tgt then
+        Troll:StopSpectate()
+        Notif:Send("Spectate OFF", 1)
+    else
+        local ok = Troll:StartSpectate(tgt, Troll:GetSpectateMode())
+        if ok then Notif:Send("Spectating " .. tgt.Name, 2) end
     end
-    hubPlayerRows = {}
-    filter = (filter or ""):lower()
-    local found = 0
-    for _, p in pairs(Players:GetPlayers()) do
+    refreshSpecToggle()
+end)
+
+-- Dropdown popup (appears below the row, floating over content)
+local dropPopup = Instance.new("Frame")
+dropPopup.Size = UDim2.new(1, -12, 0, 0)
+dropPopup.Position = UDim2.new(0, 6, 0, 70)
+dropPopup.BackgroundColor3 = COLORS.DarkBG
+dropPopup.ZIndex = 50
+dropPopup.Visible = false
+dropPopup.AutomaticSize = Enum.AutomaticSize.Y
+dropPopup.Parent = scareHub
+createCorner(dropPopup, 8)
+createStroke(dropPopup, SCARE_COL, 2)
+local dpLayout = Instance.new("UIListLayout", dropPopup)
+dpLayout.SortOrder = Enum.SortOrder.LayoutOrder
+dpLayout.Padding = UDim.new(0, 2)
+local dpPadding = Instance.new("UIPadding", dropPopup)
+dpPadding.PaddingTop    = UDim.new(0, 4)
+dpPadding.PaddingBottom = UDim.new(0, 4)
+dpPadding.PaddingLeft   = UDim.new(0, 4)
+dpPadding.PaddingRight  = UDim.new(0, 4)
+
+local dropOpen = false
+local function closeDrop() dropOpen = false; dropPopup.Visible = false end
+
+local function buildDropdown()
+    -- Clear old entries
+    for _, ch in pairs(dropPopup:GetChildren()) do
+        if ch:IsA("TextButton") then ch:Destroy() end
+    end
+    local plrs = Players:GetPlayers()
+    for _, p in ipairs(plrs) do
         if p ~= player then
-            local dn = (p.DisplayName or p.Name):lower()
-            local un = p.Name:lower()
-            if filter == "" or dn:find(filter, 1, true) or un:find(filter, 1, true) then
-                found = found + 1
-                local isSpec = Troll:GetSpectateTarget() == p
-                local isSel  = Troll:GetTarget() == p and not isSpec
-                local row = Instance.new("Frame")
-                row.Size = UDim2.new(1, 0, 0, 34)
-                row.BackgroundColor3 = isSpec and Color3.fromRGB(40,15,60) or COLORS.Frame
-                row.ZIndex = 21
-                row.Parent = hubListFrame
-                createCorner(row, 6)
-                if isSpec then createStroke(row, SCARE_COL, 1) end
-                table.insert(hubPlayerRows, row)
-                local nameCol = Instance.new("TextLabel")
-                nameCol.Size = UDim2.new(1, -110, 1, 0)
-                nameCol.Position = UDim2.new(0, 8, 0, 0)
-                nameCol.BackgroundTransparency = 1
-                nameCol.Text = p.DisplayName .. "\n@" .. p.Name
-                nameCol.Font = Enum.Font.GothamSemibold
-                nameCol.TextSize = 8
-                nameCol.TextColor3 = isSpec and SCARE_COL or COLORS.White
-                nameCol.TextXAlignment = Enum.TextXAlignment.Left
-                nameCol.TextYAlignment = Enum.TextYAlignment.Center
-                nameCol.ZIndex = 22
-                nameCol.Parent = row
-                local specBtn = Instance.new("TextButton")
-                specBtn.Size = UDim2.new(0, 44, 0, 20)
-                specBtn.Position = UDim2.new(1, -102, 0.5, -10)
-                specBtn.Font = Enum.Font.GothamBold
-                specBtn.TextSize = 7
-                specBtn.ZIndex = 22
-                specBtn.Parent = row
-                createCorner(specBtn, 5)
-                specBtn.Text = "SPEC"
-                specBtn.BackgroundColor3 = isSpec and SCARE_COL or COLORS.DarkBG
-                specBtn.TextColor3 = isSpec and COLORS.White or Color3.fromRGB(160,140,180)
-                local selBtn = Instance.new("TextButton")
-                selBtn.Size = UDim2.new(0, 44, 0, 20)
-                selBtn.Position = UDim2.new(1, -54, 0.5, -10)
-                selBtn.Font = Enum.Font.GothamBold
-                selBtn.TextSize = 7
-                selBtn.ZIndex = 22
-                selBtn.Parent = row
-                createCorner(selBtn, 5)
-                selBtn.Text = isSel and "SEL â" or "SELECT"
-                selBtn.BackgroundColor3 = isSel and COLORS.Galaxy1 or COLORS.DarkBG
-                selBtn.TextColor3 = isSel and COLORS.White or Color3.fromRGB(160,140,180)
-                local capP = p
-                specBtn.MouseButton1Click:Connect(function()
-                    if Troll:GetSpectateTarget() == capP then
-                        Troll:StopSpectate()
-                    else
-                        local ok = Troll:StartSpectate(capP, Troll:GetSpectateMode())
-                        if ok then Notif:Send("Spectating " .. capP.Name, 2) end
-                    end
-                    buildHubPlayerList(hubSearchBox.Text)
-                end)
-                selBtn.MouseButton1Click:Connect(function()
-                    if Troll:IsSpectating() then Troll:StopSpectate() end
-                    Troll:SetTarget(capP)
-                    hubTargetLabel.Text = capP.DisplayName .. " (@" .. capP.Name .. ")"
-                    hubTargetLabel.TextColor3 = SCARE_COL
-                    Notif:Send("Target: " .. capP.Name, 2)
-                    buildHubPlayerList(hubSearchBox.Text)
-                end)
-            end
+            local capP = p
+            local isSel = Troll:GetTarget() == capP
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, 0, 0, 24)
+            btn.BackgroundColor3 = isSel and COLORS.Galaxy1 or COLORS.Frame
+            btn.Font = Enum.Font.GothamSemibold
+            btn.TextSize = 9
+            btn.Text = capP.DisplayName .. " (@" .. capP.Name .. ")"
+            btn.TextColor3 = isSel and COLORS.White or Color3.fromRGB(200,180,220)
+            btn.TextXAlignment = Enum.TextXAlignment.Left
+            btn.ZIndex = 51
+            btn.Parent = dropPopup
+            createCorner(btn, 5)
+            local bPad = Instance.new("UIPadding", btn)
+            bPad.PaddingLeft = UDim.new(0, 8)
+            btn.MouseButton1Click:Connect(function()
+                if Troll:IsSpectating() then Troll:StopSpectate() end
+                Troll:SetTarget(capP)
+                hubTargetLabel.Text = capP.DisplayName .. " (@" .. capP.Name .. ")"
+                hubTargetLabel.TextColor3 = SCARE_COL
+                dropBtn.Text = capP.DisplayName .. " â¼"
+                dropBtn.TextColor3 = SCARE_COL
+                Notif:Send("Target: " .. capP.Name, 2)
+                refreshSpecToggle()
+                closeDrop()
+            end)
         end
     end
-    if found == 0 then
+    -- If no players
+    local hasPlrs = false
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player then hasPlrs = true; break end
+    end
+    if not hasPlrs then
         local empty = Instance.new("TextLabel")
-        empty.Size = UDim2.new(1, 0, 0, 24)
+        empty.Size = UDim2.new(1, 0, 0, 20)
         empty.BackgroundTransparency = 1
-        empty.Text = filter ~= "" and "No results." or "No players in server."
+        empty.Text = "No players in server."
         empty.Font = Enum.Font.Gotham
         empty.TextSize = 8
         empty.TextColor3 = Color3.fromRGB(120,100,140)
-        empty.TextXAlignment = Enum.TextXAlignment.Left
-        empty.ZIndex = 21
-        empty.Parent = hubListFrame
-        table.insert(hubPlayerRows, empty)
+        empty.ZIndex = 51
+        empty.Parent = dropPopup
     end
 end
 
+dropBtn.MouseButton1Click:Connect(function()
+    dropOpen = not dropOpen
+    if dropOpen then
+        buildDropdown()
+        dropPopup.Visible = true
+    else
+        closeDrop()
+    end
+end)
+
+-- Close dropdown when clicking GO or elsewhere
+local function buildHubPlayerList(_) end -- stub (no longer needed, kept for compat)
+
 Troll.onSpectateChanged = function(specPlayer)
     if specPlayer then
-        hubStopSpecBtn.Visible = true
         hubTargetLabel.Text = "Spectating: " .. specPlayer.DisplayName
         hubTargetLabel.TextColor3 = SCARE_COL
     else
-        hubStopSpecBtn.Visible = false
         local tgt = Troll:GetTarget()
         if tgt then
             hubTargetLabel.Text = tgt.DisplayName .. " (@" .. tgt.Name .. ")"
@@ -1299,17 +1281,8 @@ Troll.onSpectateChanged = function(specPlayer)
             hubTargetLabel.TextColor3 = Color3.fromRGB(160,140,180)
         end
     end
-    buildHubPlayerList(hubSearchBox.Text)
+    refreshSpecToggle()
 end
-
-hubStopSpecBtn.MouseButton1Click:Connect(function()
-    Troll:StopSpectate()
-    Notif:Send("Spectate stopped", 2)
-end)
-
-hubSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-    buildHubPlayerList(hubSearchBox.Text)
-end)
 
 -- ── Divider ───────────────────────────────────────────────────
 local scareDivider = Instance.new("TextLabel")
@@ -1666,6 +1639,7 @@ local function setGoReady(ready)
 end
 
 hubGoBtn.MouseButton1Click:Connect(function()
+    closeDrop()
     if not Troll:GetTarget() then Notif:Send("No target selected!", 2); return end
     local name = Troll:GetTarget().Name
     if selectedScareType == "Scare" then
@@ -1694,24 +1668,81 @@ Troll.onComboReady = function()
 end
 
 -- ============================================================
+-- SCARE HUB: Resize handle (drag bottom edge to resize)
+-- ============================================================
+local resizeHandle = Instance.new("TextButton")
+resizeHandle.Size = UDim2.new(1, 0, 0, 8)
+resizeHandle.Position = UDim2.new(0, 0, 1, -8)
+resizeHandle.BackgroundColor3 = SCARE_COL
+resizeHandle.BackgroundTransparency = 0.7
+resizeHandle.Text = ""
+resizeHandle.ZIndex = 25
+resizeHandle.Parent = scareHub
+createCorner(resizeHandle, 4)
+
+-- Grip dots
+local gripLbl = Instance.new("TextLabel")
+gripLbl.Size = UDim2.new(1, 0, 1, 0)
+gripLbl.BackgroundTransparency = 1
+gripLbl.Text = "· · ·"
+gripLbl.Font = Enum.Font.GothamBold
+gripLbl.TextSize = 8
+gripLbl.TextColor3 = Color3.new(1,1,1)
+gripLbl.TextTransparency = 0.4
+gripLbl.ZIndex = 26
+gripLbl.Parent = resizeHandle
+
+local MIN_H, MAX_H = 220, 600
+local resizeDragging = false
+local resizeStartY, resizeStartH = 0, 0
+
+resizeHandle.InputBegan:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1
+    or inp.UserInputType == Enum.UserInputType.Touch then
+        resizeDragging = true
+        resizeStartY = inp.Position.Y
+        resizeStartH = scareHub.AbsoluteSize.Y
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(inp)
+    if not resizeDragging then return end
+    if inp.UserInputType == Enum.UserInputType.MouseMovement
+    or inp.UserInputType == Enum.UserInputType.Touch then
+        local delta = inp.Position.Y - resizeStartY
+        local newH  = math.clamp(resizeStartH + delta, MIN_H, MAX_H)
+        scareHub.Size = UDim2.new(0, HUB_W, 0, newH)
+    end
+end)
+
+game:GetService("UserInputService").InputEnded:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1
+    or inp.UserInputType == Enum.UserInputType.Touch then
+        resizeDragging = false
+    end
+end)
+
+-- ============================================================
 -- SCARE HUB: Minimize + Close
 -- ============================================================
 local scareHubMinimized = false
-local scareHubFullSize  = UDim2.new(0, HUB_W, 0, HUB_H)
 local scareHubMinSize   = UDim2.new(0, HUB_W, 0, 36)
+local scareHubSavedH    = HUB_H
 
 hubMinimize.MouseButton1Click:Connect(function()
     scareHubMinimized = not scareHubMinimized
     if scareHubMinimized then
+        scareHubSavedH = scareHub.AbsoluteSize.Y
         tween(scareHub, {Size = scareHubMinSize}, 0.25, Enum.EasingStyle.Quad)
         hubMinimize.Text = "+"
     else
-        tween(scareHub, {Size = scareHubFullSize}, 0.3, Enum.EasingStyle.Back)
+        tween(scareHub, {Size = UDim2.new(0, HUB_W, 0, scareHubSavedH)}, 0.3, Enum.EasingStyle.Back)
         hubMinimize.Text = "_"
     end
 end)
 
 hubClose.MouseButton1Click:Connect(function()
+    closeDrop()
     scareHubOpen = false
     scareHub.Visible = false
     CONFIG.Scare = false
