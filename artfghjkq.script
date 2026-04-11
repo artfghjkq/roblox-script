@@ -904,7 +904,7 @@ Scripts:Init(contentContainers["SCRIPTS"], COLORS, galaxyGradient, createCorner,
 local trollContent = contentContainers["TROLL"]
 
 -- Build ScareHub via UI module (black & white minimal theme)
-local scareHub = UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleSyncs)
+local scareHub = UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleSyncs, COLORS, galaxyGradient)
 
 toggleSyncs["Scare"] = createToggle(trollContent, "Scare", "Scare", function(v)
     scareHub.Visible = v
