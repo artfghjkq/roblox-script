@@ -1375,7 +1375,7 @@ end
 local scareSettingsHolder = Instance.new("Frame")
 scareSettingsHolder.Size = UDim2.new(1, 0, 0, 90)
 scareSettingsHolder.BackgroundTransparency = 1
-scareSettingsHolder.LayoutOrder = 2
+scareSettingsHolder.LayoutOrder = 3
 scareSettingsHolder.ZIndex = 20
 scareSettingsHolder.Parent = pg2
 
@@ -1647,7 +1647,7 @@ hubGoBtn.Text = "GO"
 hubGoBtn.TextColor3 = COLORS.White
 hubGoBtn.Font = Enum.Font.GothamBold
 hubGoBtn.TextSize = 13
-hubGoBtn.LayoutOrder = 3
+hubGoBtn.LayoutOrder = 2
 hubGoBtn.ZIndex = 21
 hubGoBtn.Parent = pg2
 createCorner(hubGoBtn, 8)
