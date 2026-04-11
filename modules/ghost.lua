@@ -11,7 +11,7 @@ local UIS        = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 local ghostActive   = false
-local ghostMode     = "free"
+local ghostMode     = "locked"
 local ghostConn     = nil
 local savedCamType  = nil
 local savedCamSubj  = nil
@@ -42,14 +42,13 @@ local function freezeAvatar()
     if not hrp then return end
     frozenCFrame = hrp.CFrame
 
-    -- BodyGyro keeps rotation
+    -- Freeze body with BodyGyro + BodyPosition
     bodyGyro = Instance.new("BodyGyro")
     bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
     bodyGyro.P = math.huge
     bodyGyro.CFrame = frozenCFrame
     bodyGyro.Parent = hrp
 
-    -- BodyPosition keeps position
     bodyPos = Instance.new("BodyPosition")
     bodyPos.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
     bodyPos.P = math.huge
@@ -58,12 +57,19 @@ local function freezeAvatar()
 
     frozenRoot = hrp
 
-    -- Stop humanoid from moving
+    -- Disable humanoid completely so body cannot move at all
     local hum = char:FindFirstChildWhichIsA("Humanoid")
     if hum then
         hum.WalkSpeed = 0
         hum.JumpPower = 0
+        hum:ChangeState(Enum.HumanoidStateType.Physics)
     end
+
+    -- Disable all character controls via LocalScript approach
+    local PlayerModule = require(player.PlayerScripts:WaitForChild("PlayerModule"))
+    pcall(function()
+        PlayerModule:GetControls():Disable()
+    end)
 end
 
 local function unfreezeAvatar()
@@ -77,7 +83,14 @@ local function unfreezeAvatar()
     if hum then
         hum.WalkSpeed = 16
         hum.JumpPower = 50
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
     end
+
+    -- Re-enable character controls
+    local PlayerModule = require(player.PlayerScripts:WaitForChild("PlayerModule"))
+    pcall(function()
+        PlayerModule:GetControls():Enable()
+    end)
 end
 
 -- ============================================================
