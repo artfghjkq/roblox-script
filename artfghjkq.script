@@ -1912,6 +1912,8 @@ Troll.onComboReady = function()
     setComboReady(true)
     Notif:Send("Combo ready!", 2)
 end
+
+hubClose.MouseButton1Click:Connect(function()
     scareHubOpen = false
     scareHub.Visible = false
     CONFIG.Scare = false
