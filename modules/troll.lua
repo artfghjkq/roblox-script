@@ -146,10 +146,17 @@ function Troll:ScareOnce()
 
     task.spawn(function()
         local saved = myRoot.CFrame
-        myRoot.CFrame = CFrame.new(
-            tgtRoot.Position - tgtRoot.CFrame.LookVector * 2,
-            tgtRoot.Position
+
+        -- Flatten the target's look direction to horizontal only (ignore camera tilt)
+        local flatLook = Vector3.new(tgtRoot.CFrame.LookVector.X, 0, tgtRoot.CFrame.LookVector.Z).Unit
+        local spawnPos = tgtRoot.Position - flatLook * 2
+
+        -- Place us at same Y as target, directly in front, facing them
+        myRoot.CFrame = CFrame.lookAt(
+            Vector3.new(spawnPos.X, tgtRoot.Position.Y, spawnPos.Z),
+            Vector3.new(tgtRoot.Position.X, tgtRoot.Position.Y, tgtRoot.Position.Z)
         )
+
         task.wait(0.5)
         pcall(function() myRoot.CFrame = saved end)
         task.wait(2.5)
