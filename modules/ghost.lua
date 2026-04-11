@@ -1,31 +1,21 @@
 -- ghost.lua
--- Ghost mode: avatar stays frozen in place, you free-roam as a ghost camera
--- 4 cam modes all focus on YOUR OWN frozen avatar: Free roam, Locked POV, Orbit, 3rd Person
+-- Ghost mode: clones your character as a semi-transparent ghost you control,
+-- while your original avatar stays frozen in place.
+-- Adapted from roblox-ts reference implementation.
 
 local Ghost = {}
 
-local Players    = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UIS        = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local player  = Players.LocalPlayer
 
-local player = Players.LocalPlayer
+local originalCharacter = nil
+local ghostCharacter    = nil
+local lastPosition      = nil
+local diedConn          = nil
+local ghostMode         = "locked"
 
-local ghostActive   = false
-local ghostMode     = "locked"
-local ghostConn     = nil
-local savedCamType  = nil
-local savedCamSubj  = nil
-local frozenRoot    = nil
-local frozenCFrame  = nil
-local bodyGyro      = nil
-local bodyPos       = nil
-
-local ghostCFrame   = CFrame.new(0, 0, 0)
-local GHOST_SPEED   = 32
-local orbitAngle    = 0
-
-Ghost.active      = false
-Ghost.onChanged   = nil
+Ghost.active    = false
+Ghost.onChanged = nil
 
 -- ============================================================
 -- HELPERS
@@ -34,178 +24,184 @@ local function getRoot(char)
     return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
 end
 
--- Freeze avatar in place
-local function freezeAvatar()
-    local char = player.Character
-    if not char then return end
-    local hrp = getRoot(char)
-    if not hrp then return end
-    frozenCFrame = hrp.CFrame
-
-    -- Freeze body with BodyGyro + BodyPosition
-    bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-    bodyGyro.P = math.huge
-    bodyGyro.CFrame = frozenCFrame
-    bodyGyro.Parent = hrp
-
-    bodyPos = Instance.new("BodyPosition")
-    bodyPos.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    bodyPos.P = math.huge
-    bodyPos.Position = frozenCFrame.Position
-    bodyPos.Parent = hrp
-
-    frozenRoot = hrp
-
-    -- Disable humanoid completely so body cannot move at all
-    local hum = char:FindFirstChildWhichIsA("Humanoid")
-    if hum then
-        hum.WalkSpeed = 0
-        hum.JumpPower = 0
-        hum:ChangeState(Enum.HumanoidStateType.Physics)
-    end
-
-    -- Disable all character controls via LocalScript approach
-    local PlayerModule = require(player.PlayerScripts:WaitForChild("PlayerModule"))
-    pcall(function()
-        PlayerModule:GetControls():Disable()
-    end)
-end
-
-local function unfreezeAvatar()
-    if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
-    if bodyPos  then bodyPos:Destroy();  bodyPos  = nil end
-    frozenRoot = nil
-
-    local char = player.Character
-    if not char then return end
-    local hum = char:FindFirstChildWhichIsA("Humanoid")
-    if hum then
-        hum.WalkSpeed = 16
-        hum.JumpPower = 50
-        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-    end
-
-    -- Re-enable character controls
-    local PlayerModule = require(player.PlayerScripts:WaitForChild("PlayerModule"))
-    pcall(function()
-        PlayerModule:GetControls():Enable()
-    end)
-end
-
--- ============================================================
--- GHOST CAM LOOP
--- ============================================================
-local function startGhostCam()
-    if ghostConn then ghostConn:Disconnect() end
-
-    local cam = workspace.CurrentCamera
-    cam.CameraType = Enum.CameraType.Scriptable
-    ghostCFrame = cam.CFrame  -- start from current cam position
-
-    ghostConn = RunService.RenderStepped:Connect(function(dt)
-        if not ghostActive then
-            ghostConn:Disconnect()
-            ghostConn = nil
-            return
+local screenGuisDisabled = {}
+local function disableResetOnSpawn()
+    local playerGui = player:FindFirstChildWhichIsA("PlayerGui")
+    if not playerGui then return end
+    for _, obj in pairs(playerGui:GetChildren()) do
+        if obj:IsA("ScreenGui") and obj.ResetOnSpawn then
+            table.insert(screenGuisDisabled, obj)
+            obj.ResetOnSpawn = false
         end
+    end
+end
 
-        local cam2 = workspace.CurrentCamera
+local function enableResetOnSpawn()
+    for _, obj in pairs(screenGuisDisabled) do
+        pcall(function() obj.ResetOnSpawn = true end)
+    end
+    screenGuisDisabled = {}
+end
 
-        -- Your own frozen avatar position
-        local avatarPos = frozenCFrame and frozenCFrame.Position or Vector3.new(0,0,0)
-        local avatarLook = frozenCFrame and frozenCFrame.LookVector or Vector3.new(0,0,1)
+-- ============================================================
+-- ACTIVATE
+-- ============================================================
+local function activateGhost()
+    local character = player.Character
+    local humanoid  = character and character:FindFirstChildWhichIsA("Humanoid")
+    if not character or not humanoid then return false end
 
-        if ghostMode == "free" then
-            -- WASD/QE free-roam, no attachment to any player
-            local moveDir = Vector3.new(0, 0, 0)
-            if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + ghostCFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - ghostCFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - ghostCFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + ghostCFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.E) then moveDir = moveDir + Vector3.new(0, 1, 0) end
-            if UIS:IsKeyDown(Enum.KeyCode.Q) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+    -- Clone current character as ghost
+    character.Archivable = true
+    ghostCharacter = character:Clone()
+    character.Archivable = false
 
-            local speed = GHOST_SPEED
-            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then speed = speed * 2.5 end
+    -- Save original root position
+    local rootPart    = getRoot(character)
+    lastPosition      = rootPart and rootPart.CFrame
+    originalCharacter = character
 
-            if moveDir.Magnitude > 0 then
-                ghostCFrame = ghostCFrame + moveDir.Unit * speed * dt
+    -- Make ghost semi-transparent
+    local ghostHumanoid = ghostCharacter:FindFirstChildWhichIsA("Humanoid")
+    for _, child in pairs(ghostCharacter:GetDescendants()) do
+        if child:IsA("BasePart") then
+            child.Transparency = 1 - (1 - child.Transparency) * 0.5
+        end
+    end
+
+    -- Ghost emoji display name
+    if ghostHumanoid then
+        pcall(function()
+            ghostHumanoid.DisplayName = utf8.char(128123)
+        end)
+    end
+
+    -- Move Animate script to ghost so it plays animations
+    local existingAnimate = ghostCharacter:FindFirstChild("Animate")
+    if existingAnimate then existingAnimate:Destroy() end
+    local animation = originalCharacter:FindFirstChild("Animate")
+    if animation then
+        animation.Disabled = true
+        animation.Parent   = ghostCharacter
+    end
+
+    -- Switch player to ghost character (ikaw ang ghost na naglalakad)
+    disableResetOnSpawn()
+    ghostCharacter.Parent = character.Parent
+    player.Character = ghostCharacter
+    workspace.CurrentCamera.CameraSubject = ghostHumanoid
+    enableResetOnSpawn()
+
+    -- Re-enable animation on ghost
+    if animation then animation.Disabled = false end
+
+    -- Freeze original avatar in place
+    if rootPart then
+        local bg = Instance.new("BodyGyro")
+        bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bg.P         = math.huge
+        bg.CFrame    = rootPart.CFrame
+        bg.Parent    = rootPart
+
+        local bp = Instance.new("BodyPosition")
+        bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bp.P        = math.huge
+        bp.Position = rootPart.Position
+        bp.Parent   = rootPart
+    end
+
+    -- Stop if original dies
+    if diedConn then diedConn:Disconnect() end
+    diedConn = humanoid.Died:Connect(function()
+        diedConn:Disconnect()
+        diedConn = nil
+        Ghost:Stop()
+    end)
+
+    Ghost.active = true
+    if Ghost.onChanged then Ghost.onChanged(true, ghostMode) end
+    return true
+end
+
+-- ============================================================
+-- DEACTIVATE
+-- ============================================================
+local function deactivateGhost()
+    if not originalCharacter or not ghostCharacter then return end
+
+    -- Get ghost's current position to teleport original there
+    local ghostRoot  = getRoot(ghostCharacter)
+    local currentPos = ghostRoot and ghostRoot.CFrame
+
+    -- Save animation script before destroying ghost
+    local animation = ghostCharacter:FindFirstChild("Animate")
+    if animation then
+        animation.Disabled = true
+        animation.Parent   = nil
+    end
+
+    -- Destroy ghost
+    ghostCharacter:Destroy()
+
+    -- Stop playing animations on original
+    local humanoid = originalCharacter:FindFirstChildWhichIsA("Humanoid")
+    if humanoid then
+        for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+            track:Stop()
+        end
+    end
+
+    -- Remove freeze constraints from original
+    local origRoot = getRoot(originalCharacter)
+    if origRoot then
+        for _, child in pairs(origRoot:GetChildren()) do
+            if child:IsA("BodyGyro") or child:IsA("BodyPosition") then
+                child:Destroy()
             end
-
-            local mouseDelta = UIS:GetMouseDelta()
-            local rotX = CFrame.Angles(0, -mouseDelta.X * 0.003, 0)
-            local rotY = CFrame.Angles(-mouseDelta.Y * 0.003, 0, 0)
-            ghostCFrame = rotX * ghostCFrame * rotY
-
-            cam2.CFrame = ghostCFrame
-
-        elseif ghostMode == "locked" then
-            -- Locked to your own frozen avatar's POV
-            local eyePos = avatarPos + Vector3.new(0, 1.5, 0)
-            cam2.CFrame = CFrame.new(eyePos, eyePos + avatarLook * 10)
-
-        elseif ghostMode == "orbit" then
-            -- Orbit around your own frozen avatar
-            orbitAngle = orbitAngle + dt * 0.5
-            local dist   = 8
-            local height = 3
-            local offset = Vector3.new(math.cos(orbitAngle) * dist, height, math.sin(orbitAngle) * dist)
-            cam2.CFrame  = CFrame.new(avatarPos + offset, avatarPos + Vector3.new(0, 1, 0))
-
-        elseif ghostMode == "third" then
-            -- Third-person behind your own frozen avatar
-            local offset = frozenCFrame and frozenCFrame:VectorToWorldSpace(Vector3.new(0, 4, 8))
-                        or Vector3.new(0, 4, 8)
-            cam2.CFrame  = CFrame.new(avatarPos + offset, avatarPos + Vector3.new(0, 1, 0))
         end
-    end)
-end
+        -- Teleport original to where ghost ended up
+        local pos = currentPos or lastPosition
+        if pos then pcall(function() origRoot.CFrame = pos end) end
+    end
 
-local function stopGhostCam()
-    if ghostConn then ghostConn:Disconnect(); ghostConn = nil end
-    local cam = workspace.CurrentCamera
-    cam.CameraType = savedCamType or Enum.CameraType.Custom
-    cam.CameraSubject = savedCamSubj or (player.Character and player.Character:FindFirstChildWhichIsA("Humanoid"))
+    -- Restore original character
+    disableResetOnSpawn()
+    player.Character = originalCharacter
+    workspace.CurrentCamera.CameraSubject = humanoid
+    enableResetOnSpawn()
+
+    -- Restore animation to original
+    if animation then
+        animation.Parent   = originalCharacter
+        animation.Disabled = false
+    end
+
+    originalCharacter = nil
+    ghostCharacter    = nil
+    lastPosition      = nil
+
+    Ghost.active = false
+    if Ghost.onChanged then Ghost.onChanged(false, ghostMode) end
 end
 
 -- ============================================================
 -- PUBLIC API
 -- ============================================================
 function Ghost:Start(mode)
-    if ghostActive then self:Stop() end
-
-    local cam = workspace.CurrentCamera
-    savedCamType = cam.CameraType
-    savedCamSubj = cam.CameraSubject
-
-    ghostMode   = mode or ghostMode or "free"
-    ghostActive = true
-    Ghost.active = true
-
-    freezeAvatar()
-    startGhostCam()
-
-    if self.onChanged then self.onChanged(true, ghostMode) end
+    if Ghost.active then self:Stop() end
+    ghostMode = mode or ghostMode or "free"
+    local ok = activateGhost()
+    if not ok then warn("[ghost] Could not activate: no character") end
 end
 
 function Ghost:Stop()
-    ghostActive  = false
-    Ghost.active = false
-
-    stopGhostCam()
-    unfreezeAvatar()
-
-    if self.onChanged then self.onChanged(false, ghostMode) end
+    if diedConn then diedConn:Disconnect(); diedConn = nil end
+    deactivateGhost()
 end
 
 function Ghost:SetMode(mode)
     ghostMode = mode
-    if ghostActive then
-        -- restart cam with new mode
-        startGhostCam()
-    end
-    if self.onChanged then self.onChanged(ghostActive, ghostMode) end
+    if Ghost.onChanged then Ghost.onChanged(Ghost.active, ghostMode) end
 end
 
 function Ghost:GetMode()
@@ -213,7 +209,7 @@ function Ghost:GetMode()
 end
 
 function Ghost:IsActive()
-    return ghostActive
+    return Ghost.active
 end
 
 return Ghost
