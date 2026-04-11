@@ -1,6 +1,6 @@
 -- ghost.lua
 -- Ghost mode: avatar stays frozen in place, you free-roam as a ghost camera
--- Supports 4 cam modes: free, locked (to nearest player), orbit, third-person follow
+-- 4 cam modes all focus on YOUR OWN frozen avatar: Free roam, Locked POV, Orbit, 3rd Person
 
 local Ghost = {}
 
@@ -11,7 +11,7 @@ local UIS        = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 local ghostActive   = false
-local ghostMode     = "free"  -- "free" | "locked" | "orbit" | "third"
+local ghostMode     = "free"
 local ghostConn     = nil
 local savedCamType  = nil
 local savedCamSubj  = nil
@@ -20,7 +20,6 @@ local frozenCFrame  = nil
 local bodyGyro      = nil
 local bodyPos       = nil
 
--- Ghost free-roam state
 local ghostCFrame   = CFrame.new(0, 0, 0)
 local GHOST_SPEED   = 32
 local orbitAngle    = 0
@@ -33,24 +32,6 @@ Ghost.onChanged   = nil
 -- ============================================================
 local function getRoot(char)
     return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
-end
-
-local function getNearestPlayer()
-    local nearest, nearestDist = nil, math.huge
-    local myPos = ghostCFrame.Position
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local hrp = getRoot(p.Character)
-            if hrp then
-                local d = (hrp.Position - myPos).Magnitude
-                if d < nearestDist then
-                    nearestDist = d
-                    nearest = p
-                end
-            end
-        end
-    end
-    return nearest
 end
 
 -- Freeze avatar in place
@@ -118,8 +99,12 @@ local function startGhostCam()
 
         local cam2 = workspace.CurrentCamera
 
+        -- Your own frozen avatar position
+        local avatarPos = frozenCFrame and frozenCFrame.Position or Vector3.new(0,0,0)
+        local avatarLook = frozenCFrame and frozenCFrame.LookVector or Vector3.new(0,0,1)
+
         if ghostMode == "free" then
-            -- WASD/QE free-roam ghost movement
+            -- WASD/QE free-roam, no attachment to any player
             local moveDir = Vector3.new(0, 0, 0)
             if UIS:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + ghostCFrame.LookVector end
             if UIS:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - ghostCFrame.LookVector end
@@ -135,7 +120,6 @@ local function startGhostCam()
                 ghostCFrame = ghostCFrame + moveDir.Unit * speed * dt
             end
 
-            -- Mouse look (right mouse button held, or always)
             local mouseDelta = UIS:GetMouseDelta()
             local rotX = CFrame.Angles(0, -mouseDelta.X * 0.003, 0)
             local rotY = CFrame.Angles(-mouseDelta.Y * 0.003, 0, 0)
@@ -144,43 +128,23 @@ local function startGhostCam()
             cam2.CFrame = ghostCFrame
 
         elseif ghostMode == "locked" then
-            -- Lock to nearest player's POV
-            local nearest = getNearestPlayer()
-            if nearest and nearest.Character then
-                local hrp  = getRoot(nearest.Character)
-                local head = nearest.Character:FindFirstChild("Head")
-                if hrp then
-                    local eyePos = head and head.CFrame.Position or (hrp.CFrame.Position + Vector3.new(0, 1.5, 0))
-                    cam2.CFrame = CFrame.new(eyePos, eyePos + hrp.CFrame.LookVector * 10)
-                end
-            end
+            -- Locked to your own frozen avatar's POV
+            local eyePos = avatarPos + Vector3.new(0, 1.5, 0)
+            cam2.CFrame = CFrame.new(eyePos, eyePos + avatarLook * 10)
 
         elseif ghostMode == "orbit" then
-            -- Orbit around nearest player
-            local nearest = getNearestPlayer()
-            if nearest and nearest.Character then
-                local hrp = getRoot(nearest.Character)
-                if hrp then
-                    orbitAngle = orbitAngle + dt * 0.5
-                    local dist   = 8
-                    local height = 3
-                    local offset = Vector3.new(math.cos(orbitAngle) * dist, height, math.sin(orbitAngle) * dist)
-                    local bodyP  = hrp.Position
-                    cam2.CFrame  = CFrame.new(bodyP + offset, bodyP + Vector3.new(0, 1, 0))
-                end
-            end
+            -- Orbit around your own frozen avatar
+            orbitAngle = orbitAngle + dt * 0.5
+            local dist   = 8
+            local height = 3
+            local offset = Vector3.new(math.cos(orbitAngle) * dist, height, math.sin(orbitAngle) * dist)
+            cam2.CFrame  = CFrame.new(avatarPos + offset, avatarPos + Vector3.new(0, 1, 0))
 
         elseif ghostMode == "third" then
-            -- Third-person follow nearest player
-            local nearest = getNearestPlayer()
-            if nearest and nearest.Character then
-                local hrp = getRoot(nearest.Character)
-                if hrp then
-                    local bodyP  = hrp.Position
-                    local offset = hrp.CFrame:VectorToWorldSpace(Vector3.new(0, 4, 8))
-                    cam2.CFrame  = CFrame.new(bodyP + offset, bodyP + Vector3.new(0, 1, 0))
-                end
-            end
+            -- Third-person behind your own frozen avatar
+            local offset = frozenCFrame and frozenCFrame:VectorToWorldSpace(Vector3.new(0, 4, 8))
+                        or Vector3.new(0, 4, 8)
+            cam2.CFrame  = CFrame.new(avatarPos + offset, avatarPos + Vector3.new(0, 1, 0))
         end
     end)
 end
