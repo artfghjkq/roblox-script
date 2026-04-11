@@ -419,6 +419,9 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
                     dropBtn.Text = capP.DisplayName .. " ▼"
                     dropBtn.TextColor3 = C.White
                     Notif:Send("Target: " .. capP.Name, 2)
+                    -- Auto-spectate newly selected target
+                    local ok = Troll:StartSpectate(capP, Troll:GetSpectateMode())
+                    if ok then Notif:Send("Auto-spectating " .. capP.Name, 2) end
                     refreshSpecToggle()
                     closeDrop()
                 end)

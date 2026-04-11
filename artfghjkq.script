@@ -43,7 +43,6 @@ local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui          = game:GetService("CoreGui")
 local Lighting         = game:GetService("Lighting")
-local VirtualUser      = game:GetService("VirtualUser")
 
 -- Load modules
 local CONFIG   = req("config.lua")
@@ -65,12 +64,6 @@ local createGradient = ColLib.createGradient
 local galaxyGradient = ColLib.galaxyGradient
 local tween          = ColLib.tween
 
--- Anti-AFK
-player.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-end)
-
 -- Rainbow hue (shared)
 local rainbowHue = 0
 
@@ -82,31 +75,6 @@ end)
 -- Invisibility (handled by invi.lua module)
 local function applyInvisibility(state)
     Invi:Set(state)
-end
-
--- ============================================================
--- WALLWALK
--- ============================================================
-local wallWalkActive = false
-
-local function startWallWalk()
-    if wallWalkActive then return end
-    wallWalkActive = true
-    task.spawn(function()
-        pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/artfghjkq/roblox-script/refs/heads/main/modules/wallwalk.lua"))()
-        end)
-    end)
-end
-
-local function stopWallWalk()
-    wallWalkActive = false
-    pcall(function()
-        local char = player.Character
-        if not char then return end
-        local hum = char:FindFirstChildWhichIsA("Humanoid")
-        if hum then hum.PlatformStand = false end
-    end)
 end
 
 -- ============================================================
@@ -376,7 +344,6 @@ local function loadConfig()
         for i = 1, 3 do updateQBBtn(i) end
 
         if CONFIG.Invisibility then applyInvisibility(true) end
-        if CONFIG.WallWalk then startWallWalk() end
         if CONFIG.FPSBoost then
             Lighting.GlobalShadows = false
             Lighting.Technology = Enum.Technology.Compatibility
@@ -612,7 +579,6 @@ local QB_OPTIONS = {
     {label="Skel",    icon="SKL", key="Skeleton",     color=Color3.fromRGB(200,200,255),   callback=nil},
     {label="Tracer",  icon="TRC", key="Tracers",      color=Color3.fromRGB(0,255,255),     callback=nil},
     {label="Jump",    icon="JMP", key="SuperJump",    color=Color3.fromRGB(255,200,0),     callback=nil},
-    {label="WallWalk",icon="WWK", key="WallWalk",     color=Color3.fromRGB(255,160,80),    callback=function(v) if v then startWallWalk() else stopWallWalk() end end},
     {label="King",    icon="KNG", key="KingMode",     color=Color3.fromRGB(255,215,0),     callback=nil},
     {label="FPS",     icon="FPS", key="FPSBoost",     color=Color3.fromRGB(100,200,255),   callback=function(v) Lighting.GlobalShadows=not v Lighting.Technology=v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap end},
 }
@@ -907,19 +873,9 @@ toggleSyncs["Noclip"] = createToggle(mainContent, "Noclip", "Noclip")
 toggleSyncs["Invisibility"] = createToggle(mainContent, "Invisibility", "Invisibility", function(v)
     applyInvisibility(v)
 end)
-toggleSyncs["WallWalk"] = createToggle(mainContent, "Wall Walk", "WallWalk", function(v)
-    if v then
-        startWallWalk()
-        Notif:Send("Wall Walk: ON", 2)
-    else
-        stopWallWalk()
-        Notif:Send("Wall Walk: OFF", 2)
-    end
-end)
 toggleSyncs["SuperJump"] = createToggle(mainContent, "Super Jump", "SuperJump")
 createSlider(mainContent, "Jump Power", "JumpPower", 50, 500)
 toggleSyncs["KingMode"] = createToggle(mainContent, "King Mode", "KingMode")
-toggleSyncs["AntiAFK"] = createToggle(mainContent, "Anti AFK", "AntiAFK")
 
 local espContent = contentContainers["ESP"]
 toggleSyncs["BoxESP"]     = createToggle(espContent, "Box ESP",    "BoxESP")
@@ -952,7 +908,20 @@ local scareHub = UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner,
 
 toggleSyncs["Scare"] = createToggle(trollContent, "Scare", "Scare", function(v)
     scareHub.Visible = v
-    if v then Notif:Send("Scare Hub opened", 2) end
+    if v then
+        Notif:Send("Scare Hub opened", 2)
+        -- Auto-spectate the selected target when ScareHub opens
+        local tgt = Troll:GetTarget()
+        if tgt and not Troll:IsSpectating() then
+            local ok = Troll:StartSpectate(tgt, Troll:GetSpectateMode())
+            if ok then Notif:Send("Auto-spectating " .. tgt.Name, 2) end
+        end
+    else
+        -- Stop spectating when ScareHub closes
+        if Troll:IsSpectating() then
+            Troll:StopSpectate()
+        end
+    end
 end)
 
 toggleSyncs["Fling"] = createToggle(trollContent, "Fling", "Fling", function(v)
@@ -1038,7 +1007,6 @@ end)
 local function onCharacterAdded(newChar)
     task.wait(1)
     if CONFIG.Invisibility then Invi:OnCharacterAdded(newChar) end
-    if CONFIG.WallWalk then startWallWalk() end
     newChar.ChildAdded:Connect(function()
         if CONFIG.Invisibility then Invi:OnCharacterAdded(newChar) end
     end)
