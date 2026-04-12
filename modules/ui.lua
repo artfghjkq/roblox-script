@@ -1,16 +1,29 @@
 -- ui.lua
--- ScareHub UI – galaxy theme matching main HUB
+-- ScareHub UI – black & white minimal theme
 
 local UI = {}
 
-local Players          = game:GetService("Players")
-local RunService       = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local TweenService     = game:GetService("TweenService")
+local Players        = game:GetService("Players")
+local RunService     = game:GetService("RunService")
+local TweenService   = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 
--- ── Helpers ───────────────────────────────────────────────────
+-- B&W palette (same as main hub)
+local BW = {
+    BG     = Color3.fromRGB(10,  10,  10),
+    Panel  = Color3.fromRGB(18,  18,  18),
+    Row    = Color3.fromRGB(26,  26,  26),
+    Border = Color3.fromRGB(55,  55,  55),
+    Active = Color3.fromRGB(220, 220, 220),
+    ActFg  = Color3.fromRGB(10,  10,  10),
+    Text   = Color3.fromRGB(210, 210, 210),
+    Dim    = Color3.fromRGB(110, 110, 110),
+    White  = Color3.fromRGB(255, 255, 255),
+    Red    = Color3.fromRGB(220,  60,  60),
+}
+
+-- Helpers
 local function corner(obj, r)
     local c = Instance.new("UICorner", obj)
     c.CornerRadius = UDim.new(0, r or 8)
@@ -19,7 +32,7 @@ end
 
 local function stroke(obj, col, t)
     local s = Instance.new("UIStroke", obj)
-    s.Color = col
+    s.Color = col or BW.Border
     s.Thickness = t or 1
     return s
 end
@@ -35,11 +48,11 @@ local function tw(obj, props, dur, style)
     end)
 end
 
--- ── Input row ─────────────────────────────────────────────────
-local function inputRow(parent, lo, lTxt, default, C)
+-- Input row
+local function inputRow(parent, lo, lTxt, default)
     local row = Instance.new("Frame")
     row.Size = UDim2.new(1, 0, 0, 26)
-    row.BackgroundColor3 = C.DarkBG
+    row.BackgroundColor3 = BW.BG
     row.LayoutOrder = lo
     row.ZIndex = 21
     row.Parent = parent
@@ -52,7 +65,7 @@ local function inputRow(parent, lo, lTxt, default, C)
     lbl.Text = lTxt
     lbl.Font = Enum.Font.Gotham
     lbl.TextSize = 9
-    lbl.TextColor3 = Color3.fromRGB(160, 140, 180)
+    lbl.TextColor3 = BW.Dim
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.ZIndex = 22
     lbl.Parent = row
@@ -60,35 +73,24 @@ local function inputRow(parent, lo, lTxt, default, C)
     local box = Instance.new("TextBox")
     box.Size = UDim2.new(0, 50, 0, 18)
     box.Position = UDim2.new(1, -56, 0.5, -9)
-    box.BackgroundColor3 = C.Background
+    box.BackgroundColor3 = BW.Panel
     box.Text = tostring(default)
     box.Font = Enum.Font.GothamBold
     box.TextSize = 10
-    box.TextColor3 = C.White
+    box.TextColor3 = BW.White
     box.ClearTextOnFocus = false
     box.TextXAlignment = Enum.TextXAlignment.Center
     box.ZIndex = 22
     box.Parent = row
     corner(box, 4)
-    stroke(box, C.Galaxy1, 1)
+    stroke(box, BW.Border, 1)
     return box
 end
 
 -- ══════════════════════════════════════════════════════════════
 -- BUILD SCARE HUB
 -- ══════════════════════════════════════════════════════════════
-function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleSyncs, COLORS, galaxyGradient)
-
-    local G1  = COLORS.Galaxy1
-    local G2  = COLORS.Galaxy2
-    local G3  = COLORS.Galaxy3
-    local GA  = COLORS.GalaxyAccent
-    local BG  = COLORS.Background
-    local DBG = COLORS.DarkBG
-    local FRM = COLORS.Frame
-    local WHT = COLORS.White
-    local GRY = COLORS.Gray
-    local DIM = Color3.fromRGB(160, 140, 180)
+function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleSyncs)
 
     local HUB_W = 260
     local HUB_H = 350
@@ -98,7 +100,7 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     hub.Name = "ScareHub"
     hub.Size = UDim2.new(0, HUB_W, 0, HUB_H)
     hub.Position = UDim2.new(0.5, -HUB_W/2, 0.5, -HUB_H/2)
-    hub.BackgroundColor3 = BG
+    hub.BackgroundColor3 = BW.BG
     hub.Active = true
     hub.Draggable = true
     hub.Visible = false
@@ -106,24 +108,22 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     hub.ClipsDescendants = true
     hub.Parent = screenGui
     corner(hub, 12)
-    stroke(hub, G1, 2)
+    stroke(hub, BW.Border, 1)
 
     -- Top bar
     local topBar = Instance.new("Frame")
     topBar.Size = UDim2.new(1, 0, 0, 36)
-    topBar.BackgroundColor3 = G1
+    topBar.BackgroundColor3 = BW.Panel
     topBar.ZIndex = 21
     topBar.Parent = hub
     corner(topBar, 12)
-    -- flat bottom
     local topFill = Instance.new("Frame")
     topFill.Size = UDim2.new(1, 0, 0.5, 0)
     topFill.Position = UDim2.new(0, 0, 0.5, 0)
-    topFill.BackgroundColor3 = G1
+    topFill.BackgroundColor3 = BW.Panel
     topFill.BorderSizePixel = 0
     topFill.ZIndex = 21
     topFill.Parent = topBar
-    galaxyGradient(topBar, 90)
 
     local hubTitle = Instance.new("TextLabel")
     hubTitle.Size = UDim2.new(1, -70, 1, 0)
@@ -132,7 +132,7 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     hubTitle.Text = "SCARE HUB"
     hubTitle.Font = Enum.Font.GothamBold
     hubTitle.TextSize = 12
-    hubTitle.TextColor3 = WHT
+    hubTitle.TextColor3 = BW.White
     hubTitle.TextXAlignment = Enum.TextXAlignment.Left
     hubTitle.ZIndex = 22
     hubTitle.Parent = topBar
@@ -141,14 +141,17 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
         local b = Instance.new("TextButton")
         b.Size = UDim2.new(0, 22, 0, 22)
         b.Position = UDim2.new(1, xOff, 0.5, -11)
-        b.BackgroundColor3 = DBG
+        b.BackgroundColor3 = BW.Row
         b.Text = txt
-        b.TextColor3 = WHT
+        b.TextColor3 = BW.Dim
         b.Font = Enum.Font.GothamBold
         b.TextSize = 10
         b.ZIndex = 22
         b.Parent = topBar
         corner(b, 5)
+        stroke(b, BW.Border, 1)
+        b.MouseEnter:Connect(function() tw(b, {TextColor3 = BW.White}) end)
+        b.MouseLeave:Connect(function() tw(b, {TextColor3 = BW.Dim}) end)
         return b
     end
 
@@ -162,7 +165,7 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     body.BackgroundTransparency = 1
     body.BorderSizePixel = 0
     body.ScrollBarThickness = 2
-    body.ScrollBarImageColor3 = G1
+    body.ScrollBarImageColor3 = BW.Border
     body.CanvasSize = UDim2.new(0, 0, 0, 0)
     body.AutomaticCanvasSize = Enum.AutomaticSize.Y
     body.ZIndex = 20
@@ -190,7 +193,7 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
         local l1 = Instance.new("Frame")
         l1.Size = UDim2.new(0.1, 0, 0, 1)
         l1.Position = UDim2.new(0, 0, 0.5, 0)
-        l1.BackgroundColor3 = G1
+        l1.BackgroundColor3 = BW.Border
         l1.BorderSizePixel = 0
         l1.ZIndex = 20
         l1.Parent = row
@@ -202,14 +205,14 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
         lbl.Text = txt
         lbl.Font = Enum.Font.GothamBold
         lbl.TextSize = 8
-        lbl.TextColor3 = DIM
+        lbl.TextColor3 = BW.Dim
         lbl.ZIndex = 21
         lbl.Parent = row
 
         local l2 = Instance.new("Frame")
         l2.Size = UDim2.new(0.1, 0, 0, 1)
         l2.Position = UDim2.new(0.9, 0, 0.5, 0)
-        l2.BackgroundColor3 = G1
+        l2.BackgroundColor3 = BW.Border
         l2.BorderSizePixel = 0
         l2.ZIndex = 20
         l2.Parent = row
@@ -222,12 +225,12 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
 
     local targetBadge = Instance.new("Frame")
     targetBadge.Size = UDim2.new(1, 0, 0, 26)
-    targetBadge.BackgroundColor3 = FRM
+    targetBadge.BackgroundColor3 = BW.Row
     targetBadge.LayoutOrder = 2
     targetBadge.ZIndex = 20
     targetBadge.Parent = body
     corner(targetBadge, 6)
-    stroke(targetBadge, G1, 1)
+    stroke(targetBadge, BW.Border, 1)
 
     local targetLabel = Instance.new("TextLabel")
     targetLabel.Size = UDim2.new(1, -10, 1, 0)
@@ -236,7 +239,7 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     targetLabel.Text = "No target selected"
     targetLabel.Font = Enum.Font.GothamBold
     targetLabel.TextSize = 10
-    targetLabel.TextColor3 = DIM
+    targetLabel.TextColor3 = BW.Dim
     targetLabel.TextXAlignment = Enum.TextXAlignment.Left
     targetLabel.TextTruncate = Enum.TextTruncate.AtEnd
     targetLabel.ZIndex = 21
@@ -253,30 +256,30 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     local dropBtn = Instance.new("TextButton")
     dropBtn.Size = UDim2.new(0, 88, 1, 0)
     dropBtn.Position = UDim2.new(0, 0, 0, 0)
-    dropBtn.BackgroundColor3 = FRM
+    dropBtn.BackgroundColor3 = BW.Row
     dropBtn.Font = Enum.Font.GothamBold
     dropBtn.TextSize = 8
     dropBtn.Text = "Select ▼"
-    dropBtn.TextColor3 = DIM
+    dropBtn.TextColor3 = BW.Dim
     dropBtn.TextTruncate = Enum.TextTruncate.AtEnd
     dropBtn.ZIndex = 21
     dropBtn.Parent = selectorRow
     corner(dropBtn, 5)
-    stroke(dropBtn, G1, 1)
+    stroke(dropBtn, BW.Border, 1)
     Instance.new("UIPadding", dropBtn).PaddingLeft = UDim.new(0, 6)
 
     local specBtn = Instance.new("TextButton")
     specBtn.Size = UDim2.new(0, 34, 1, 0)
     specBtn.Position = UDim2.new(0, 92, 0, 0)
-    specBtn.BackgroundColor3 = FRM
+    specBtn.BackgroundColor3 = BW.Row
     specBtn.Font = Enum.Font.GothamBold
     specBtn.TextSize = 8
     specBtn.Text = "SPEC"
-    specBtn.TextColor3 = DIM
+    specBtn.TextColor3 = BW.Dim
     specBtn.ZIndex = 21
     specBtn.Parent = selectorRow
     corner(specBtn, 5)
-    stroke(specBtn, G1, 1)
+    stroke(specBtn, BW.Border, 1)
 
     local camModes = {"Free","Lock","Orb","3rd"}
     local camKeys  = {"free","locked","orbit","third"}
@@ -285,11 +288,11 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
         local cb = Instance.new("TextButton")
         cb.Size = UDim2.new(0, 26, 1, 0)
         cb.Position = UDim2.new(0, 130 + (i-1)*29, 0, 0)
-        cb.BackgroundColor3 = (i==1) and G1 or FRM
+        cb.BackgroundColor3 = (i==1) and BW.Active or BW.Row
         cb.Font = Enum.Font.GothamBold
         cb.TextSize = 7
         cb.Text = lbl2
-        cb.TextColor3 = (i==1) and WHT or DIM
+        cb.TextColor3 = (i==1) and BW.ActFg or BW.Dim
         cb.ZIndex = 21
         cb.Parent = selectorRow
         corner(cb, 4)
@@ -299,8 +302,8 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     local function setCamModeUI(mode)
         for _, k in ipairs(camKeys) do
             local on = (k == mode)
-            camBtns[k].BackgroundColor3 = on and G1 or FRM
-            camBtns[k].TextColor3       = on and WHT or DIM
+            camBtns[k].BackgroundColor3 = on and BW.Active or BW.Row
+            camBtns[k].TextColor3       = on and BW.ActFg or BW.Dim
         end
     end
     for _, k in ipairs(camKeys) do
@@ -314,8 +317,8 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
 
     local function refreshSpecToggle()
         local on = Troll:IsSpectating() and Troll:GetSpectateTarget() == Troll:GetTarget()
-        specBtn.BackgroundColor3 = on and G1 or FRM
-        specBtn.TextColor3       = on and WHT or DIM
+        specBtn.BackgroundColor3 = on and BW.Active or BW.Row
+        specBtn.TextColor3       = on and BW.ActFg or BW.Dim
     end
 
     specBtn.MouseButton1Click:Connect(function()
@@ -332,26 +335,25 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
         refreshSpecToggle()
     end)
 
-    -- ── Dropdown popup (scrollable, fixed doubling) ───────────
-    -- Parent is hub (not body) so it floats above body content
+    -- Dropdown popup (scrollable, no doubling)
     local dropPopup = Instance.new("Frame")
     dropPopup.Name = "DropPopup"
     dropPopup.Size = UDim2.new(1, -4, 0, 110)
-    dropPopup.Position = UDim2.new(0, 2, 0, 68)  -- just below selector row
-    dropPopup.BackgroundColor3 = DBG
+    dropPopup.Position = UDim2.new(0, 2, 0, 68)
+    dropPopup.BackgroundColor3 = BW.Panel
     dropPopup.ZIndex = 60
     dropPopup.Visible = false
     dropPopup.ClipsDescendants = true
     dropPopup.Parent = hub
     corner(dropPopup, 6)
-    stroke(dropPopup, G1, 1)
+    stroke(dropPopup, BW.Border, 1)
 
     local dpScroll = Instance.new("ScrollingFrame")
     dpScroll.Size = UDim2.new(1, 0, 1, 0)
     dpScroll.BackgroundTransparency = 1
     dpScroll.BorderSizePixel = 0
     dpScroll.ScrollBarThickness = 2
-    dpScroll.ScrollBarImageColor3 = G1
+    dpScroll.ScrollBarImageColor3 = BW.Border
     dpScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     dpScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     dpScroll.ZIndex = 61
@@ -373,7 +375,7 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     end
 
     local function buildDropdown()
-        -- Always clear first — prevents doubling
+        -- Clear first — prevents doubling
         for _, ch in pairs(dpScroll:GetChildren()) do
             if ch:IsA("GuiObject") and not ch:IsA("UIListLayout") and not ch:IsA("UIPadding") then
                 ch:Destroy()
@@ -388,29 +390,29 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
                 local isSel = Troll:GetTarget() == capP
                 local btn = Instance.new("TextButton")
                 btn.Size = UDim2.new(1, 0, 0, 26)
-                btn.BackgroundColor3 = isSel and G1 or FRM
+                btn.BackgroundColor3 = isSel and BW.Active or BW.Row
                 btn.Font = Enum.Font.GothamBold
                 btn.TextSize = 9
                 btn.Text = capP.DisplayName.." (@"..capP.Name..")"
-                btn.TextColor3 = WHT
+                btn.TextColor3 = isSel and BW.ActFg or BW.Text
                 btn.TextXAlignment = Enum.TextXAlignment.Left
                 btn.TextTruncate = Enum.TextTruncate.AtEnd
                 btn.ZIndex = 62
                 btn.Parent = dpScroll
                 corner(btn, 4)
-                local bPad = Instance.new("UIPadding", btn)
-                bPad.PaddingLeft = UDim.new(0, 8)
+                Instance.new("UIPadding", btn).PaddingLeft = UDim.new(0, 8)
 
                 btn.MouseButton1Click:Connect(function()
                     if Troll:IsSpectating() then Troll:StopSpectate() end
                     Troll:SetTarget(capP)
                     targetLabel.Text = capP.DisplayName.." (@"..capP.Name..")"
-                    targetLabel.TextColor3 = WHT
+                    targetLabel.TextColor3 = BW.Text
                     dropBtn.Text = capP.DisplayName.." ▼"
-                    dropBtn.TextColor3 = WHT
+                    dropBtn.TextColor3 = BW.Text
                     Notif:Send("Target: "..capP.Name, 2)
-                    local ok = Troll:StartSpectate(capP, Troll:GetSpectateMode())
-                    if ok then Notif:Send("Spectating "..capP.Name, 2) end
+                    if Troll:StartSpectate(capP, Troll:GetSpectateMode()) then
+                        Notif:Send("Spectating "..capP.Name, 2)
+                    end
                     refreshSpecToggle()
                     closeDrop()
                 end)
@@ -424,7 +426,7 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
             empty.Text = "No other players."
             empty.Font = Enum.Font.Gotham
             empty.TextSize = 9
-            empty.TextColor3 = DIM
+            empty.TextColor3 = BW.Dim
             empty.ZIndex = 62
             empty.Parent = dpScroll
         end
@@ -432,12 +434,8 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
 
     dropBtn.MouseButton1Click:Connect(function()
         dropOpen = not dropOpen
-        if dropOpen then
-            buildDropdown()
-            dropPopup.Visible = true
-        else
-            closeDrop()
-        end
+        if dropOpen then buildDropdown(); dropPopup.Visible = true
+        else closeDrop() end
     end)
 
     -- ══════════════════════════════════════════════════════════
@@ -447,17 +445,15 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
 
     local typeRow = Instance.new("Frame")
     typeRow.Size = UDim2.new(1, 0, 0, 26)
-    typeRow.BackgroundColor3 = FRM
+    typeRow.BackgroundColor3 = BW.Row
     typeRow.LayoutOrder = 5
     typeRow.ZIndex = 20
     typeRow.Parent = body
     corner(typeRow, 6)
-    stroke(typeRow, G1, 1)
-    Instance.new("UIPadding", typeRow).PaddingLeft = UDim.new(0, 4)
-    Instance.new("UIPadding", typeRow).PaddingRight = UDim.new(0, 4)
+    stroke(typeRow, BW.Border, 1)
 
-    local scareTypes = {"Scare","Rush","Combo"}
-    local typeBtns   = {}
+    local scareTypes   = {"Scare","Rush","Combo"}
+    local typeBtns     = {}
     local selectedType = "Scare"
 
     local tLayout = Instance.new("UIListLayout", typeRow)
@@ -466,15 +462,18 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     tLayout.Padding = UDim.new(0, 4)
     tLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     tLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    local typePad = Instance.new("UIPadding", typeRow)
+    typePad.PaddingLeft  = UDim.new(0, 4)
+    typePad.PaddingRight = UDim.new(0, 4)
 
     for i, t in ipairs(scareTypes) do
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(0, 66, 0, 18)
-        btn.BackgroundColor3 = (i==1) and G1 or DBG
+        btn.BackgroundColor3 = (i==1) and BW.Active or BW.Panel
         btn.Text = t:upper()
         btn.Font = Enum.Font.GothamBold
         btn.TextSize = 9
-        btn.TextColor3 = WHT
+        btn.TextColor3 = (i==1) and BW.ActFg or BW.Dim
         btn.ZIndex = 21
         btn.LayoutOrder = i
         btn.Parent = typeRow
@@ -485,7 +484,8 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     local function selectType(key)
         selectedType = key
         for _, t in ipairs(scareTypes) do
-            typeBtns[t].BackgroundColor3 = (t==key) and G1 or DBG
+            typeBtns[t].BackgroundColor3 = (t==key) and BW.Active or BW.Panel
+            typeBtns[t].TextColor3       = (t==key) and BW.ActFg or BW.Dim
         end
     end
     for _, t in ipairs(scareTypes) do
@@ -509,13 +509,13 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
         local card = Instance.new("Frame")
         card.Size = UDim2.new(1, 0, 0, 0)
         card.AutomaticSize = Enum.AutomaticSize.Y
-        card.BackgroundColor3 = FRM
+        card.BackgroundColor3 = BW.Row
         card.LayoutOrder = lo
         card.Visible = visible or false
         card.ZIndex = 21
         card.Parent = settingsHolder
         corner(card, 6)
-        stroke(card, G1, 1)
+        stroke(card, BW.Border, 1)
         local pad = Instance.new("UIPadding", card)
         pad.PaddingTop    = UDim.new(0, 4)
         pad.PaddingBottom = UDim.new(0, 4)
@@ -528,9 +528,8 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     end
 
     local cardScare = makeCard(1, true)
-    local holdTimeBox = inputRow(cardScare, 1, "Hold Time (s):", Troll.scareHoldTime or 1, COLORS)
-    local studBox     = inputRow(cardScare, 2, "Distance (studs):", Troll.scareDistance or 6, COLORS)
-
+    local holdTimeBox = inputRow(cardScare, 1, "Hold Time (s):", Troll.scareHoldTime or 1)
+    local studBox     = inputRow(cardScare, 2, "Distance (studs):", Troll.scareDistance or 6)
     holdTimeBox.FocusLost:Connect(function()
         local v = tonumber(holdTimeBox.Text)
         if v and v > 0 then Troll.scareHoldTime = math.clamp(v,0.1,5)
@@ -543,8 +542,8 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     end)
 
     local cardRush = makeCard(2, false)
-    local rushSpeedBox = inputRow(cardRush, 1, "Rush Speed:", Troll.rushSpeed or 100, COLORS)
-    local rushHoldBox  = inputRow(cardRush, 2, "Hold Time (s):", Troll.rushHoldTime or 1, COLORS)
+    local rushSpeedBox = inputRow(cardRush, 1, "Rush Speed:", Troll.rushSpeed or 100)
+    local rushHoldBox  = inputRow(cardRush, 2, "Hold Time (s):", Troll.rushHoldTime or 1)
     rushSpeedBox.FocusLost:Connect(function()
         local v = tonumber(rushSpeedBox.Text)
         if v and v > 0 then Troll.rushSpeed = math.clamp(v,10,500)
@@ -557,9 +556,9 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     end)
 
     local cardCombo = makeCard(3, false)
-    local comboAppearBox = inputRow(cardCombo, 1, "Appear Dist:", Troll.comboAppearDist or 10, COLORS)
-    local comboSpeedBox  = inputRow(cardCombo, 2, "Chase Speed:", Troll.comboRushSpeed or 100, COLORS)
-    local comboHoldBox   = inputRow(cardCombo, 3, "Hold Time (s):", Troll.comboHoldTime or 1, COLORS)
+    local comboAppearBox = inputRow(cardCombo, 1, "Appear Dist:", Troll.comboAppearDist or 10)
+    local comboSpeedBox  = inputRow(cardCombo, 2, "Chase Speed:", Troll.comboRushSpeed or 100)
+    local comboHoldBox   = inputRow(cardCombo, 3, "Hold Time (s):", Troll.comboHoldTime or 1)
     comboAppearBox.FocusLost:Connect(function()
         local v = tonumber(comboAppearBox.Text)
         if v and v > 0 then Troll.comboAppearDist = math.clamp(v,1,30)
@@ -589,27 +588,22 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     -- ══════════════════════════════════════════════════════════
     local goBtn = Instance.new("TextButton")
     goBtn.Size = UDim2.new(1, 0, 0, 30)
-    goBtn.BackgroundColor3 = G1
+    goBtn.BackgroundColor3 = BW.Active
     goBtn.Text = "GO"
-    goBtn.TextColor3 = WHT
+    goBtn.TextColor3 = BW.ActFg
     goBtn.Font = Enum.Font.GothamBold
     goBtn.TextSize = 13
     goBtn.LayoutOrder = 7
     goBtn.ZIndex = 21
     goBtn.Parent = body
     corner(goBtn, 6)
-    galaxyGradient(goBtn, 90)
 
     local function setGoReady(ready)
-        if ready then
-            tw(goBtn, {BackgroundColor3 = G1}, 0.2)
-            goBtn.TextColor3 = WHT
-            goBtn.Text = "GO"
-        else
-            tw(goBtn, {BackgroundColor3 = DBG}, 0.2)
-            goBtn.TextColor3 = Color3.fromRGB(160,140,180)
-            goBtn.Text = "Cooldown..."
-        end
+        tw(goBtn, {
+            BackgroundColor3 = ready and BW.Active or BW.Border,
+            TextColor3 = ready and BW.ActFg or BW.Dim,
+        }, 0.2)
+        goBtn.Text = ready and "GO" or "Cooldown..."
     end
 
     goBtn.MouseButton1Click:Connect(function()
@@ -628,28 +622,22 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
         end
     end)
 
-    Troll.onScareReady = function()
-        if selectedType == "Scare" then setGoReady(true); Notif:Send("Scare ready!", 2) end
-    end
-    Troll.onRushReady = function()
-        if selectedType == "Rush" then setGoReady(true); Notif:Send("Rush ready!", 2) end
-    end
-    Troll.onComboReady = function()
-        if selectedType == "Combo" then setGoReady(true); Notif:Send("Combo ready!", 2) end
-    end
+    Troll.onScareReady  = function() if selectedType=="Scare"  then setGoReady(true); Notif:Send("Scare ready!",2) end end
+    Troll.onRushReady   = function() if selectedType=="Rush"   then setGoReady(true); Notif:Send("Rush ready!",2) end end
+    Troll.onComboReady  = function() if selectedType=="Combo"  then setGoReady(true); Notif:Send("Combo ready!",2) end end
 
     Troll.onSpectateChanged = function(specPlayer)
         if specPlayer then
             targetLabel.Text = "👁 "..specPlayer.DisplayName
-            targetLabel.TextColor3 = WHT
+            targetLabel.TextColor3 = BW.Text
         else
             local tgt = Troll:GetTarget()
             if tgt then
                 targetLabel.Text = tgt.DisplayName.." (@"..tgt.Name..")"
-                targetLabel.TextColor3 = WHT
+                targetLabel.TextColor3 = BW.Text
             else
                 targetLabel.Text = "No target selected"
-                targetLabel.TextColor3 = DIM
+                targetLabel.TextColor3 = BW.Dim
             end
         end
         refreshSpecToggle()

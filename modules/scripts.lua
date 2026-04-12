@@ -7,6 +7,14 @@ local SCRIPTS_JSON_URL = "https://raw.githubusercontent.com/artfghjkq/roblox-scr
 local Scripts = {}
 
 function Scripts:Init(scriptsContent, COLORS, galaxyGradient, createCorner, Notif)
+    -- B&W fallback keys
+    local BG   = COLORS.Panel   or COLORS.DarkBG  or Color3.fromRGB(18,18,18)
+    local ROW  = COLORS.Row     or COLORS.Frame    or Color3.fromRGB(26,26,26)
+    local ACT  = COLORS.Active  or COLORS.Galaxy1  or Color3.fromRGB(220,220,220)
+    local AFGG = COLORS.ActFg   or Color3.fromRGB(10,10,10)
+    local TXT  = COLORS.Text    or COLORS.White    or Color3.fromRGB(210,210,210)
+    local DIM  = COLORS.Dim     or Color3.fromRGB(110,110,110)
+    local BRD  = COLORS.Border  or Color3.fromRGB(55,55,55)
 
     -- Track ALL script button frames so we can fully clear on refresh
     local allScriptFrames = {}
@@ -18,16 +26,16 @@ function Scripts:Init(scriptsContent, COLORS, galaxyGradient, createCorner, Noti
     statusLabel.Text = "Loading..."
     statusLabel.Font = Enum.Font.Gotham
     statusLabel.TextSize = 8
-    statusLabel.TextColor3 = Color3.fromRGB(140, 120, 160)
+    statusLabel.TextColor3 = DIM
     statusLabel.TextXAlignment = Enum.TextXAlignment.Left
     statusLabel.Parent = scriptsContent
 
     -- Refresh button
     local refreshBtn = Instance.new("TextButton")
     refreshBtn.Size = UDim2.new(1, -4, 0, 26)
-    refreshBtn.BackgroundColor3 = COLORS.DarkBG
+    refreshBtn.BackgroundColor3 = ROW
     refreshBtn.Text = "[ R ]  Refresh Scripts"
-    refreshBtn.TextColor3 = Color3.fromRGB(180, 140, 255)
+    refreshBtn.TextColor3 = TXT
     refreshBtn.Font = Enum.Font.GothamBold
     refreshBtn.TextSize = 9
     refreshBtn.TextXAlignment = Enum.TextXAlignment.Left
@@ -40,7 +48,7 @@ function Scripts:Init(scriptsContent, COLORS, galaxyGradient, createCorner, Noti
     local function createScriptBtn(name, desc, scriptStr)
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(1, -4, 0, 54)
-        frame.BackgroundColor3 = COLORS.Frame
+        frame.BackgroundColor3 = ROW
         frame.Parent = scriptsContent
         createCorner(frame, 8)
         table.insert(allScriptFrames, frame)
@@ -52,7 +60,7 @@ function Scripts:Init(scriptsContent, COLORS, galaxyGradient, createCorner, Noti
         nl.Text = name
         nl.Font = Enum.Font.GothamBold
         nl.TextSize = 10
-        nl.TextColor3 = COLORS.White
+        nl.TextColor3 = TXT
         nl.TextXAlignment = Enum.TextXAlignment.Left
         nl.Parent = frame
 
@@ -63,21 +71,20 @@ function Scripts:Init(scriptsContent, COLORS, galaxyGradient, createCorner, Noti
         dl.Text = desc
         dl.Font = Enum.Font.Gotham
         dl.TextSize = 8
-        dl.TextColor3 = Color3.fromRGB(160, 140, 180)
+        dl.TextColor3 = DIM
         dl.TextXAlignment = Enum.TextXAlignment.Left
         dl.Parent = frame
 
         local eb = Instance.new("TextButton")
         eb.Size = UDim2.new(0, 60, 0, 24)
         eb.Position = UDim2.new(1, -68, 0.5, -12)
-        eb.BackgroundColor3 = COLORS.Galaxy1
+        eb.BackgroundColor3 = ACT
         eb.Text = "LOAD"
-        eb.TextColor3 = COLORS.White
+        eb.TextColor3 = AFGG
         eb.Font = Enum.Font.GothamBold
         eb.TextSize = 9
         eb.Parent = frame
         createCorner(eb, 6)
-        galaxyGradient(eb, 90)
 
         local capStr  = scriptStr
         local capName = name

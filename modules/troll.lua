@@ -583,12 +583,13 @@ function Troll:IsRushCooldown()
 end
 
 -- ============================================================
--- COMBO SCARE: Appear → Chase → Hold+Twitch
+-- COMBO SCARE: Appear → Sprint (BodyVelocity) → Hold+Twitch
+-- No pathfinding — direct smooth chase using BodyVelocity
 -- ============================================================
 local comboCooldown = false
-Troll.comboAppearDist = 10  -- studs away to first appear
-Troll.comboHoldTime   = 1   -- hold time after reaching target
-Troll.comboRushSpeed  = 100 -- speed during chase phase
+Troll.comboAppearDist = 10
+Troll.comboHoldTime   = 1
+Troll.comboRushSpeed  = 100
 Troll.onComboReady    = nil
 
 function Troll:ComboScare()
@@ -605,34 +606,31 @@ function Troll:ComboScare()
     task.spawn(function()
         local savedSpeed = myHum.WalkSpeed
         local savedCF    = myRoot.CFrame
-
-        local wasInvi = self.inviModule and self.inviModule:IsActive()
-        if wasInvi then pcall(function() myRoot.Transparency = 0 end) end
+        local wasInvi    = self.inviModule and self.inviModule:IsActive()
 
         -- ── PHASE 1: APPEAR ──────────────────────────────────
-        -- Teleport in FRONT of target so they see us before the chase
         local tgtRoot = getRoot(tgt.Character)
-        if not tgtRoot then
-            comboCooldown = false
-            return
-        end
+        if not tgtRoot then comboCooldown = false; return end
 
-        local dist   = self.comboAppearDist or 10
-        -- Appear directly IN FRONT of target (negative Z = in front of their LookVector)
-        local appearCF = tgtRoot.CFrame * CFrame.new(dist * 0.15, 0, -dist)
-        appearCF = CFrame.new(appearCF.Position, tgtRoot.Position)
+        -- Show self
+        if wasInvi then pcall(function() myRoot.Transparency = 0 end) end
 
+        -- Teleport in front of target
+        local dist     = self.comboAppearDist or 10
+        local appearCF = CFrame.new(
+            (tgtRoot.CFrame * CFrame.new(0, 0, -dist)).Position,
+            tgtRoot.Position
+        )
         myRoot.CFrame = appearCF
-        task.wait(0) -- flush to server
+        task.wait(0)
         task.wait(0)
 
-        -- Hold appear position briefly (let target notice)
-        local appearHold = 0.6
+        -- Hold appear: face target for 0.5s, no movement
         local appearElapsed = 0
         local appearConn
         appearConn = RunService.Stepped:Connect(function(_, dt)
             appearElapsed = appearElapsed + dt
-            if appearElapsed >= appearHold then appearConn:Disconnect(); return end
+            if appearElapsed >= 0.5 then appearConn:Disconnect(); return end
             local tr = getRoot(tgt.Character)
             if tr then
                 pcall(function()
@@ -640,88 +638,65 @@ function Troll:ComboScare()
                 end)
             end
         end)
-        task.wait(appearHold + 0.05)
+        task.wait(0.55)
 
-        -- ── PHASE 2: CHASE ───────────────────────────────────
-        local PathfindingService = game:GetService("PathfindingService")
-        myHum.WalkSpeed = self.comboRushSpeed or 100
+        -- ── PHASE 2: BLINK SPRINT ────────────────────────────
+        -- Rapid successive teleports closing in on target (horror blink effect)
+        local speed      = self.comboRushSpeed or 100
+        local stepDist   = 4   -- studs per blink step
+        local stepDelay  = 0.04 -- seconds between blinks (faster = more intense)
+        local maxTime    = 3
+        local elapsed    = 0
 
-        local reached = false
-        local elapsed = 0
+        while elapsed < maxTime do
+            local tr = tgt.Character and getRoot(tgt.Character)
+            if not tr then break end
 
-        local function doChase()
-            local tr = getRoot(tgt.Character)
-            if not tr then reached = true return end
+            local toTarget = tr.Position - myRoot.Position
+            local dist2    = toTarget.Magnitude
 
-            local path = PathfindingService:CreatePath({
-                AgentRadius   = 2,
-                AgentHeight   = 5,
-                AgentCanJump  = true,
-                AgentCanClimb = false,
-            })
-            pcall(function() path:ComputeAsync(myRoot.Position, tr.Position) end)
+            if dist2 <= 4 then break end -- reached
 
-            local waypoints = {}
-            if path.Status == Enum.PathStatus.Success then
-                waypoints = path:GetWaypoints()
-            end
+            -- Step toward target by stepDist studs
+            local dir     = toTarget.Unit
+            local newPos  = myRoot.Position + dir * math.min(stepDist, dist2 - 3)
+            -- Keep Y slightly above target Y to avoid going underground
+            newPos = Vector3.new(newPos.X, math.max(newPos.Y, tr.Position.Y), newPos.Z)
 
-            for _, wp in ipairs(waypoints) do
-                if not comboCooldown then break end
-                local tr2 = getRoot(tgt.Character)
-                if not tr2 then break end
-                if (myRoot.Position - tr2.Position).Magnitude <= 4 then
-                    reached = true; break
-                end
-                if wp.Action == Enum.PathWaypointAction.Jump then
-                    myHum.Jump = true
-                end
-                myHum:MoveTo(wp.Position)
-                local stepTimer = 0
-                repeat
-                    task.wait(0.05)
-                    stepTimer = stepTimer + 0.05
-                    elapsed   = elapsed + 0.05
-                until (myRoot.Position - wp.Position).Magnitude < 3
-                    or stepTimer > 3
-                    or elapsed > 10
-            end
+            pcall(function()
+                myRoot.CFrame = CFrame.new(newPos, tr.Position)
+            end)
 
-            local tr3 = getRoot(tgt.Character)
-            if tr3 and (myRoot.Position - tr3.Position).Magnitude <= 6 then
-                reached = true
-            end
-
-            -- Fallback teleport
-            if not reached then
-                local tr4 = getRoot(tgt.Character)
-                if tr4 then
-                    myRoot.CFrame = CFrame.new(
-                        (tr4.CFrame * CFrame.new(0, 0, -4)).Position,
-                        tr4.Position
-                    )
-                    task.wait(0); task.wait(0)
-                    reached = true
-                end
-            end
+            task.wait(stepDelay)
+            elapsed = elapsed + stepDelay
         end
 
-        doChase()
-        myHum:MoveTo(myRoot.Position)
+        -- Final snap if still not close
+        local tr = tgt.Character and getRoot(tgt.Character)
+        if tr and (myRoot.Position - tr.Position).Magnitude > 5 then
+            pcall(function()
+                myRoot.CFrame = CFrame.new(
+                    (tr.CFrame * CFrame.new(0, 0, -4)).Position,
+                    tr.Position
+                )
+            end)
+            task.wait(0)
+            task.wait(0)
+        end
 
         -- ── PHASE 3: HOLD + TWITCH ───────────────────────────
-        local holdTime     = self.comboHoldTime or 1
-        local holdElapsed  = 0
-        local twitchTimer  = 0
-        local twitchPhase  = 0
+        local holdTime    = self.comboHoldTime or 1
+        local holdElapsed = 0
+        local twitchTimer = 0
+        local twitchPhase = 0
         local offsets = {
-            Vector3.new( 0.4,  0.3,  0),
-            Vector3.new(-0.5,  0,    0.2),
-            Vector3.new( 0,   -0.4,  0.3),
-            Vector3.new( 0.3,  0.5, -0.2),
-            Vector3.new(-0.2, -0.3,  0),
+            Vector3.new( 0.4,  0.2,  0),
+            Vector3.new(-0.4,  0,    0.2),
+            Vector3.new( 0,   -0.3,  0.3),
+            Vector3.new( 0.3,  0.4, -0.2),
+            Vector3.new(-0.3, -0.2,  0),
             Vector3.new( 0,    0,    0),
-            Vector3.new( 0.6,  0,   -0.3),
+            Vector3.new( 0.5,  0,   -0.3),
             Vector3.new( 0,    0,    0),
         }
 
@@ -729,12 +704,12 @@ function Troll:ComboScare()
         holdConn = RunService.Stepped:Connect(function(_, dt)
             holdElapsed = holdElapsed + dt
             if holdElapsed >= holdTime then holdConn:Disconnect(); return end
-            local tr = getRoot(tgt.Character)
-            if not tr then holdConn:Disconnect(); return end
+            local tr2 = getRoot(tgt.Character)
+            if not tr2 then holdConn:Disconnect(); return end
 
             local baseCF = CFrame.new(
-                (tr.CFrame * CFrame.new(0, 0, -4)).Position,
-                tr.Position
+                (tr2.CFrame * CFrame.new(0, 0, -4)).Position,
+                tr2.Position
             )
             twitchTimer = twitchTimer + dt
             if twitchTimer >= 0.07 then
