@@ -610,6 +610,16 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
         closeDrop()
         if not Troll:GetTarget() then Notif:Send("No target selected!", 2); return end
         local name = Troll:GetTarget().Name
+
+        -- Auto-switch to Free cam before scare so player can see their avatar
+        if Troll:IsSpectating() and Troll:GetSpectateMode() ~= "free" then
+            Troll:SetSpectateMode("free")
+            setCamModeUI("free")
+            if Troll:GetTarget() then
+                Troll:StartSpectate(Troll:GetTarget(), "free")
+            end
+        end
+
         if selectedType == "Scare" then
             if Troll:IsScareCooldown() then return end
             if Troll:ScareOnce() then setGoReady(false); Notif:Send("Scaring "..name, 2) end
