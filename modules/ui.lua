@@ -452,7 +452,7 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
     corner(typeRow, 6)
     stroke(typeRow, BW.Border, 1)
 
-    local scareTypes   = {"Scare","Rush","Combo"}
+    local scareTypes   = {"Scare","Combo"}
     local typeBtns     = {}
     local selectedType = "Scare"
 
@@ -541,28 +541,20 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
         else studBox.Text = tostring(Troll.scareDistance or 6) end
     end)
 
-    local cardRush = makeCard(2, false)
-    local rushSpeedBox = inputRow(cardRush, 1, "Rush Speed:", Troll.rushSpeed or 100)
-    local rushHoldBox  = inputRow(cardRush, 2, "Hold Time (s):", Troll.rushHoldTime or 1)
-    rushSpeedBox.FocusLost:Connect(function()
-        local v = tonumber(rushSpeedBox.Text)
-        if v and v > 0 then Troll.rushSpeed = math.clamp(v,10,500)
-        else rushSpeedBox.Text = tostring(Troll.rushSpeed or 100) end
-    end)
-    rushHoldBox.FocusLost:Connect(function()
-        local v = tonumber(rushHoldBox.Text)
-        if v and v > 0 then Troll.rushHoldTime = math.clamp(v,0.1,5)
-        else rushHoldBox.Text = tostring(Troll.rushHoldTime or 1) end
-    end)
-
-    local cardCombo = makeCard(3, false)
-    local comboAppearBox = inputRow(cardCombo, 1, "Appear Dist:", Troll.comboAppearDist or 10)
-    local comboSpeedBox  = inputRow(cardCombo, 2, "Chase Speed:", Troll.comboRushSpeed or 100)
-    local comboHoldBox   = inputRow(cardCombo, 3, "Hold Time (s):", Troll.comboHoldTime or 1)
+    local cardCombo = makeCard(2, false)
+    local comboAppearBox  = inputRow(cardCombo, 1, "Appear Dist:", Troll.comboAppearDist or 10)
+    local comboHoldAppBox = inputRow(cardCombo, 2, "Appear Hold (s):", Troll.comboAppearHold or 1.5)
+    local comboSpeedBox   = inputRow(cardCombo, 3, "Blink Speed:", Troll.comboRushSpeed or 100)
+    local comboHoldBox    = inputRow(cardCombo, 4, "Hold Time (s):", Troll.comboHoldTime or 1)
     comboAppearBox.FocusLost:Connect(function()
         local v = tonumber(comboAppearBox.Text)
         if v and v > 0 then Troll.comboAppearDist = math.clamp(v,1,30)
         else comboAppearBox.Text = tostring(Troll.comboAppearDist or 10) end
+    end)
+    comboHoldAppBox.FocusLost:Connect(function()
+        local v = tonumber(comboHoldAppBox.Text)
+        if v and v > 0 then Troll.comboAppearHold = math.clamp(v,0.1,10)
+        else comboHoldAppBox.Text = tostring(Troll.comboAppearHold or 1.5) end
     end)
     comboSpeedBox.FocusLost:Connect(function()
         local v = tonumber(comboSpeedBox.Text)
@@ -575,7 +567,7 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
         else comboHoldBox.Text = tostring(Troll.comboHoldTime or 1) end
     end)
 
-    local cards = {Scare=cardScare, Rush=cardRush, Combo=cardCombo}
+    local cards = {Scare=cardScare, Combo=cardCombo}
     for _, t in ipairs(scareTypes) do
         local capT = t
         typeBtns[capT].MouseButton1Click:Connect(function()
@@ -611,29 +603,51 @@ function UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleS
         if not Troll:GetTarget() then Notif:Send("No target selected!", 2); return end
         local name = Troll:GetTarget().Name
 
-        -- Auto-switch to Free cam before scare so player can see their avatar
-        if Troll:IsSpectating() and Troll:GetSpectateMode() ~= "free" then
+        -- Save current cam mode, switch to Free so player sees their avatar
+        local savedCamMode = Troll:GetSpectateMode()
+        if Troll:IsSpectating() and savedCamMode ~= "free" then
             Troll:SetSpectateMode("free")
             setCamModeUI("free")
-            if Troll:GetTarget() then
-                Troll:StartSpectate(Troll:GetTarget(), "free")
+            Troll:StartSpectate(Troll:GetTarget(), "free")
+        end
+
+        -- Restore cam mode after scare finishes
+        local function restoreCam()
+            if savedCamMode ~= "free" and Troll:IsSpectating() then
+                Troll:SetSpectateMode(savedCamMode)
+                setCamModeUI(savedCamMode)
+                Troll:StartSpectate(Troll:GetTarget(), savedCamMode)
             end
         end
 
         if selectedType == "Scare" then
             if Troll:IsScareCooldown() then return end
-            if Troll:ScareOnce() then setGoReady(false); Notif:Send("Scaring "..name, 2) end
-        elseif selectedType == "Rush" then
-            if Troll:IsRushCooldown() then return end
-            if Troll:RushScare() then setGoReady(false); Notif:Send("Rushing "..name, 2) end
+            if Troll:ScareOnce() then
+                setGoReady(false)
+                Notif:Send("Scaring "..name, 2)
+                local _orig = Troll.onScareReady
+                Troll.onScareReady = function()
+                    restoreCam()
+                    Troll.onScareReady = _orig
+                    if _orig then _orig() end
+                end
+            end
         elseif selectedType == "Combo" then
             if Troll:IsComboCooldown() then return end
-            if Troll:ComboScare() then setGoReady(false); Notif:Send("Combo on "..name, 2) end
+            if Troll:ComboScare() then
+                setGoReady(false)
+                Notif:Send("Combo on "..name, 2)
+                local _orig = Troll.onComboReady
+                Troll.onComboReady = function()
+                    restoreCam()
+                    Troll.onComboReady = _orig
+                    if _orig then _orig() end
+                end
+            end
         end
     end)
 
     Troll.onScareReady  = function() if selectedType=="Scare"  then setGoReady(true); Notif:Send("Scare ready!",2) end end
-    Troll.onRushReady   = function() if selectedType=="Rush"   then setGoReady(true); Notif:Send("Rush ready!",2) end end
     Troll.onComboReady  = function() if selectedType=="Combo"  then setGoReady(true); Notif:Send("Combo ready!",2) end end
 
     Troll.onSpectateChanged = function(specPlayer)

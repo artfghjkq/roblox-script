@@ -588,6 +588,7 @@ end
 -- ============================================================
 local comboCooldown = false
 Troll.comboAppearDist = 10
+Troll.comboAppearHold = 1.5   -- seconds to stay visible before blinking (default longer)
 Troll.comboHoldTime   = 1
 Troll.comboRushSpeed  = 100
 Troll.onComboReady    = nil
@@ -625,12 +626,13 @@ function Troll:ComboScare()
         task.wait(0)
         task.wait(0)
 
-        -- Hold appear: face target for 0.5s, no movement
+        -- Hold appear: face target, stay visible for comboAppearHold seconds
+        local appearHold    = self.comboAppearHold or 1.5
         local appearElapsed = 0
         local appearConn
         appearConn = RunService.Stepped:Connect(function(_, dt)
             appearElapsed = appearElapsed + dt
-            if appearElapsed >= 0.5 then appearConn:Disconnect(); return end
+            if appearElapsed >= appearHold then appearConn:Disconnect(); return end
             local tr = getRoot(tgt.Character)
             if tr then
                 pcall(function()
@@ -638,7 +640,7 @@ function Troll:ComboScare()
                 end)
             end
         end)
-        task.wait(0.55)
+        task.wait(appearHold + 0.05)
 
         -- ── PHASE 2: BLINK SPRINT ────────────────────────────
         -- Rapid successive teleports closing in on target (horror blink effect)
