@@ -21,6 +21,11 @@ local CONFIG = {
     BoxRainbow = false,
     SkeletonRainbow = false,
     TracerRainbow = false,
+    -- NPC ESP
+    NPCBoxESP = false,
+    NPCNames = false,
+    NPCHealthBar = false,
+    NPCColor = Color3.fromRGB(255, 100, 0),
     Scare = false,
     Fling = false,
     WalkFling = false,

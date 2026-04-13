@@ -192,7 +192,7 @@ contentFrame.Parent = mainFrame
 
 local tabButtons, contentContainers = {}, {}
 local tabs = {"MAIN", "ESP", "FPS", "SCRIPTS", "TROLL", "SPEC"}
-local tabIcons = {MAIN="SYS", ESP="ESP", FPS="FPS", TROLL="TRL", SPEC="SPC", SCRIPTS="SCR"}
+local tabIcons = {MAIN="SYS", ESP="ESP", FPS="FPS", SCRIPTS="SCR", TROLL="TRL", SPEC="SPC"}
 
 local function setActiveTab(tabName)
     for name, btn in pairs(tabButtons) do
@@ -572,22 +572,29 @@ local function createESPColorRow(parent, text, colorKey, rainbowKey)
     local rbBtn = Instance.new("TextButton")
     rbBtn.Size = UDim2.new(0, 70, 0, 18)
     rbBtn.Position = UDim2.new(1, -78, 0, 29)
-    rbBtn.BackgroundColor3 = CONFIG[rainbowKey] and BW.Active or BW.Border
-    rbBtn.Text = "RGB"
-    rbBtn.TextColor3 = CONFIG[rainbowKey] and BW.ActFg or BW.Dim
     rbBtn.Font = Enum.Font.GothamBold
     rbBtn.TextSize = 7
     rbBtn.Parent = container
     createCorner(rbBtn, 6)
 
-    rbBtn.MouseButton1Click:Connect(function()
-        CONFIG[rainbowKey] = not CONFIG[rainbowKey]
-        tween(rbBtn, {
-            BackgroundColor3 = CONFIG[rainbowKey] and BW.Active or BW.Border,
-            TextColor3 = CONFIG[rainbowKey] and BW.ActFg or BW.Dim
-        }, 0.2)
-        saveConfig()
-    end)
+    if rainbowKey then
+        rbBtn.BackgroundColor3 = CONFIG[rainbowKey] and BW.Active or BW.Border
+        rbBtn.Text = "RGB"
+        rbBtn.TextColor3 = CONFIG[rainbowKey] and BW.ActFg or BW.Dim
+        rbBtn.MouseButton1Click:Connect(function()
+            CONFIG[rainbowKey] = not CONFIG[rainbowKey]
+            tween(rbBtn, {
+                BackgroundColor3 = CONFIG[rainbowKey] and BW.Active or BW.Border,
+                TextColor3 = CONFIG[rainbowKey] and BW.ActFg or BW.Dim
+            }, 0.2)
+            saveConfig()
+        end)
+    else
+        rbBtn.BackgroundColor3 = BW.Panel
+        rbBtn.Text = ""
+        rbBtn.TextColor3 = BW.Dim
+        rbBtn.BackgroundTransparency = 1
+    end
 end
 
 -- ============================================================
@@ -911,6 +918,40 @@ createESPColorRow(espContent, "Tracer Color",   "TracerColor",   "TracerRainbow"
 toggleSyncs["HealthBar"]  = createToggle(espContent, "Health Bar", "HealthBar")
 toggleSyncs["Names"]      = createToggle(espContent, "Names",      "Names")
 toggleSyncs["TeamFilter"] = createToggle(espContent, "Team Filter","TeamFilter")
+
+-- NPC/Enemy ESP divider
+local npcDivider = Instance.new("Frame")
+npcDivider.Size = UDim2.new(1, -4, 0, 20)
+npcDivider.BackgroundTransparency = 1
+npcDivider.Parent = espContent
+local npcDivLine = Instance.new("Frame")
+npcDivLine.Size = UDim2.new(0.3, 0, 0, 1)
+npcDivLine.Position = UDim2.new(0, 0, 0.5, 0)
+npcDivLine.BackgroundColor3 = BW.Border
+npcDivLine.BorderSizePixel = 0
+npcDivLine.Parent = npcDivider
+local npcDivLbl = Instance.new("TextLabel")
+npcDivLbl.Size = UDim2.new(0.4, 0, 1, 0)
+npcDivLbl.Position = UDim2.new(0.3, 0, 0, 0)
+npcDivLbl.BackgroundTransparency = 1
+npcDivLbl.Text = "NPC / ENEMY"
+npcDivLbl.Font = Enum.Font.GothamBold
+npcDivLbl.TextSize = 8
+npcDivLbl.TextColor3 = BW.Dim
+npcDivLbl.Parent = npcDivider
+local npcDivLine2 = Instance.new("Frame")
+npcDivLine2.Size = UDim2.new(0.3, 0, 0, 1)
+npcDivLine2.Position = UDim2.new(0.7, 0, 0.5, 0)
+npcDivLine2.BackgroundColor3 = BW.Border
+npcDivLine2.BorderSizePixel = 0
+npcDivLine2.Parent = npcDivider
+
+toggleSyncs["NPCBoxESP"] = createToggle(espContent, "NPC Box ESP", "NPCBoxESP", function(v)
+    if v then ESP:RescanNPCs() end
+end)
+toggleSyncs["NPCNames"]     = createToggle(espContent, "NPC Names",      "NPCNames")
+toggleSyncs["NPCHealthBar"] = createToggle(espContent, "NPC Health Bar", "NPCHealthBar")
+createESPColorRow(espContent, "NPC Color", "NPCColor", nil)
 
 local fpsContent = contentContainers["FPS"]
 toggleSyncs["FPSBoost"] = createToggle(fpsContent, "FPS Boost", "FPSBoost", function(v)
