@@ -1,3 +1,4 @@
 [
-  {"name": "Mois7 Loader", "desc": "External script loader", "url": "https://mois7.xyz/loader"}
+  {"name": "Mois7 Loader", "desc": "External script loader", "url": "https://mois7.xyz/loader"},
+  {"name":"FoxnameHub", "desc":"FoxnameHub script loader", "url":"https://raw.githubusercontent.com/caomod2077/Script/refs/heads/main/FoxnameHub.lua"}
 ]
