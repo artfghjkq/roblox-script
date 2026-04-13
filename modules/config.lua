@@ -23,6 +23,8 @@ local CONFIG = {
     -- NPC ESP
     NPCBoxESP = false,
     NPCInfo = false,      -- NPC Names + HealthBar combined
+    NPCSkeleton = false,
+    NPCTracers = false,
     NPCColor = Color3.fromRGB(255, 100, 0),
     Scare = false,
     Fling = false,

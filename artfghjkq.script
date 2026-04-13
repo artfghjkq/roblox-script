@@ -1032,7 +1032,9 @@ npcDivLine2.Parent = npcDivider
 toggleSyncs["NPCBoxESP"] = createToggle(espContent, "NPC Box ESP",  "NPCBoxESP", function(v)
     if v then ESP:RescanNPCs() end
 end)
-toggleSyncs["NPCInfo"] = createToggle(espContent, "NPC Names & HP", "NPCInfo")
+toggleSyncs["NPCInfo"]     = createToggle(espContent, "NPC Names & HP", "NPCInfo")
+toggleSyncs["NPCSkeleton"] = createToggle(espContent, "NPC Skeleton",   "NPCSkeleton")
+toggleSyncs["NPCTracers"]  = createToggle(espContent, "NPC Tracers",    "NPCTracers")
 createESPColorRow(espContent, "NPC Color", "NPCColor", nil)
 
 local fpsContent = contentContainers["FPS"]

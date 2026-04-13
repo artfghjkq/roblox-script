@@ -13,9 +13,11 @@ local healthBars  = {}
 local nameLabels  = {}
 
 -- NPC ESP tables (keyed by Model object)
-local npcBoxes  = {}
-local npcNames  = {}
-local npcHBars  = {}
+local npcBoxes    = {}
+local npcNames    = {}
+local npcHBars    = {}
+local npcSkels    = {}
+local npcTracers  = {}
 
 -- Track known NPCs so we don't re-scan every frame
 local knownNPCs   = {}
@@ -49,13 +51,18 @@ end
 
 -- ── NPC Cleanup ───────────────────────────────────────────────
 local function cleanupNPC(model)
-    if npcBoxes[model]  then npcBoxes[model]:Remove();  npcBoxes[model]  = nil end
-    if npcNames[model]  then
+    if npcBoxes[model]   then npcBoxes[model]:Remove();   npcBoxes[model]   = nil end
+    if npcNames[model]   then
         if npcNames[model].line1 then npcNames[model].line1:Remove() end
         if npcNames[model].line2 then npcNames[model].line2:Remove() end
         npcNames[model] = nil
     end
-    if npcHBars[model]  then npcHBars[model]:Remove();  npcHBars[model]  = nil end
+    if npcHBars[model]   then npcHBars[model]:Remove();   npcHBars[model]   = nil end
+    if npcTracers[model] then npcTracers[model]:Remove(); npcTracers[model] = nil end
+    if npcSkels[model]   then
+        for _, l in pairs(npcSkels[model]) do l:Remove() end
+        npcSkels[model] = nil
+    end
 end
 
 local function cleanupAllNPCs()
@@ -379,6 +386,77 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
                 npcNames[model].line1.Visible = false
                 npcNames[model].line2.Visible = false
             end
+        end
+
+        -- NPC Tracer
+        if CONFIG.NPCTracers and onScreen then
+            if not npcTracers[model] then
+                npcTracers[model] = createDrawing("Line", {Thickness=1, Transparency=1})
+            end
+            local t      = npcTracers[model]
+            local vpSize = camera.ViewportSize
+            t.From    = Vector2.new(vpSize.X/2, vpSize.Y)
+            t.To      = Vector2.new(rootPos.X, rootPos.Y)
+            t.Color   = npcColor
+            t.Visible = true
+        elseif npcTracers[model] then
+            npcTracers[model].Visible = false
+        end
+
+        -- NPC Skeleton
+        if CONFIG.NPCSkeleton and onScreen and hum then
+            local skel  = npcSkels[model] or {}
+            npcSkels[model] = skel
+            local joints, connections = {}, {}
+
+            if hum.RigType == Enum.HumanoidRigType.R15 then
+                joints = {
+                    Head=model:FindFirstChild("Head"), UpperTorso=model:FindFirstChild("UpperTorso"),
+                    LowerTorso=model:FindFirstChild("LowerTorso"),
+                    LeftUpperArm=model:FindFirstChild("LeftUpperArm"), LeftLowerArm=model:FindFirstChild("LeftLowerArm"), LeftHand=model:FindFirstChild("LeftHand"),
+                    RightUpperArm=model:FindFirstChild("RightUpperArm"), RightLowerArm=model:FindFirstChild("RightLowerArm"), RightHand=model:FindFirstChild("RightHand"),
+                    LeftUpperLeg=model:FindFirstChild("LeftUpperLeg"), LeftLowerLeg=model:FindFirstChild("LeftLowerLeg"),
+                    RightUpperLeg=model:FindFirstChild("RightUpperLeg"), RightLowerLeg=model:FindFirstChild("RightLowerLeg"),
+                }
+                connections = {
+                    {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
+                    {"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},
+                    {"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},
+                    {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
+                    {"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},
+                }
+            else
+                joints = {
+                    Head=model:FindFirstChild("Head"), Torso=model:FindFirstChild("Torso"),
+                    LeftArm=model:FindFirstChild("Left Arm"), RightArm=model:FindFirstChild("Right Arm"),
+                    LeftLeg=model:FindFirstChild("Left Leg"), RightLeg=model:FindFirstChild("Right Leg"),
+                }
+                connections = {
+                    {"Head","Torso"},{"Torso","LeftArm"},{"Torso","RightArm"},
+                    {"Torso","LeftLeg"},{"Torso","RightLeg"},
+                }
+            end
+
+            for i, conn in ipairs(connections) do
+                local partA, partB = joints[conn[1]], joints[conn[2]]
+                if partA and partB then
+                    local posA, osA = camera:WorldToViewportPoint(partA.Position)
+                    local posB, osB = camera:WorldToViewportPoint(partB.Position)
+                    local line = skel[i] or createDrawing("Line", {Thickness=2, Transparency=1})
+                    skel[i]    = line
+                    line.Color = npcColor
+                    if osA and osB then
+                        line.From    = Vector2.new(posA.X, posA.Y)
+                        line.To      = Vector2.new(posB.X, posB.Y)
+                        line.Visible = true
+                    else
+                        line.Visible = false
+                    end
+                elseif skel[i] then skel[i].Visible = false end
+            end
+        elseif npcSkels[model] then
+            for _, l in pairs(npcSkels[model]) do l:Remove() end
+            npcSkels[model] = nil
         end
     end
 end
