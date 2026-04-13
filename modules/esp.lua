@@ -163,44 +163,42 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         local topY  = bPos.Y
         local cenX  = rootPos.X
 
-        -- Health Bar (text)
-        if CONFIG.HealthBar and onScreen then
+        -- Player Info (HP + Names together)
+        if CONFIG.PlayerInfo and onScreen then
+            -- Health bar text
             if not healthBars[plr] then
                 healthBars[plr] = {
-                    text = createDrawing("Text", {Size=11, Center=true, Outline=true, Transparency=1, Color=Color3.fromRGB(255,255,255)})
+                    text = createDrawing("Text", {Size=10, Center=true, Outline=true, Transparency=1})
                 }
             end
-            local pct    = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+            local pct    = math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1)
             local hbText = healthBars[plr].text
             hbText.Text     = "HP: "..math.floor(hum.Health).."/"..math.floor(hum.MaxHealth).." | "..dist.." studs"
-            hbText.Position = Vector2.new(cenX, topY - 22)
+            hbText.Position = Vector2.new(cenX, topY - 38)
             hbText.Color    = Color3.fromHSV(pct * 0.33, 1, 1)
             hbText.Visible  = true
-        elseif healthBars[plr] then
-            healthBars[plr].text:Remove()
-            healthBars[plr] = nil
-        end
 
-        -- Names
-        if CONFIG.Names and onScreen then
+            -- Name labels
             if not nameLabels[plr] then
                 nameLabels[plr] = {
                     display  = createDrawing("Text", {Size=12, Center=true, Outline=true, Transparency=1, Color=Color3.fromRGB(255,255,255)}),
                     username = createDrawing("Text", {Size=10, Center=true, Outline=true, Transparency=1, Color=Color3.fromRGB(180,180,180)}),
                 }
             end
-            local baseY = topY - (CONFIG.HealthBar and 36 or 12)
-            local nl    = nameLabels[plr]
+            local nl = nameLabels[plr]
             nl.display.Text      = plr.DisplayName
-            nl.display.Position  = Vector2.new(cenX, baseY - 14)
+            nl.display.Position  = Vector2.new(cenX, topY - 26)
             nl.display.Visible   = true
             nl.username.Text     = "@"..plr.Name
-            nl.username.Position = Vector2.new(cenX, baseY)
+            nl.username.Position = Vector2.new(cenX, topY - 14)
             nl.username.Visible  = true
-        elseif nameLabels[plr] then
-            nameLabels[plr].display:Remove()
-            nameLabels[plr].username:Remove()
-            nameLabels[plr] = nil
+        else
+            if healthBars[plr] then healthBars[plr].text:Remove(); healthBars[plr] = nil end
+            if nameLabels[plr] then
+                nameLabels[plr].display:Remove()
+                nameLabels[plr].username:Remove()
+                nameLabels[plr] = nil
+            end
         end
 
         -- Tracers
@@ -275,7 +273,7 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
     -- ══════════════════════════════════════════════════════════
     -- NPC / MONSTER / ENEMY ESP
     -- ══════════════════════════════════════════════════════════
-    local anyNPCEnabled = CONFIG.NPCBoxESP or CONFIG.NPCNames or CONFIG.NPCHealthBar
+    local anyNPCEnabled = CONFIG.NPCBoxESP or CONFIG.NPCInfo or CONFIG.NPCInfo
 
     -- Periodic workspace scan
     if anyNPCEnabled then
@@ -343,13 +341,11 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         local topY  = bPos.Y
         local cenX  = rootPos.X
 
-        -- NPC Health Bar (text)
-        if CONFIG.NPCHealthBar and onScreen then
+        -- NPC Info (HP + Name together)
+        if CONFIG.NPCInfo and onScreen then
+            -- HP text
             if not npcHBars[model] then
-                npcHBars[model] = createDrawing("Text", {
-                    Size=10, Center=true, Outline=true, Transparency=1,
-                    Color=npcColor
-                })
+                npcHBars[model] = createDrawing("Text", {Size=10, Center=true, Outline=true, Transparency=1})
             end
             local hbText = npcHBars[model]
             if hum then
@@ -360,31 +356,29 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
                 hbText.Text  = dist.." studs"
                 hbText.Color = npcColor
             end
-            hbText.Position = Vector2.new(cenX, topY - 20)
+            hbText.Position = Vector2.new(cenX, topY - 36)
             hbText.Visible  = true
-        elseif npcHBars[model] then
-            npcHBars[model].Visible = false
-        end
 
-        -- NPC Name
-        if CONFIG.NPCNames and onScreen then
+            -- Name
             if not npcNames[model] then
                 npcNames[model] = {
                     line1 = createDrawing("Text", {Size=11, Center=true, Outline=true, Transparency=1, Color=npcColor}),
                     line2 = createDrawing("Text", {Size=9,  Center=true, Outline=true, Transparency=1, Color=Color3.fromRGB(200,150,100)}),
                 }
             end
-            local baseY = topY - (CONFIG.NPCHealthBar and 34 or 12)
-            local nn    = npcNames[model]
+            local nn = npcNames[model]
             nn.line1.Text     = model.Name
-            nn.line1.Position = Vector2.new(cenX, baseY - 12)
+            nn.line1.Position = Vector2.new(cenX, topY - 24)
             nn.line1.Visible  = true
-            nn.line2.Text     = "[NPC] "..dist.."st"
-            nn.line2.Position = Vector2.new(cenX, baseY)
+            nn.line2.Text     = "[NPC] "..dist.." studs"
+            nn.line2.Position = Vector2.new(cenX, topY - 13)
             nn.line2.Visible  = true
-        elseif npcNames[model] then
-            npcNames[model].line1.Visible = false
-            npcNames[model].line2.Visible = false
+        else
+            if npcHBars[model] then npcHBars[model].Visible = false end
+            if npcNames[model] then
+                npcNames[model].line1.Visible = false
+                npcNames[model].line2.Visible = false
+            end
         end
     end
 end

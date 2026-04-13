@@ -899,13 +899,97 @@ toggleSyncs["SpeedBoost"] = createToggle(mainContent, "Speed Boost", "SpeedBoost
         if hum then hum.WalkSpeed = 16 end
     end
 end)
-createSlider(mainContent, "Walk Speed", "WalkSpeed", 16, 250)
+
+-- Walk Speed input
+do
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -4, 0, 32)
+    row.BackgroundColor3 = BW.Row
+    row.Parent = mainContent
+    createCorner(row, 8)
+    createStroke(row, BW.Border, 1)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -80, 1, 0)
+    lbl.Position = UDim2.new(0, 8, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = "Walk Speed"
+    lbl.Font = Enum.Font.GothamSemibold
+    lbl.TextSize = 10
+    lbl.TextColor3 = BW.Text
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0, 64, 0, 22)
+    box.Position = UDim2.new(1, -70, 0.5, -11)
+    box.BackgroundColor3 = BW.Panel
+    box.Text = tostring(CONFIG.WalkSpeed)
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 11
+    box.TextColor3 = BW.White
+    box.ClearTextOnFocus = false
+    box.TextXAlignment = Enum.TextXAlignment.Center
+    box.Parent = row
+    createCorner(box, 5)
+    createStroke(box, BW.Border, 1)
+    box.FocusLost:Connect(function()
+        local v = tonumber(box.Text)
+        if v and v >= 1 and v <= 1000 then
+            CONFIG.WalkSpeed = math.floor(v)
+            saveConfig()
+        else
+            box.Text = tostring(CONFIG.WalkSpeed)
+        end
+    end)
+end
+
 toggleSyncs["Noclip"] = createToggle(mainContent, "Noclip", "Noclip")
 toggleSyncs["Invisibility"] = createToggle(mainContent, "Invisibility", "Invisibility", function(v)
     applyInvisibility(v)
 end)
 toggleSyncs["SuperJump"] = createToggle(mainContent, "Super Jump", "SuperJump")
-createSlider(mainContent, "Jump Power", "JumpPower", 50, 500)
+
+-- Jump Power input
+do
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -4, 0, 32)
+    row.BackgroundColor3 = BW.Row
+    row.Parent = mainContent
+    createCorner(row, 8)
+    createStroke(row, BW.Border, 1)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -80, 1, 0)
+    lbl.Position = UDim2.new(0, 8, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = "Jump Power"
+    lbl.Font = Enum.Font.GothamSemibold
+    lbl.TextSize = 10
+    lbl.TextColor3 = BW.Text
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0, 64, 0, 22)
+    box.Position = UDim2.new(1, -70, 0.5, -11)
+    box.BackgroundColor3 = BW.Panel
+    box.Text = tostring(CONFIG.JumpPower)
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 11
+    box.TextColor3 = BW.White
+    box.ClearTextOnFocus = false
+    box.TextXAlignment = Enum.TextXAlignment.Center
+    box.Parent = row
+    createCorner(box, 5)
+    createStroke(box, BW.Border, 1)
+    box.FocusLost:Connect(function()
+        local v = tonumber(box.Text)
+        if v and v >= 1 and v <= 5000 then
+            CONFIG.JumpPower = math.floor(v)
+            saveConfig()
+        else
+            box.Text = tostring(CONFIG.JumpPower)
+        end
+    end)
+end
+
 toggleSyncs["KingMode"] = createToggle(mainContent, "King Mode", "KingMode")
 
 local espContent = contentContainers["ESP"]
@@ -915,8 +999,7 @@ toggleSyncs["Skeleton"]   = createToggle(espContent, "Skeleton",   "Skeleton")
 createESPColorRow(espContent, "Skeleton Color", "SkeletonColor", "SkeletonRainbow")
 toggleSyncs["Tracers"]    = createToggle(espContent, "Tracers",    "Tracers")
 createESPColorRow(espContent, "Tracer Color",   "TracerColor",   "TracerRainbow")
-toggleSyncs["HealthBar"]  = createToggle(espContent, "Health Bar", "HealthBar")
-toggleSyncs["Names"]      = createToggle(espContent, "Names",      "Names")
+toggleSyncs["PlayerInfo"] = createToggle(espContent, "Names & HP", "PlayerInfo")
 toggleSyncs["TeamFilter"] = createToggle(espContent, "Team Filter","TeamFilter")
 
 -- NPC/Enemy ESP divider
@@ -946,11 +1029,10 @@ npcDivLine2.BackgroundColor3 = BW.Border
 npcDivLine2.BorderSizePixel = 0
 npcDivLine2.Parent = npcDivider
 
-toggleSyncs["NPCBoxESP"] = createToggle(espContent, "NPC Box ESP", "NPCBoxESP", function(v)
+toggleSyncs["NPCBoxESP"] = createToggle(espContent, "NPC Box ESP",  "NPCBoxESP", function(v)
     if v then ESP:RescanNPCs() end
 end)
-toggleSyncs["NPCNames"]     = createToggle(espContent, "NPC Names",      "NPCNames")
-toggleSyncs["NPCHealthBar"] = createToggle(espContent, "NPC Health Bar", "NPCHealthBar")
+toggleSyncs["NPCInfo"] = createToggle(espContent, "NPC Names & HP", "NPCInfo")
 createESPColorRow(espContent, "NPC Color", "NPCColor", nil)
 
 local fpsContent = contentContainers["FPS"]
