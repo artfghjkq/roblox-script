@@ -53,6 +53,7 @@ local Scripts  = req("scripts.lua")
 local Invi     = req("invi.lua")
 local Troll    = req("troll.lua")
 local UI       = req("ui.lua")
+local Spectate = req("spectate.lua")
 
 Troll.inviModule = Invi   -- so ScareOnce can temporarily show avatar even when invisible
 Troll.configRef  = CONFIG -- so RushScare can restore noclip state after rush
@@ -190,8 +191,8 @@ contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = mainFrame
 
 local tabButtons, contentContainers = {}, {}
-local tabs = {"MAIN", "ESP", "FPS", "SCRIPTS", "TROLL"}
-local tabIcons = {MAIN="SYS", ESP="ESP", FPS="FPS", SCRIPTS="SCR", TROLL="TRL"}
+local tabs = {"MAIN", "ESP", "FPS", "SCRIPTS", "TROLL", "SPEC"}
+local tabIcons = {MAIN="SYS", ESP="ESP", FPS="FPS", TROLL="TRL", SPEC="SPC", SCRIPTS="SCR"}
 
 local function setActiveTab(tabName)
     for name, btn in pairs(tabButtons) do
@@ -959,6 +960,11 @@ toggleSyncs["AntiFling"] = createToggle(trollContent, "Anti Fling", "AntiFling",
     if v then Troll:StartAntiFling(); Notif:Send("Anti Fling: ON", 2)
     else Troll:StopAntiFling(); Notif:Send("Anti Fling: OFF", 2) end
 end)
+
+-- ============================================================
+-- SPEC TAB
+-- ============================================================
+Spectate:Init(contentContainers["SPEC"], BW, createCorner, Notif)
 
 -- Load saved config (must run after QB_OPTIONS, qbSlots, toggleSyncs are all defined)
 loadConfig()
