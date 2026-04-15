@@ -20,12 +20,12 @@ local CONFIG = {
     BoxRainbow = false,
     SkeletonRainbow = false,
     TracerRainbow = false,
-    -- NPC ESP
+    -- NPC/Entity ESP
     NPCBoxESP = false,
-    NPCInfo = false,      -- NPC Names + HealthBar combined
-    NPCSkeleton = false,
-    NPCTracers = false,
-    NPCColor = Color3.fromRGB(255, 100, 0),
+    NPCMonster = false,
+    NPCItem = false,
+    NPCMonsterColor = Color3.fromRGB(220, 50, 50),
+    NPCItemColor = Color3.fromRGB(255, 165, 0),
     Scare = false,
     Fling = false,
     WalkFling = false,

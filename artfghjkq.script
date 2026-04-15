@@ -1029,13 +1029,17 @@ npcDivLine2.BackgroundColor3 = BW.Border
 npcDivLine2.BorderSizePixel = 0
 npcDivLine2.Parent = npcDivider
 
-toggleSyncs["NPCBoxESP"] = createToggle(espContent, "NPC Box ESP",  "NPCBoxESP", function(v)
+toggleSyncs["NPCBoxESP"] = createToggle(espContent, "Entity Box ESP", "NPCBoxESP", function(v)
     if v then ESP:RescanNPCs() end
 end)
-toggleSyncs["NPCInfo"]     = createToggle(espContent, "NPC Names & HP", "NPCInfo")
-toggleSyncs["NPCSkeleton"] = createToggle(espContent, "NPC Skeleton",   "NPCSkeleton")
-toggleSyncs["NPCTracers"]  = createToggle(espContent, "NPC Tracers",    "NPCTracers")
-createESPColorRow(espContent, "NPC Color", "NPCColor", nil)
+toggleSyncs["NPCMonster"] = createToggle(espContent, "Monster / Enemy", "NPCMonster", function(v)
+    if v then ESP:RescanNPCs() end
+end)
+createESPColorRow(espContent, "Monster Color", "NPCMonsterColor", nil)
+toggleSyncs["NPCItem"] = createToggle(espContent, "Items / Objects", "NPCItem", function(v)
+    if v then ESP:RescanNPCs() end
+end)
+createESPColorRow(espContent, "Item Color", "NPCItemColor", nil)
 
 local fpsContent = contentContainers["FPS"]
 toggleSyncs["FPSBoost"] = createToggle(fpsContent, "FPS Boost", "FPSBoost", function(v)
