@@ -45,46 +45,71 @@ local function removeAll(d)
 end
 
 -- ── Classification ─────────────────────────────────────────────
--- ITEM keywords — things you pick up or interact with in-game
-local ITEM_KW = {
-    -- Weapons / ammo
-    "gun","rifle","pistol","shotgun","sniper","smg","ak","m4","ar","weapon","ammo",
-    "bullet","grenade","bomb","explosive","knife","sword","blade","axe","bow","crossbow",
-    -- Supplies / food / med
-    "food","water","meal","ration","medkit","medic","bandage","heal","health","supply",
-    "aid","potion","elixir","antidote","cure","drug","pill","inject",
-    -- Loot / containers
-    "crate","chest","box","barrel","bag","backpack","case","container","loot","drop",
-    "pickup","package","parcel","supply","airdrop","care",
-    -- Resources
-    "ore","wood","stone","metal","crystal","gem","coin","gold","cash","money","credit",
-    "key","fuel","battery","part","scrap","material","resource","artifact",
-    -- Misc objects
-    "prop","object","item","shop","store","vendor","door","button","lever","switch",
-    "terminal","computer","console","machine","device","tool","equipment",
+-- MONSTER keywords — things that are alive, hostile, enemies
+-- Check these FIRST — priority over items
+local MONSTER_KW = {
+    -- Undead
+    "zombie","undead","ghoul","revenant","lich","skeleton","mummy","wraith","specter",
+    -- Supernatural
+    "ghost","demon","devil","spirit","shade","phantom","banshee","poltergeist",
+    "vampire","werewolf","witch","sorcerer","cultist","abomination",
+    -- Creatures / animals
+    "creature","monster","beast","mutant","alien","parasite","infected","horror",
+    "spider","wolf","bear","lion","tiger","shark","snake","rat","bat","hawk","crow",
+    "golem","slime","blob","worm","insect","bug","fly","wasp","scorpion",
+    -- Fantasy
+    "goblin","orc","troll","ogre","dragon","hydra","wyvern","titan","giant",
+    "demon","fiend","imp","brute","juggernaut",
+    -- Human enemies
+    "bandit","pirate","raider","rogue","outlaw","thug","gang","mob",
+    "soldier","guard","mercenary","grunt","militia","rebel","enemy","hostile",
+    -- Sci-fi / robot
+    "robot","android","drone","turret","mech","cyborg","sentinel","ai",
+    -- Game terms
+    "boss","minion","stalker","hunter","crawler","jumper","runner","charger",
+    "attacker","aggressor","predator","pursuer",
 }
 
--- MONSTER keywords — entities that attack or are enemies
-local MONSTER_KW = {
-    "zombie","monster","enemy","mob","boss","creature","ghost","demon","npc",
-    "alien","spider","wolf","bear","lion","tiger","shark","snake","rat","bat",
-    "bandit","pirate","robot","mutant","horror","undead","vampire","witch",
-    "skeleton","grunt","guard","soldier","evil","hostile","threat","attacker",
-    "infected","corrupted","minion","drone","turret","hunter","stalker","crawler",
-    "brute","tank","juggernaut","titan","golem","troll","goblin","orc","dragon",
+-- ITEM keywords — things you collect, pick up, interact with
+-- Only checked if MONSTER keywords didn't match
+local ITEM_KW = {
+    -- Weapons (standalone items, not humanoid enemies)
+    "gun","rifle","pistol","shotgun","sniper","smg","ak47","m4","ar15",
+    "weapon","ammo","bullet","magazine","clip","grenade","explosive","mine",
+    "knife","sword","blade","axe","bow","crossbow","spear","lance",
+    -- Food & medical
+    "food","water","drink","meal","ration","snack","fruit","meat","bread","can",
+    "medkit","medic","bandage","heal","aid","potion","elixir","antidote",
+    "cure","drug","pill","inject","syringe","vaccine","first",
+    -- Containers / loot
+    "crate","chest","box","barrel","bag","backpack","case","container",
+    "loot","drop","pickup","package","parcel","airdrop","supply","cache","stash",
+    -- Resources
+    "ore","wood","stone","metal","iron","steel","crystal","gem","diamond",
+    "coin","gold","cash","money","credit","currency","token","chip",
+    "key","fuel","battery","scrap","material","resource","artifact","relic",
+    -- Buildings / interactables
+    "shop","store","vendor","market","trader","merchant",
+    "door","button","lever","switch","terminal","computer","console",
+    "machine","device","tool","equipment","locker","vault","safe",
+    -- Misc pickups
+    "prop","object","item","pickup","collectible","trophy","reward",
 }
 
 local function classifyModel(model)
     local n = model.Name:lower()
-    -- Check item keywords first (more specific)
-    for _, kw in ipairs(ITEM_KW) do
-        if n:find(kw, 1, true) then return "item" end
-    end
-    -- Check monster keywords
+
+    -- Monster check first — if it walks and fights, it's a monster
     for _, kw in ipairs(MONSTER_KW) do
         if n:find(kw, 1, true) then return "monster" end
     end
-    -- Fallback: has Humanoid = monster, no Humanoid = item/object
+
+    -- Item check
+    for _, kw in ipairs(ITEM_KW) do
+        if n:find(kw, 1, true) then return "item" end
+    end
+
+    -- Fallback: Humanoid = living thing = monster, else = item/object
     local hum = model:FindFirstChildWhichIsA("Humanoid")
     return hum and "monster" or "item"
 end
@@ -173,52 +198,56 @@ local function drawSkel(container, hum, skel, color, camera)
 end
 
 -- ── Aimbot ────────────────────────────────────────────────────
+local AIMBOT_SMOOTH = 0.15   -- lerp factor per frame (0.05=slow, 0.3=fast)
+local AIMBOT_FOV    = 300    -- max screen pixel radius to look for targets
+
 local function getAimbotTarget(CONFIG, player, camera)
     local bestDist = math.huge
-    local bestPos  = nil
+    local bestPart = nil
+    local vpSize   = camera.ViewportSize
+    local center   = Vector2.new(vpSize.X/2, vpSize.Y/2)
 
-    local function tryTarget(char, part)
+    local function tryPart(char, part)
         if not char or not part then return end
         local hum = char:FindFirstChildWhichIsA("Humanoid")
         if not hum or hum.Health <= 0 then return end
         local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
         if not onScreen then return end
-        local vpSize  = camera.ViewportSize
-        local center  = Vector2.new(vpSize.X/2, vpSize.Y/2)
-        local d = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-        if d < bestDist then
+        local sp  = Vector2.new(screenPos.X, screenPos.Y)
+        local d   = (sp - center).Magnitude
+        if d < AIMBOT_FOV and d < bestDist then
             bestDist = d
-            bestPos  = part.Position
+            bestPart = part
         end
     end
 
-    -- Target players
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            local char  = plr.Character
-            local head  = char:FindFirstChild("Head")
-            local hrp   = char:FindFirstChild("HumanoidRootPart")
-            local tgt   = (CONFIG.AimbotTarget == "head") and head or hrp
-            tryTarget(char, tgt)
-        end
-    end
-
-    -- Target monsters if NPCMonster ESP on
-    if CONFIG.NPCMonster then
-        for model, cat in pairs(knownEntities) do
-            if cat == "monster" and model.Parent then
-                local char = model
-                local hum  = model:FindFirstChildWhichIsA("Humanoid")
-                local head = model:FindFirstChild("Head")
-                local hrp  = model:FindFirstChild("HumanoidRootPart")
-                           or model:FindFirstChild("Torso")
-                local tgt  = (CONFIG.AimbotTarget == "head") and head or hrp
-                tryTarget(char, tgt)
+    -- Players
+    if CONFIG.AimbotPlayers then
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local char = plr.Character
+                local part = (CONFIG.AimbotTarget == "head")
+                    and char:FindFirstChild("Head")
+                    or  char:FindFirstChild("HumanoidRootPart")
+                tryPart(char, part)
             end
         end
     end
 
-    return bestPos
+    -- Monsters
+    if CONFIG.AimbotMonsters then
+        for model, cat in pairs(knownEntities) do
+            if cat == "monster" and model and model.Parent then
+                local part = (CONFIG.AimbotTarget == "head")
+                    and model:FindFirstChild("Head")
+                    or (model:FindFirstChild("HumanoidRootPart")
+                        or model:FindFirstChild("Torso"))
+                tryPart(model, part)
+            end
+        end
+    end
+
+    return bestPart
 end
 
 function ESP:StartAimbot(CONFIG)
@@ -227,12 +256,24 @@ function ESP:StartAimbot(CONFIG)
     local camera = workspace.CurrentCamera
     aimbotActive = true
 
-    aimbotConn = RunService.Heartbeat:Connect(function()
+    aimbotConn = RunService.RenderStepped:Connect(function(dt)
         if not CONFIG.Aimbot or not aimbotActive then return end
-        local tgt = getAimbotTarget(CONFIG, player, camera)
-        if not tgt then return end
-        local dir = (tgt - camera.CFrame.Position).Unit
-        camera.CFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + dir)
+        if not (CONFIG.AimbotPlayers or CONFIG.AimbotMonsters) then return end
+
+        local tgtPart = getAimbotTarget(CONFIG, player, camera)
+        if not tgtPart or not tgtPart.Parent then return end
+
+        -- Smooth lerp towards target using slerp on camera CFrame
+        local camPos   = camera.CFrame.Position
+        local tgtPos   = tgtPart.Position
+        local curLook  = camera.CFrame.LookVector
+        local wantLook = (tgtPos - camPos).Unit
+
+        -- Smooth factor scales with dt so it's frame-rate independent
+        local smooth = math.clamp(AIMBOT_SMOOTH * (dt * 60), 0.01, 1)
+        local newLook = curLook:Lerp(wantLook, smooth).Unit
+
+        camera.CFrame = CFrame.new(camPos, camPos + newLook)
     end)
 end
 

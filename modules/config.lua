@@ -22,7 +22,9 @@ local CONFIG = {
     NPCItemColor = Color3.fromRGB(255, 165, 0),
     -- Aimbot
     Aimbot = false,
-    AimbotTarget = "head", -- "head" or "body"
+    AimbotTarget = "head",    -- "head" or "body"
+    AimbotPlayers = true,
+    AimbotMonsters = false,
     Scare = false,
     Fling = false,
     WalkFling = false,

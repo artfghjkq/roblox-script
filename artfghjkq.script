@@ -1090,6 +1090,9 @@ do
     end)
 end
 
+toggleSyncs["AimbotPlayers"]  = createToggle(espContent, "Aim at Players",  "AimbotPlayers")
+toggleSyncs["AimbotMonsters"] = createToggle(espContent, "Aim at Monsters", "AimbotMonsters")
+
 -- ENTITY ESP divider
 makeDivider(espContent, "ENTITY ESP")
 
