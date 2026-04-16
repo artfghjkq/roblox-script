@@ -9,23 +9,20 @@ local CONFIG = {
     ShowFPS = false,
     Noclip = false,
     BoxESP = false,
-    Tracers = false,
-    Skeleton = false,
-    PlayerInfo = false,   -- Names + HealthBar combined
+    PlayerInfo = false,   -- Names + HP + Tracer + Skeleton combined
     TeamFilter = false,
     Invisibility = false,
     ESPColor = Color3.fromRGB(0, 255, 0),
-    SkeletonColor = Color3.fromRGB(255, 255, 255),
-    TracerColor = Color3.fromRGB(0, 255, 255),
     BoxRainbow = false,
-    SkeletonRainbow = false,
-    TracerRainbow = false,
     -- NPC/Entity ESP
     NPCBoxESP = false,
     NPCMonster = false,
     NPCItem = false,
     NPCMonsterColor = Color3.fromRGB(220, 50, 50),
     NPCItemColor = Color3.fromRGB(255, 165, 0),
+    -- Aimbot
+    Aimbot = false,
+    AimbotTarget = "head", -- "head" or "body"
     Scare = false,
     Fling = false,
     WalkFling = false,

@@ -1,138 +1,144 @@
 -- esp.lua
--- Player ESP + Entity ESP (Monster / Item classification)
--- All entity ESP shares one color per category, tracer+skeleton only within 200 studs
+-- Player ESP + Entity ESP (Monster / Item) + Aimbot
 
 local ESP = {}
 
-local Players = game:GetService("Players")
+local Players        = game:GetService("Players")
+local RunService     = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 -- ── Drawing tables ────────────────────────────────────────────
--- Player (keyed by Player)
-local plrDrawings = {}  -- [plr] = {box, hpText, nameText, userText, tagText, tracer, skel={}}
+local plrDrawings = {}  -- [plr]   = {box, tagText, hpText, nameText, userText, tracer, skel={}}
+local entDrawings = {}  -- [model] = {box, tagText, hpText, nameText, tracer, skel={}}
 
--- Entity (keyed by Model)
-local entDrawings = {}  -- [model] = {box, hpText, nameText, tagText, tracer, skel={}}
-
--- Known entities cache
-local knownEntities  = {}  -- [model] = "monster" | "item"
+local knownEntities  = {}
 local entityScanTick = 0
-local SCAN_INTERVAL  = 180  -- frames (~3s at 60fps)
+local SCAN_INTERVAL  = 180   -- ~3s at 60fps
+local MAX_DIST_ALL   = 500   -- hide beyond this
+local MAX_DIST_SKEL  = 200   -- tracer+skeleton only within this
 
--- Distance limits
-local MAX_DIST_ALL    = 500   -- hide everything beyond this
-local MAX_DIST_SKEL   = 200   -- skeleton+tracer only within this
+-- ── Aimbot state ──────────────────────────────────────────────
+local aimbotActive  = false
+local aimbotConn    = nil
 
 -- ── Helpers ───────────────────────────────────────────────────
-local function cd(drawType, props)
-    local obj = Drawing.new(drawType)
-    for k, v in pairs(props) do obj[k] = v end
-    return obj
+local function cd(t, p)
+    local o = Drawing.new(t)
+    for k,v in pairs(p) do o[k]=v end
+    return o
 end
 
-local function hideAll(t)
-    if not t then return end
-    if t.box      then t.box.Visible      = false end
-    if t.hpText   then t.hpText.Visible   = false end
-    if t.nameText then t.nameText.Visible = false end
-    if t.userText then t.userText.Visible = false end
-    if t.tagText  then t.tagText.Visible  = false end
-    if t.tracer   then t.tracer.Visible   = false end
-    if t.skel     then for _, l in pairs(t.skel) do l.Visible = false end end
+local function hideAll(d)
+    if not d then return end
+    for _, k in ipairs({"box","tagText","hpText","nameText","userText","tracer"}) do
+        if d[k] then d[k].Visible = false end
+    end
+    if d.skel then for _, l in pairs(d.skel) do l.Visible = false end end
 end
 
-local function removeAll(t)
-    if not t then return end
-    if t.box      then t.box:Remove()      end
-    if t.hpText   then t.hpText:Remove()   end
-    if t.nameText then t.nameText:Remove() end
-    if t.userText then t.userText:Remove() end
-    if t.tagText  then t.tagText:Remove()  end
-    if t.tracer   then t.tracer:Remove()   end
-    if t.skel     then for _, l in pairs(t.skel) do l:Remove() end end
+local function removeAll(d)
+    if not d then return end
+    for _, k in ipairs({"box","tagText","hpText","nameText","userText","tracer"}) do
+        if d[k] then d[k]:Remove() end
+    end
+    if d.skel then for _, l in pairs(d.skel) do l:Remove() end end
 end
 
 -- ── Classification ─────────────────────────────────────────────
--- Keywords for monsters/enemies
-local MONSTER_KEYWORDS = {
-    "zombie","monster","enemy","mob","boss","creature","ghost","demon","npc",
-    "alien","spider","wolf","bear","bandit","pirate","robot","mutant","horror",
-    "undead","vampire","witch","skeleton","grunt","guard","soldier","evil",
+-- ITEM keywords — things you pick up or interact with in-game
+local ITEM_KW = {
+    -- Weapons / ammo
+    "gun","rifle","pistol","shotgun","sniper","smg","ak","m4","ar","weapon","ammo",
+    "bullet","grenade","bomb","explosive","knife","sword","blade","axe","bow","crossbow",
+    -- Supplies / food / med
+    "food","water","meal","ration","medkit","medic","bandage","heal","health","supply",
+    "aid","potion","elixir","antidote","cure","drug","pill","inject",
+    -- Loot / containers
+    "crate","chest","box","barrel","bag","backpack","case","container","loot","drop",
+    "pickup","package","parcel","supply","airdrop","care",
+    -- Resources
+    "ore","wood","stone","metal","crystal","gem","coin","gold","cash","money","credit",
+    "key","fuel","battery","part","scrap","material","resource","artifact",
+    -- Misc objects
+    "prop","object","item","shop","store","vendor","door","button","lever","switch",
+    "terminal","computer","console","machine","device","tool","equipment",
 }
--- Keywords for items/objects
-local ITEM_KEYWORDS = {
-    "chest","crate","barrel","box","item","pickup","loot","drop","treasure",
-    "weapon","sword","gun","potion","coin","gem","ore","crystal","artifact",
-    "door","button","lever","switch","prop","object","part",
+
+-- MONSTER keywords — entities that attack or are enemies
+local MONSTER_KW = {
+    "zombie","monster","enemy","mob","boss","creature","ghost","demon","npc",
+    "alien","spider","wolf","bear","lion","tiger","shark","snake","rat","bat",
+    "bandit","pirate","robot","mutant","horror","undead","vampire","witch",
+    "skeleton","grunt","guard","soldier","evil","hostile","threat","attacker",
+    "infected","corrupted","minion","drone","turret","hunter","stalker","crawler",
+    "brute","tank","juggernaut","titan","golem","troll","goblin","orc","dragon",
 }
 
 local function classifyModel(model)
-    local nameLower = model.Name:lower()
-    for _, kw in ipairs(MONSTER_KEYWORDS) do
-        if nameLower:find(kw) then return "monster" end
+    local n = model.Name:lower()
+    -- Check item keywords first (more specific)
+    for _, kw in ipairs(ITEM_KW) do
+        if n:find(kw, 1, true) then return "item" end
     end
-    for _, kw in ipairs(ITEM_KEYWORDS) do
-        if nameLower:find(kw) then return "item" end
+    -- Check monster keywords
+    for _, kw in ipairs(MONSTER_KW) do
+        if n:find(kw, 1, true) then return "monster" end
     end
-    -- Fallback: has Humanoid = monster/npc, no Humanoid = item
+    -- Fallback: has Humanoid = monster, no Humanoid = item/object
     local hum = model:FindFirstChildWhichIsA("Humanoid")
     return hum and "monster" or "item"
 end
 
-local function getEntityColor(CONFIG, category)
-    if category == "monster" then
-        return CONFIG.NPCMonsterColor or Color3.fromRGB(220, 50, 50)
-    else
-        return CONFIG.NPCItemColor or Color3.fromRGB(255, 165, 0)
-    end
+local function entityColor(CONFIG, cat)
+    return cat == "monster"
+        and (CONFIG.NPCMonsterColor or Color3.fromRGB(220,50,50))
+        or  (CONFIG.NPCItemColor    or Color3.fromRGB(255,165,0))
 end
 
-local function getTagLabel(category)
-    return category == "monster" and "[MONSTER]" or "[ITEM]"
+local function tagLabel(cat)
+    return cat == "monster" and "[MONSTER]" or "[ITEM]"
 end
 
--- ── Entity Scanner ─────────────────────────────────────────────
+-- ── Scanner ───────────────────────────────────────────────────
 local function scanEntities()
-    local playerChars = {}
+    local chars = {}
     for _, p in pairs(Players:GetPlayers()) do
-        if p.Character then playerChars[p.Character] = true end
+        if p.Character then chars[p.Character] = true end
     end
-
-    -- Prune stale
     for model in pairs(knownEntities) do
         if not model or not model.Parent then
             removeAll(entDrawings[model])
-            entDrawings[model]  = nil
+            entDrawings[model]   = nil
             knownEntities[model] = nil
         end
     end
-
-    -- Scan workspace for Models with HRP/Torso
     for _, obj in pairs(workspace:GetDescendants()) do
-        if (obj:IsA("Humanoid") or obj:IsA("BasePart")) and obj.Name == "HumanoidRootPart" or
-           (obj:IsA("BasePart") and (obj.Name == "Torso" or obj.Name == "HRP")) then
+        local isHRP = obj:IsA("BasePart") and
+            (obj.Name == "HumanoidRootPart" or obj.Name == "Torso" or obj.Name == "HRP")
+        local isHum = obj:IsA("Humanoid")
+        if (isHRP or isHum) then
             local model = obj.Parent
-            if model and model:IsA("Model") and not playerChars[model] and not knownEntities[model] then
+            if model and model:IsA("Model") and not chars[model] and not knownEntities[model] then
                 knownEntities[model] = classifyModel(model)
             end
         end
     end
 end
 
--- ── Skeleton drawer ────────────────────────────────────────────
-local function drawSkeleton(model, hum, skel, color, camera)
-    local joints, connections = {}, {}
+-- ── Skeleton ──────────────────────────────────────────────────
+local function drawSkel(container, hum, skel, color, camera)
+    local joints, conns = {}, {}
     local isR15 = hum and hum.RigType == Enum.HumanoidRigType.R15
-
     if isR15 then
         joints = {
-            Head=model:FindFirstChild("Head"), UpperTorso=model:FindFirstChild("UpperTorso"),
-            LowerTorso=model:FindFirstChild("LowerTorso"),
-            LeftUpperArm=model:FindFirstChild("LeftUpperArm"), LeftLowerArm=model:FindFirstChild("LeftLowerArm"), LeftHand=model:FindFirstChild("LeftHand"),
-            RightUpperArm=model:FindFirstChild("RightUpperArm"), RightLowerArm=model:FindFirstChild("RightLowerArm"), RightHand=model:FindFirstChild("RightHand"),
-            LeftUpperLeg=model:FindFirstChild("LeftUpperLeg"), LeftLowerLeg=model:FindFirstChild("LeftLowerLeg"),
-            RightUpperLeg=model:FindFirstChild("RightUpperLeg"), RightLowerLeg=model:FindFirstChild("RightLowerLeg"),
+            Head=container:FindFirstChild("Head"), UpperTorso=container:FindFirstChild("UpperTorso"),
+            LowerTorso=container:FindFirstChild("LowerTorso"),
+            LeftUpperArm=container:FindFirstChild("LeftUpperArm"), LeftLowerArm=container:FindFirstChild("LeftLowerArm"), LeftHand=container:FindFirstChild("LeftHand"),
+            RightUpperArm=container:FindFirstChild("RightUpperArm"), RightLowerArm=container:FindFirstChild("RightLowerArm"), RightHand=container:FindFirstChild("RightHand"),
+            LeftUpperLeg=container:FindFirstChild("LeftUpperLeg"), LeftLowerLeg=container:FindFirstChild("LeftLowerLeg"),
+            RightUpperLeg=container:FindFirstChild("RightUpperLeg"), RightLowerLeg=container:FindFirstChild("RightLowerLeg"),
         }
-        connections = {
+        conns = {
             {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
             {"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},
             {"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},
@@ -141,24 +147,22 @@ local function drawSkeleton(model, hum, skel, color, camera)
         }
     else
         joints = {
-            Head=model:FindFirstChild("Head"), Torso=model:FindFirstChild("Torso"),
-            LeftArm=model:FindFirstChild("Left Arm"), RightArm=model:FindFirstChild("Right Arm"),
-            LeftLeg=model:FindFirstChild("Left Leg"), RightLeg=model:FindFirstChild("Right Leg"),
+            Head=container:FindFirstChild("Head"), Torso=container:FindFirstChild("Torso"),
+            LeftArm=container:FindFirstChild("Left Arm"), RightArm=container:FindFirstChild("Right Arm"),
+            LeftLeg=container:FindFirstChild("Left Leg"), RightLeg=container:FindFirstChild("Right Leg"),
         }
-        connections = {
+        conns = {
             {"Head","Torso"},{"Torso","LeftArm"},{"Torso","RightArm"},
             {"Torso","LeftLeg"},{"Torso","RightLeg"},
         }
     end
-
-    for i, conn in ipairs(connections) do
-        local pA, pB = joints[conn[1]], joints[conn[2]]
+    for i, c in ipairs(conns) do
+        local pA, pB = joints[c[1]], joints[c[2]]
         if pA and pB then
             local posA, osA = camera:WorldToViewportPoint(pA.Position)
             local posB, osB = camera:WorldToViewportPoint(pB.Position)
             local line = skel[i] or cd("Line", {Thickness=2, Transparency=1})
-            skel[i]    = line
-            line.Color = color
+            skel[i] = line; line.Color = color
             if osA and osB then
                 line.From = Vector2.new(posA.X, posA.Y)
                 line.To   = Vector2.new(posB.X, posB.Y)
@@ -168,7 +172,76 @@ local function drawSkeleton(model, hum, skel, color, camera)
     end
 end
 
--- ── Player Cleanup (public) ────────────────────────────────────
+-- ── Aimbot ────────────────────────────────────────────────────
+local function getAimbotTarget(CONFIG, player, camera)
+    local bestDist = math.huge
+    local bestPos  = nil
+
+    local function tryTarget(char, part)
+        if not char or not part then return end
+        local hum = char:FindFirstChildWhichIsA("Humanoid")
+        if not hum or hum.Health <= 0 then return end
+        local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
+        if not onScreen then return end
+        local vpSize  = camera.ViewportSize
+        local center  = Vector2.new(vpSize.X/2, vpSize.Y/2)
+        local d = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+        if d < bestDist then
+            bestDist = d
+            bestPos  = part.Position
+        end
+    end
+
+    -- Target players
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local char  = plr.Character
+            local head  = char:FindFirstChild("Head")
+            local hrp   = char:FindFirstChild("HumanoidRootPart")
+            local tgt   = (CONFIG.AimbotTarget == "head") and head or hrp
+            tryTarget(char, tgt)
+        end
+    end
+
+    -- Target monsters if NPCMonster ESP on
+    if CONFIG.NPCMonster then
+        for model, cat in pairs(knownEntities) do
+            if cat == "monster" and model.Parent then
+                local char = model
+                local hum  = model:FindFirstChildWhichIsA("Humanoid")
+                local head = model:FindFirstChild("Head")
+                local hrp  = model:FindFirstChild("HumanoidRootPart")
+                           or model:FindFirstChild("Torso")
+                local tgt  = (CONFIG.AimbotTarget == "head") and head or hrp
+                tryTarget(char, tgt)
+            end
+        end
+    end
+
+    return bestPos
+end
+
+function ESP:StartAimbot(CONFIG)
+    if aimbotConn then return end
+    local player = Players.LocalPlayer
+    local camera = workspace.CurrentCamera
+    aimbotActive = true
+
+    aimbotConn = RunService.Heartbeat:Connect(function()
+        if not CONFIG.Aimbot or not aimbotActive then return end
+        local tgt = getAimbotTarget(CONFIG, player, camera)
+        if not tgt then return end
+        local dir = (tgt - camera.CFrame.Position).Unit
+        camera.CFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + dir)
+    end)
+end
+
+function ESP:StopAimbot()
+    aimbotActive = false
+    if aimbotConn then aimbotConn:Disconnect(); aimbotConn = nil end
+end
+
+-- ── Cleanup ───────────────────────────────────────────────────
 function ESP:Cleanup(plr)
     removeAll(plrDrawings[plr])
     plrDrawings[plr] = nil
@@ -190,19 +263,18 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
     local player = Players.LocalPlayer
     local camera = workspace.CurrentCamera
 
-    local function getRainbow()     return Color3.fromHSV(rainbowHue % 1, 1, 1) end
-    local function getBoxColor()    return CONFIG.BoxRainbow      and getRainbow() or CONFIG.ESPColor end
-    local function getSkelColor()   return CONFIG.SkeletonRainbow and getRainbow() or CONFIG.SkeletonColor end
-    local function getTracerColor() return CONFIG.TracerRainbow   and getRainbow() or CONFIG.TracerColor end
+    local function rainbow()       return Color3.fromHSV(rainbowHue % 1, 1, 1) end
+    local function boxColor()      return CONFIG.BoxRainbow      and rainbow() or CONFIG.ESPColor end
+    local function espInfoColor()  return CONFIG.ESPColor end
 
-    local function playerBoxColor(plr)
+    local function plrBoxColor(plr)
         if CONFIG.TeamFilter and player.Team and plr.Team and player.Team == plr.Team then
-            return Color3.fromRGB(0, 255, 0)
+            return Color3.fromRGB(0,255,0)
         end
-        return getBoxColor()
+        return boxColor()
     end
 
-    local function shouldShowPlayer(plr)
+    local function shouldShow(plr)
         if plr == player then return false end
         if not CONFIG.TeamFilter then return true end
         if player.Team and plr.Team then return player.Team ~= plr.Team end
@@ -218,35 +290,33 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         local hum  = char and char:FindFirstChild("Humanoid")
         local d    = plrDrawings[plr]
 
-        if not shouldShowPlayer(plr) or not hrp or not hum then
+        if not shouldShow(plr) or not hrp or not hum then
             hideAll(d); continue
         end
 
         local rootPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
         local dist = math.floor((camera.CFrame.Position - hrp.Position).Magnitude)
 
-        -- Distance limit
         if dist > MAX_DIST_ALL or not onScreen then
             hideAll(d); continue
         end
 
-        -- Init drawings
         if not d then
             d = {
                 box      = cd("Square", {Thickness=1, Filled=false, Transparency=1}),
-                tagText  = cd("Text",   {Size=10, Center=true, Outline=true, Transparency=1, Color=Color3.fromRGB(0,220,255)}),
-                hpText   = cd("Text",   {Size=10, Center=true, Outline=true, Transparency=1}),
-                nameText = cd("Text",   {Size=12, Center=true, Outline=true, Transparency=1, Color=Color3.fromRGB(255,255,255)}),
-                userText = cd("Text",   {Size=10, Center=true, Outline=true, Transparency=1, Color=Color3.fromRGB(180,180,180)}),
-                tracer   = cd("Line",   {Thickness=1, Transparency=1}),
+                tagText  = cd("Text", {Size=10, Center=true, Outline=true, Transparency=1, Color=Color3.fromRGB(0,220,255)}),
+                hpText   = cd("Text", {Size=10, Center=true, Outline=true, Transparency=1}),
+                nameText = cd("Text", {Size=12, Center=true, Outline=true, Transparency=1, Color=Color3.fromRGB(255,255,255)}),
+                userText = cd("Text", {Size=10, Center=true, Outline=true, Transparency=1, Color=Color3.fromRGB(180,180,180)}),
+                tracer   = cd("Line", {Thickness=1, Transparency=1}),
                 skel     = {},
             }
             plrDrawings[plr] = d
         end
 
-        local bColor = playerBoxColor(plr)
-        local size   = math.clamp((1000 / math.max(dist,1)) * 2, 10, 600)
-        local bW, bH = size, size * 1.5
+        local bCol = plrBoxColor(plr)
+        local sz   = math.clamp((1000 / math.max(dist,1)) * 2, 10, 600)
+        local bW, bH = sz, sz * 1.5
         local bX     = rootPos.X - bW/2
         local bY     = rootPos.Y - bH/2
         local topY   = bY
@@ -256,16 +326,17 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         if CONFIG.BoxESP then
             d.box.Size     = Vector2.new(bW, bH)
             d.box.Position = Vector2.new(bX, bY)
-            d.box.Color    = bColor
+            d.box.Color    = bCol
             d.box.Visible  = true
         else d.box.Visible = false end
 
-        -- Player Info (tag + hp + names)
+        -- Player Info: tag + hp + names + tracer + skeleton (all one toggle)
         if CONFIG.PlayerInfo then
             local pct = math.clamp(hum.Health / math.max(hum.MaxHealth,1), 0, 1)
+            local infoColor = CONFIG.BoxRainbow and rainbow() or CONFIG.ESPColor
 
             d.tagText.Text     = "[PLAYER]"
-            d.tagText.Color    = Color3.fromRGB(0, 220, 255)
+            d.tagText.Color    = Color3.fromRGB(0,220,255)
             d.tagText.Position = Vector2.new(cenX, topY - 50)
             d.tagText.Visible  = true
 
@@ -275,49 +346,47 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
             d.hpText.Visible  = true
 
             d.nameText.Text     = plr.DisplayName
+            d.nameText.Color    = Color3.fromRGB(255,255,255)
             d.nameText.Position = Vector2.new(cenX, topY - 26)
             d.nameText.Visible  = true
 
             d.userText.Text     = "(@"..plr.Name..")"
+            d.userText.Color    = Color3.fromRGB(180,180,180)
             d.userText.Position = Vector2.new(cenX, topY - 14)
             d.userText.Visible  = true
+
+            -- Tracer + skeleton only within 200 studs
+            if dist <= MAX_DIST_SKEL then
+                local vpSize = camera.ViewportSize
+                d.tracer.From    = Vector2.new(vpSize.X/2, vpSize.Y)
+                d.tracer.To      = Vector2.new(cenX, rootPos.Y)
+                d.tracer.Color   = infoColor
+                d.tracer.Visible = true
+                drawSkel(char, hum, d.skel, infoColor, camera)
+            else
+                d.tracer.Visible = false
+                if d.skel then for _, l in pairs(d.skel) do l.Visible = false end end
+            end
         else
             d.tagText.Visible  = false
             d.hpText.Visible   = false
             d.nameText.Visible = false
             d.userText.Visible = false
-        end
-
-        -- Tracer (only within 200 studs, only if PlayerInfo on)
-        if CONFIG.PlayerInfo and dist <= MAX_DIST_SKEL then
-            local vpSize = camera.ViewportSize
-            d.tracer.From    = Vector2.new(vpSize.X/2, vpSize.Y)
-            d.tracer.To      = Vector2.new(cenX, rootPos.Y)
-            d.tracer.Color   = getTracerColor()
-            d.tracer.Visible = true
-        else d.tracer.Visible = false end
-
-        -- Skeleton (only within 200 studs, only if PlayerInfo on)
-        if CONFIG.PlayerInfo and dist <= MAX_DIST_SKEL then
-            drawSkeleton(char, hum, d.skel, getSkelColor(), camera)
-        else
+            d.tracer.Visible   = false
             if d.skel then for _, l in pairs(d.skel) do l.Visible = false end end
         end
     end
 
     -- ══════════════════════════════════════════════════════════
-    -- ENTITY ESP (Monster + Item)
+    -- ENTITY ESP
     -- ══════════════════════════════════════════════════════════
-    local anyEntityEnabled = CONFIG.NPCBoxESP or CONFIG.NPCMonster or CONFIG.NPCItem
+    local anyEntity = CONFIG.NPCBoxESP or CONFIG.NPCMonster or CONFIG.NPCItem
 
-    if not anyEntityEnabled then
-        for model in pairs(knownEntities) do
-            hideAll(entDrawings[model])
-        end
+    if not anyEntity then
+        for model in pairs(knownEntities) do hideAll(entDrawings[model]) end
         return
     end
 
-    -- Periodic rescan
     entityScanTick = entityScanTick + 1
     if entityScanTick >= SCAN_INTERVAL then
         entityScanTick = 0
@@ -325,7 +394,7 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
     end
     if not next(knownEntities) then scanEntities() end
 
-    for model, category in pairs(knownEntities) do
+    for model, cat in pairs(knownEntities) do
         if not model or not model.Parent then
             removeAll(entDrawings[model])
             entDrawings[model]   = nil
@@ -333,14 +402,10 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
             continue
         end
 
-        -- Category filter
-        local showThis = false
-        if category == "monster" and CONFIG.NPCMonster then showThis = true end
-        if category == "item"    and CONFIG.NPCItem    then showThis = true end
-        -- Box ESP shows all if NPCBoxESP on
-        local showBox = CONFIG.NPCBoxESP
+        local showInfo = (cat == "monster" and CONFIG.NPCMonster) or (cat == "item" and CONFIG.NPCItem)
+        local showBox  = CONFIG.NPCBoxESP
 
-        if not showThis and not showBox then
+        if not showInfo and not showBox then
             hideAll(entDrawings[model]); continue
         end
 
@@ -357,25 +422,25 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
             hideAll(entDrawings[model]); continue
         end
 
-        local eColor = getEntityColor(CONFIG, category)
-        local d      = entDrawings[model]
+        local eCol = entityColor(CONFIG, cat)
+        local d    = entDrawings[model]
 
         if not d then
             d = {
                 box      = cd("Square", {Thickness=1, Filled=false, Transparency=1}),
-                tagText  = cd("Text",   {Size=10, Center=true, Outline=true, Transparency=1}),
-                hpText   = cd("Text",   {Size=10, Center=true, Outline=true, Transparency=1}),
-                nameText = cd("Text",   {Size=11, Center=true, Outline=true, Transparency=1}),
-                tracer   = cd("Line",   {Thickness=1, Transparency=1}),
+                tagText  = cd("Text", {Size=10, Center=true, Outline=true, Transparency=1}),
+                hpText   = cd("Text", {Size=10, Center=true, Outline=true, Transparency=1}),
+                nameText = cd("Text", {Size=11, Center=true, Outline=true, Transparency=1}),
+                tracer   = cd("Line", {Thickness=1, Transparency=1}),
                 skel     = {},
             }
             entDrawings[model] = d
         end
 
-        local size = math.clamp((1000 / math.max(dist,1)) * 2, 10, 600)
-        local bW, bH = size, size * 1.5
-        local bX  = rootPos.X - bW/2
-        local bY  = rootPos.Y - bH/2
+        local sz   = math.clamp((1000 / math.max(dist,1)) * 2, 10, 600)
+        local bW, bH = sz, sz * 1.5
+        local bX   = rootPos.X - bW/2
+        local bY   = rootPos.Y - bH/2
         local topY = bY
         local cenX = rootPos.X
 
@@ -383,15 +448,14 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         if showBox then
             d.box.Size     = Vector2.new(bW, bH)
             d.box.Position = Vector2.new(bX, bY)
-            d.box.Color    = eColor
+            d.box.Color    = eCol
             d.box.Visible  = true
         else d.box.Visible = false end
 
-        -- Info (tag + hp + name)
-        if showThis then
-            local tagLabel = getTagLabel(category)
-            d.tagText.Text     = tagLabel
-            d.tagText.Color    = eColor
+        -- Info (tag + hp + name + tracer + skeleton)
+        if showInfo then
+            d.tagText.Text     = tagLabel(cat)
+            d.tagText.Color    = eCol
             d.tagText.Position = Vector2.new(cenX, topY - 38)
             d.tagText.Visible  = true
 
@@ -401,29 +465,25 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
                 d.hpText.Color = Color3.fromHSV(pct * 0.33, 1, 1)
             else
                 d.hpText.Text  = dist.." studs"
-                d.hpText.Color = eColor
+                d.hpText.Color = eCol
             end
             d.hpText.Position  = Vector2.new(cenX, topY - 26)
             d.hpText.Visible   = true
 
             d.nameText.Text     = model.Name
-            d.nameText.Color    = eColor
+            d.nameText.Color    = eCol
             d.nameText.Position = Vector2.new(cenX, topY - 14)
             d.nameText.Visible  = true
 
-            -- Tracer (within 200 studs)
             if dist <= MAX_DIST_SKEL then
                 local vpSize = camera.ViewportSize
                 d.tracer.From    = Vector2.new(vpSize.X/2, vpSize.Y)
                 d.tracer.To      = Vector2.new(cenX, rootPos.Y)
-                d.tracer.Color   = eColor
+                d.tracer.Color   = eCol
                 d.tracer.Visible = true
-            else d.tracer.Visible = false end
-
-            -- Skeleton (within 200 studs, only if has humanoid)
-            if dist <= MAX_DIST_SKEL and hum then
-                drawSkeleton(model, hum, d.skel, eColor, camera)
+                if hum then drawSkel(model, hum, d.skel, eCol, camera) end
             else
+                d.tracer.Visible = false
                 if d.skel then for _, l in pairs(d.skel) do l.Visible = false end end
             end
         else

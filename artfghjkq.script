@@ -244,7 +244,7 @@ end
 -- ============================================================
 local SAVE_FILE = "halohalo_config.json"
 
-local COLOR_KEYS = {ESPColor=true, SkeletonColor=true, TracerColor=true}
+local COLOR_KEYS = {ESPColor=true, NPCMonsterColor=true, NPCItemColor=true}
 
 local function color3ToTable(c)
     return {r=c.R, g=c.G, b=c.B}
@@ -993,50 +993,114 @@ end
 toggleSyncs["KingMode"] = createToggle(mainContent, "King Mode", "KingMode")
 
 local espContent = contentContainers["ESP"]
-toggleSyncs["BoxESP"]     = createToggle(espContent, "Box ESP",    "BoxESP")
-createESPColorRow(espContent, "Box Color",      "ESPColor",      "BoxRainbow")
-toggleSyncs["Skeleton"]   = createToggle(espContent, "Skeleton",   "Skeleton")
-createESPColorRow(espContent, "Skeleton Color", "SkeletonColor", "SkeletonRainbow")
-toggleSyncs["Tracers"]    = createToggle(espContent, "Tracers",    "Tracers")
-createESPColorRow(espContent, "Tracer Color",   "TracerColor",   "TracerRainbow")
-toggleSyncs["PlayerInfo"] = createToggle(espContent, "Names & HP", "PlayerInfo")
-toggleSyncs["TeamFilter"] = createToggle(espContent, "Team Filter","TeamFilter")
+toggleSyncs["BoxESP"]     = createToggle(espContent, "Box ESP",      "BoxESP")
+createESPColorRow(espContent, "Box Color", "ESPColor", "BoxRainbow")
+toggleSyncs["PlayerInfo"] = createToggle(espContent, "Player Info",  "PlayerInfo")
+toggleSyncs["TeamFilter"] = createToggle(espContent, "Team Filter",  "TeamFilter")
 
--- NPC/Enemy ESP divider
-local npcDivider = Instance.new("Frame")
-npcDivider.Size = UDim2.new(1, -4, 0, 20)
-npcDivider.BackgroundTransparency = 1
-npcDivider.Parent = espContent
-local npcDivLine = Instance.new("Frame")
-npcDivLine.Size = UDim2.new(0.3, 0, 0, 1)
-npcDivLine.Position = UDim2.new(0, 0, 0.5, 0)
-npcDivLine.BackgroundColor3 = BW.Border
-npcDivLine.BorderSizePixel = 0
-npcDivLine.Parent = npcDivider
-local npcDivLbl = Instance.new("TextLabel")
-npcDivLbl.Size = UDim2.new(0.4, 0, 1, 0)
-npcDivLbl.Position = UDim2.new(0.3, 0, 0, 0)
-npcDivLbl.BackgroundTransparency = 1
-npcDivLbl.Text = "NPC / ENEMY"
-npcDivLbl.Font = Enum.Font.GothamBold
-npcDivLbl.TextSize = 8
-npcDivLbl.TextColor3 = BW.Dim
-npcDivLbl.Parent = npcDivider
-local npcDivLine2 = Instance.new("Frame")
-npcDivLine2.Size = UDim2.new(0.3, 0, 0, 1)
-npcDivLine2.Position = UDim2.new(0.7, 0, 0.5, 0)
-npcDivLine2.BackgroundColor3 = BW.Border
-npcDivLine2.BorderSizePixel = 0
-npcDivLine2.Parent = npcDivider
+-- AIMBOT divider
+local function makeDivider(parent, text)
+    local div = Instance.new("Frame")
+    div.Size = UDim2.new(1, -4, 0, 20)
+    div.BackgroundTransparency = 1
+    div.Parent = parent
+    local l1 = Instance.new("Frame")
+    l1.Size = UDim2.new(0.25, 0, 0, 1)
+    l1.Position = UDim2.new(0, 0, 0.5, 0)
+    l1.BackgroundColor3 = BW.Border
+    l1.BorderSizePixel = 0
+    l1.Parent = div
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.5, 0, 1, 0)
+    lbl.Position = UDim2.new(0.25, 0, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 8
+    lbl.TextColor3 = BW.Dim
+    lbl.Parent = div
+    local l2 = Instance.new("Frame")
+    l2.Size = UDim2.new(0.25, 0, 0, 1)
+    l2.Position = UDim2.new(0.75, 0, 0.5, 0)
+    l2.BackgroundColor3 = BW.Border
+    l2.BorderSizePixel = 0
+    l2.Parent = div
+end
 
-toggleSyncs["NPCBoxESP"] = createToggle(espContent, "Entity Box ESP", "NPCBoxESP", function(v)
+makeDivider(espContent, "AIMBOT")
+
+toggleSyncs["Aimbot"] = createToggle(espContent, "Aimbot", "Aimbot", function(v)
+    if v then ESP:StartAimbot(CONFIG)
+    else ESP:StopAimbot() end
+end)
+
+-- Aimbot target selector (Head / Body)
+do
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -4, 0, 30)
+    row.BackgroundColor3 = BW.Row
+    row.Parent = espContent
+    createCorner(row, 8)
+    createStroke(row, BW.Border, 1)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.45, 0, 1, 0)
+    lbl.Position = UDim2.new(0, 8, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = "Target"
+    lbl.Font = Enum.Font.GothamSemibold
+    lbl.TextSize = 10
+    lbl.TextColor3 = BW.Text
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+
+    local headBtn = Instance.new("TextButton")
+    headBtn.Size = UDim2.new(0, 60, 0, 20)
+    headBtn.Position = UDim2.new(1, -132, 0.5, -10)
+    headBtn.BackgroundColor3 = CONFIG.AimbotTarget == "head" and BW.Active or BW.Panel
+    headBtn.Text = "HEAD"
+    headBtn.TextColor3 = CONFIG.AimbotTarget == "head" and BW.ActFg or BW.Dim
+    headBtn.Font = Enum.Font.GothamBold
+    headBtn.TextSize = 9
+    headBtn.Parent = row
+    createCorner(headBtn, 5)
+
+    local bodyBtn = Instance.new("TextButton")
+    bodyBtn.Size = UDim2.new(0, 60, 0, 20)
+    bodyBtn.Position = UDim2.new(1, -68, 0.5, -10)
+    bodyBtn.BackgroundColor3 = CONFIG.AimbotTarget == "body" and BW.Active or BW.Panel
+    bodyBtn.Text = "BODY"
+    bodyBtn.TextColor3 = CONFIG.AimbotTarget == "body" and BW.ActFg or BW.Dim
+    bodyBtn.Font = Enum.Font.GothamBold
+    bodyBtn.TextSize = 9
+    bodyBtn.Parent = row
+    createCorner(bodyBtn, 5)
+
+    local function updateAimbotBtns()
+        headBtn.BackgroundColor3 = CONFIG.AimbotTarget=="head" and BW.Active or BW.Panel
+        headBtn.TextColor3       = CONFIG.AimbotTarget=="head" and BW.ActFg or BW.Dim
+        bodyBtn.BackgroundColor3 = CONFIG.AimbotTarget=="body" and BW.Active or BW.Panel
+        bodyBtn.TextColor3       = CONFIG.AimbotTarget=="body" and BW.ActFg or BW.Dim
+    end
+    headBtn.MouseButton1Click:Connect(function()
+        CONFIG.AimbotTarget = "head"; updateAimbotBtns(); saveConfig()
+    end)
+    bodyBtn.MouseButton1Click:Connect(function()
+        CONFIG.AimbotTarget = "body"; updateAimbotBtns(); saveConfig()
+    end)
+end
+
+-- ENTITY ESP divider
+makeDivider(espContent, "ENTITY ESP")
+
+toggleSyncs["NPCBoxESP"] = createToggle(espContent, "Entity Box ESP",   "NPCBoxESP", function(v)
     if v then ESP:RescanNPCs() end
 end)
 toggleSyncs["NPCMonster"] = createToggle(espContent, "Monster / Enemy", "NPCMonster", function(v)
     if v then ESP:RescanNPCs() end
 end)
 createESPColorRow(espContent, "Monster Color", "NPCMonsterColor", nil)
-toggleSyncs["NPCItem"] = createToggle(espContent, "Items / Objects", "NPCItem", function(v)
+toggleSyncs["NPCItem"] = createToggle(espContent, "Items / Objects",    "NPCItem", function(v)
     if v then ESP:RescanNPCs() end
 end)
 createESPColorRow(espContent, "Item Color", "NPCItemColor", nil)
