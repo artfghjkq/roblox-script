@@ -34,7 +34,7 @@ We're on a mission, but this isn't it.
     `.trim();
 
     const credits = `
-@isnotsin
+HALO-HALO HUB
     `.trim();
 
     const fullTextResponse = `

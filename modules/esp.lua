@@ -45,71 +45,81 @@ local function removeAll(d)
 end
 
 -- ── Classification ─────────────────────────────────────────────
--- MONSTER keywords — things that are alive, hostile, enemies
--- Check these FIRST — priority over items
-local MONSTER_KW = {
-    -- Undead
-    "zombie","undead","ghoul","revenant","lich","skeleton","mummy","wraith","specter",
-    -- Supernatural
-    "ghost","demon","devil","spirit","shade","phantom","banshee","poltergeist",
-    "vampire","werewolf","witch","sorcerer","cultist","abomination",
-    -- Creatures / animals
-    "creature","monster","beast","mutant","alien","parasite","infected","horror",
-    "spider","wolf","bear","lion","tiger","shark","snake","rat","bat","hawk","crow",
-    "golem","slime","blob","worm","insect","bug","fly","wasp","scorpion",
-    -- Fantasy
-    "goblin","orc","troll","ogre","dragon","hydra","wyvern","titan","giant",
-    "demon","fiend","imp","brute","juggernaut",
-    -- Human enemies
-    "bandit","pirate","raider","rogue","outlaw","thug","gang","mob",
-    "soldier","guard","mercenary","grunt","militia","rebel","enemy","hostile",
-    -- Sci-fi / robot
-    "robot","android","drone","turret","mech","cyborg","sentinel","ai",
-    -- Game terms
-    "boss","minion","stalker","hunter","crawler","jumper","runner","charger",
-    "attacker","aggressor","predator","pursuer",
+-- NPC/friendly keywords — these are NOT monsters even if they have a Humanoid
+local FRIENDLY_KW = {
+    "npc","civilian","villager","townsfolk","merchant","shopkeeper","vendor","trader",
+    "quest","guide","helper","friendly","ally","companion","pet","tamer",
+    "mayor","king","queen","prince","princess","knight","hero","saint",
+    "child","baby","elder","old","sage","farmer","blacksmith","innkeeper",
+    "doctor","nurse","priest","monk","wizard","mage",
 }
 
--- ITEM keywords — things you collect, pick up, interact with
--- Only checked if MONSTER keywords didn't match
+-- MONSTER/ENEMY keywords — hostile, attacks player
+local MONSTER_KW = {
+    -- Undead
+    "zombie","ghoul","revenant","lich","mummy","wight","draugr","risen",
+    -- Supernatural
+    "ghost","demon","devil","spirit","shade","phantom","banshee","poltergeist",
+    "vampire","werewolf","witch","cultist","abomination","cursed","haunted",
+    -- Creatures
+    "creature","beast","mutant","alien","parasite","infected","horror",
+    "spider","wolf","bear","lion","tiger","shark","snake","rat","bat",
+    "hawk","crow","golem","slime","blob","worm","insect","bug","wasp","scorpion",
+    -- Fantasy
+    "goblin","orc","troll","ogre","dragon","hydra","wyvern","titan","giant",
+    "fiend","imp","brute","juggernaut","colossus",
+    -- Human enemies
+    "bandit","pirate","raider","rogue","outlaw","thug","gangster",
+    "soldier","guard","mercenary","grunt","militia","rebel",
+    "enemy","hostile","attacker","aggressor","predator",
+    -- Sci-fi
+    "robot","android","drone","turret","mech","cyborg","sentinel",
+    -- Game terms
+    "boss","minion","stalker","hunter","crawler","jumper","runner","charger",
+    "pursuer","zombie","monster","mob",
+}
+
+-- ITEM keywords — collectibles, containers, objects
 local ITEM_KW = {
-    -- Weapons (standalone items, not humanoid enemies)
-    "gun","rifle","pistol","shotgun","sniper","smg","ak47","m4","ar15",
-    "weapon","ammo","bullet","magazine","clip","grenade","explosive","mine",
-    "knife","sword","blade","axe","bow","crossbow","spear","lance",
+    -- Weapons as items (not humanoid)
+    "gun","rifle","pistol","shotgun","sniper","smg","weapon","ammo","bullet",
+    "magazine","clip","grenade","explosive","mine",
+    "knife","sword","blade","axe","bow","crossbow","spear",
     -- Food & medical
     "food","water","drink","meal","ration","snack","fruit","meat","bread","can",
-    "medkit","medic","bandage","heal","aid","potion","elixir","antidote",
-    "cure","drug","pill","inject","syringe","vaccine","first",
+    "medkit","bandage","heal","aid","potion","elixir","antidote","pill","syringe",
     -- Containers / loot
     "crate","chest","box","barrel","bag","backpack","case","container",
-    "loot","drop","pickup","package","parcel","airdrop","supply","cache","stash",
+    "loot","drop","pickup","package","airdrop","supply","cache","stash","locker",
     -- Resources
     "ore","wood","stone","metal","iron","steel","crystal","gem","diamond",
-    "coin","gold","cash","money","credit","currency","token","chip",
-    "key","fuel","battery","scrap","material","resource","artifact","relic",
+    "coin","gold","cash","money","credit","token","chip","key","fuel","battery",
+    "scrap","material","resource","artifact","relic",
     -- Buildings / interactables
-    "shop","store","vendor","market","trader","merchant",
-    "door","button","lever","switch","terminal","computer","console",
-    "machine","device","tool","equipment","locker","vault","safe",
-    -- Misc pickups
-    "prop","object","item","pickup","collectible","trophy","reward",
+    "shop","store","vendor","market","door","button","lever","switch",
+    "terminal","computer","console","machine","device","tool","equipment",
+    "vault","safe","prop","object","item","pickup","collectible","trophy",
 }
 
 local function classifyModel(model)
     local n = model.Name:lower()
 
-    -- Monster check first — if it walks and fights, it's a monster
+    -- 1. Check friendly/NPC first — skip as monster
+    for _, kw in ipairs(FRIENDLY_KW) do
+        if n:find(kw, 1, true) then return "item" end -- treat as non-threat = item category
+    end
+
+    -- 2. Check monster keywords
     for _, kw in ipairs(MONSTER_KW) do
         if n:find(kw, 1, true) then return "monster" end
     end
 
-    -- Item check
+    -- 3. Check item keywords
     for _, kw in ipairs(ITEM_KW) do
         if n:find(kw, 1, true) then return "item" end
     end
 
-    -- Fallback: Humanoid = living thing = monster, else = item/object
+    -- 4. Fallback: Humanoid = monster (living unknown entity), else = item
     local hum = model:FindFirstChildWhichIsA("Humanoid")
     return hum and "monster" or "item"
 end

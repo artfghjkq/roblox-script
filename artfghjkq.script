@@ -256,8 +256,9 @@ end
 
 local function qbSlotsToTable()
     local t = {}
-    for i, opt in ipairs(qbSlots) do
-        t[i] = opt and opt.key or false
+    for i = 1, QB_SLOTS do
+        local opt = qbSlots[i]
+        t[i] = opt and (opt.key.."|"..opt.label) or false
     end
     return t
 end
@@ -344,19 +345,27 @@ local function loadConfig()
             local i = 0
             for entry in qbBlock:gmatch('[^,]+') do
                 i = i + 1
+                if i > QB_SLOTS then break end
                 entry = entry:match('^%s*"?(.-)\"?%s*$')
                 if entry ~= "false" and entry ~= "" then
+                    local eKey, eLabel = entry:match("^(.+)|(.+)$")
                     for _, opt in ipairs(QB_OPTIONS) do
-                        if opt.key == entry then
-                            qbSlots[i] = opt
-                            break
+                        if eLabel then
+                            if opt.key == eKey and opt.label == eLabel then
+                                qbSlots[i] = opt; break
+                            end
+                        else
+                            -- legacy format (key only)
+                            if opt.key == entry then
+                                qbSlots[i] = opt; break
+                            end
                         end
                     end
                 end
             end
         end
 
-        for i = 1, 3 do updateQBBtn(i) end
+        for i = 1, QB_SLOTS do updateQBBtn(i) end
 
         if CONFIG.Invisibility then applyInvisibility(true) end
         if CONFIG.FPSBoost then
@@ -601,38 +610,43 @@ end
 -- QUICK BUTTONS
 -- ============================================================
 local QB_OPTIONS = {
-    {label="Speed",   icon="SPD", key="SpeedBoost",   callback=function(v) if not v then local h=player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") if h then h.WalkSpeed=16 end end end},
-    {label="Noclip",  icon="NCP", key="Noclip",       callback=nil},
-    {label="Invis",   icon="INV", key="Invisibility",  callback=function(v) applyInvisibility(v) end},
-    {label="Box ESP", icon="BOX", key="BoxESP",        callback=nil},
-    {label="Skel",    icon="SKL", key="Skeleton",      callback=nil},
-    {label="Tracer",  icon="TRC", key="Tracers",       callback=nil},
-    {label="Jump",    icon="JMP", key="SuperJump",     callback=nil},
-    {label="King",    icon="KNG", key="KingMode",      callback=nil},
-    {label="FPS",     icon="FPS", key="FPSBoost",      callback=function(v) Lighting.GlobalShadows=not v Lighting.Technology=v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap end},
+    {label="Speed",    icon="SPD", key="SpeedBoost",    callback=function(v) if not v then local h=player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") if h then h.WalkSpeed=16 end end end},
+    {label="Noclip",   icon="NCP", key="Noclip",        callback=nil},
+    {label="Invis",    icon="INV", key="Invisibility",   callback=function(v) applyInvisibility(v) end},
+    {label="Box ESP",  icon="BOX", key="BoxESP",         callback=nil},
+    {label="Plr Info", icon="PLR", key="PlayerInfo",     callback=nil},
+    {label="Jump",     icon="JMP", key="SuperJump",      callback=nil},
+    {label="King",     icon="KNG", key="KingMode",       callback=nil},
+    {label="FPS",      icon="FPS", key="FPSBoost",       callback=function(v) Lighting.GlobalShadows=not v Lighting.Technology=v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap end},
+    {label="ESP Mon",  icon="EMN", key="NPCMonster",     callback=function(v) if v then ESP:RescanNPCs() end end},
+    {label="ESP Plr",  icon="EPL", key="PlayerInfo",     callback=nil},
+    {label="AB Mon",   icon="AMN", key="AimbotMonsters", callback=function(v) if CONFIG.Aimbot then ESP:StartAimbot(CONFIG) end end},
+    {label="AB Plr",   icon="APL", key="AimbotPlayers",  callback=function(v) if CONFIG.Aimbot then ESP:StartAimbot(CONFIG) end end},
 }
 
-local qbSlots      = {nil, nil, nil}
-local qbBtns       = {}
-local qbStrokes    = {}
-local qbNameLabels = {}
+local QB_SLOTS   = 5
+local qbSlots    = {}
+local qbBtns     = {}
+local qbStrokes  = {}
+local qbNameLbls = {}
+for i = 1, QB_SLOTS do qbSlots[i] = nil end
 
 local function updateQBBtn(i)
     local btn  = qbBtns[i]
     local strk = qbStrokes[i]
-    local nlbl = qbNameLabels[i]
+    local nlbl = qbNameLbls[i]
     if not btn then return end
     local opt = qbSlots[i]
     if opt then
         local state = CONFIG[opt.key]
-        btn.Text = opt.icon
-        btn.TextColor3 = state and BW.White or BW.Dim
+        btn.Text             = opt.icon
+        btn.TextColor3       = state and BW.ActFg or BW.Dim
         btn.BackgroundColor3 = state and BW.Active or BW.Row
         if strk then strk.Color = state and BW.Active or BW.Border end
         if nlbl then nlbl.Text = opt.label; nlbl.TextColor3 = state and BW.ActFg or BW.Dim end
     else
-        btn.Text = "--"
-        btn.TextColor3 = BW.Dim
+        btn.Text             = "--"
+        btn.TextColor3       = BW.Dim
         btn.BackgroundColor3 = BW.Row
         if strk then strk.Color = BW.Border end
         if nlbl then nlbl.Text = "Empty"; nlbl.TextColor3 = BW.Dim end
@@ -640,151 +654,159 @@ local function updateQBBtn(i)
 end
 
 local qbToggleBtn = Instance.new("TextButton")
-qbToggleBtn.Size = UDim2.new(0, 32, 0, 32)
-qbToggleBtn.Position = UDim2.new(0, 20, 0.5, -90)
+qbToggleBtn.Size             = UDim2.new(0, 32, 0, 32)
+qbToggleBtn.Position         = UDim2.new(0, 20, 0.5, -90)
 qbToggleBtn.BackgroundColor3 = BW.Panel
-qbToggleBtn.Text = "QB"
-qbToggleBtn.TextColor3 = BW.Text
-qbToggleBtn.Font = Enum.Font.GothamBold
-qbToggleBtn.TextSize = 11
-qbToggleBtn.Active = true
-qbToggleBtn.Draggable = true
-qbToggleBtn.ZIndex = 5
-qbToggleBtn.Parent = screenGui
+qbToggleBtn.Text             = "QB"
+qbToggleBtn.TextColor3       = BW.Text
+qbToggleBtn.Font             = Enum.Font.GothamBold
+qbToggleBtn.TextSize         = 11
+qbToggleBtn.Active           = true
+qbToggleBtn.Draggable        = true
+qbToggleBtn.ZIndex           = 5
+qbToggleBtn.Parent           = screenGui
 createCorner(qbToggleBtn, 8)
 createStroke(qbToggleBtn, BW.Border, 1)
 
+-- QB container: 2 rows (3 top + 2 bottom) using grid layout
 local qbContainer = Instance.new("Frame")
-qbContainer.Size = UDim2.new(0, 58, 0, 10)
-qbContainer.Position = UDim2.new(0, 20, 0.5, -90 + 38)
+qbContainer.Size             = UDim2.new(0, 180, 0, 10)
 qbContainer.BackgroundTransparency = 1
-qbContainer.Active = false
-qbContainer.Visible = false
-qbContainer.ZIndex = 5
-qbContainer.Parent = screenGui
+qbContainer.Active           = false
+qbContainer.Visible          = false
+qbContainer.ZIndex           = 5
+qbContainer.Parent           = screenGui
 
-local qbLayout = Instance.new("UIListLayout", qbContainer)
-qbLayout.SortOrder = Enum.SortOrder.LayoutOrder
-qbLayout.Padding = UDim.new(0, 6)
+local qbGrid = Instance.new("UIGridLayout", qbContainer)
+qbGrid.CellSize      = UDim2.new(0, 54, 0, 54)
+qbGrid.CellPadding   = UDim2.new(0, 6, 0, 6)
+qbGrid.SortOrder     = Enum.SortOrder.LayoutOrder
+qbGrid.FillDirection = Enum.FillDirection.Horizontal
+qbGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
 local qbPanel = Instance.new("Frame")
-qbPanel.Size = UDim2.new(0, 200, 0, 10)
-qbPanel.Position = UDim2.new(0, 20 + 66, 0.5, -90 + 38)
+qbPanel.Size             = UDim2.new(0, 200, 0, 10)
 qbPanel.BackgroundColor3 = BW.Panel
-qbPanel.Visible = false
-qbPanel.ZIndex = 10
-qbPanel.Parent = screenGui
+qbPanel.Visible          = false
+qbPanel.ZIndex           = 10
+qbPanel.Parent           = screenGui
 createCorner(qbPanel, 10)
 createStroke(qbPanel, BW.Border, 1)
 
 local function syncQBPositions()
     local ap = qbToggleBtn.AbsolutePosition
     qbContainer.Position = UDim2.new(0, ap.X, 0, ap.Y + 38)
+    -- Size: 3 per row, 2 rows if 4-5 slots
+    local rows = math.ceil(QB_SLOTS / 3)
+    local cols = math.min(QB_SLOTS, 3)
+    qbContainer.Size = UDim2.new(0, cols*54 + (cols-1)*6, 0, rows*54 + (rows-1)*6)
 end
 
 qbToggleBtn:GetPropertyChangedSignal("AbsolutePosition"):Connect(syncQBPositions)
 
 local qbPanelLayout = Instance.new("UIListLayout", qbPanel)
 qbPanelLayout.SortOrder = Enum.SortOrder.LayoutOrder
-qbPanelLayout.Padding = UDim.new(0, 3)
+qbPanelLayout.Padding   = UDim.new(0, 3)
 
 local qbPanelPad = Instance.new("UIPadding", qbPanel)
-qbPanelPad.PaddingTop = UDim.new(0, 6)
+qbPanelPad.PaddingTop    = UDim.new(0, 6)
 qbPanelPad.PaddingBottom = UDim.new(0, 6)
-qbPanelPad.PaddingLeft = UDim.new(0, 6)
-qbPanelPad.PaddingRight = UDim.new(0, 6)
+qbPanelPad.PaddingLeft   = UDim.new(0, 6)
+qbPanelPad.PaddingRight  = UDim.new(0, 6)
 
 local qbPanelTitle = Instance.new("TextLabel")
-qbPanelTitle.Size = UDim2.new(1, 0, 0, 20)
+qbPanelTitle.Size               = UDim2.new(1, 0, 0, 20)
 qbPanelTitle.BackgroundTransparency = 1
-qbPanelTitle.Text = "Assign Quick Button"
-qbPanelTitle.Font = Enum.Font.GothamBold
-qbPanelTitle.TextSize = 10
-qbPanelTitle.TextColor3 = BW.Text
-qbPanelTitle.TextXAlignment = Enum.TextXAlignment.Left
-qbPanelTitle.ZIndex = 10
-qbPanelTitle.Parent = qbPanel
+qbPanelTitle.Text               = "Assign Quick Button"
+qbPanelTitle.Font               = Enum.Font.GothamBold
+qbPanelTitle.TextSize           = 10
+qbPanelTitle.TextColor3         = BW.Text
+qbPanelTitle.TextXAlignment     = Enum.TextXAlignment.Left
+qbPanelTitle.ZIndex             = 10
+qbPanelTitle.Parent             = qbPanel
 
 local qbPanelClose = Instance.new("TextButton")
-qbPanelClose.Size = UDim2.new(0, 18, 0, 18)
-qbPanelClose.Position = UDim2.new(1, -24, 0, 1)
+qbPanelClose.Size             = UDim2.new(0, 18, 0, 18)
+qbPanelClose.Position         = UDim2.new(1, -24, 0, 1)
 qbPanelClose.BackgroundTransparency = 1
-qbPanelClose.Text = "X"
-qbPanelClose.TextColor3 = BW.Dim
-qbPanelClose.Font = Enum.Font.GothamBold
-qbPanelClose.TextSize = 14
-qbPanelClose.ZIndex = 10
-qbPanelClose.Parent = qbPanel
+qbPanelClose.Text             = "X"
+qbPanelClose.TextColor3       = BW.Dim
+qbPanelClose.Font             = Enum.Font.GothamBold
+qbPanelClose.TextSize         = 14
+qbPanelClose.ZIndex           = 10
+qbPanelClose.Parent           = qbPanel
 
 local currentEditSlot = nil
-local qbOptionRows = {}
+local qbOptionRows    = {}
 
 local function refreshAssignedLabels()
     for _, r in ipairs(qbOptionRows) do r.label.Text = "" end
     for i, slotOpt in ipairs(qbSlots) do
         if slotOpt then
             for _, r in ipairs(qbOptionRows) do
-                if r.opt.key == slotOpt.key then r.label.Text = "Slot "..i end
+                if r.opt.key == slotOpt.key and r.opt.label == slotOpt.label then
+                    r.label.Text = "Slot "..i
+                end
             end
         end
     end
 end
 
 for _, opt in ipairs(QB_OPTIONS) do
+    local capOpt = opt
     local row = Instance.new("TextButton")
-    row.Size = UDim2.new(1, 0, 0, 26)
+    row.Size             = UDim2.new(1, 0, 0, 26)
     row.BackgroundColor3 = BW.Row
-    row.Text = "[" .. opt.icon .. "]  " .. opt.label
-    row.TextColor3 = BW.Text
-    row.Font = Enum.Font.GothamSemibold
-    row.TextSize = 10
-    row.TextXAlignment = Enum.TextXAlignment.Left
-    row.ZIndex = 10
-    row.Parent = qbPanel
+    row.Text             = "["..opt.icon.."]  "..opt.label
+    row.TextColor3       = BW.Text
+    row.Font             = Enum.Font.GothamSemibold
+    row.TextSize         = 10
+    row.TextXAlignment   = Enum.TextXAlignment.Left
+    row.ZIndex           = 10
+    row.Parent           = qbPanel
     createCorner(row, 6)
-
     local rPad = Instance.new("UIPadding", row)
     rPad.PaddingLeft = UDim.new(0, 8)
 
     local assignedLbl = Instance.new("TextLabel")
-    assignedLbl.Size = UDim2.new(0, 50, 1, 0)
-    assignedLbl.Position = UDim2.new(1, -55, 0, 0)
+    assignedLbl.Size             = UDim2.new(0, 50, 1, 0)
+    assignedLbl.Position         = UDim2.new(1, -55, 0, 0)
     assignedLbl.BackgroundTransparency = 1
-    assignedLbl.Text = ""
-    assignedLbl.Font = Enum.Font.GothamBold
-    assignedLbl.TextSize = 8
-    assignedLbl.TextColor3 = BW.Dim
-    assignedLbl.ZIndex = 10
-    assignedLbl.Parent = row
-
-    table.insert(qbOptionRows, {row=row, opt=opt, label=assignedLbl})
+    assignedLbl.Text             = ""
+    assignedLbl.Font             = Enum.Font.GothamBold
+    assignedLbl.TextSize         = 8
+    assignedLbl.TextColor3       = BW.Dim
+    assignedLbl.ZIndex           = 10
+    assignedLbl.Parent           = row
+    table.insert(qbOptionRows, {row=row, opt=capOpt, label=assignedLbl})
 
     row.MouseButton1Click:Connect(function()
         if not currentEditSlot then return end
         for i, s in ipairs(qbSlots) do
-            if s and s.key == opt.key then qbSlots[i]=nil updateQBBtn(i) end
+            if s and s.key == capOpt.key and s.label == capOpt.label then
+                qbSlots[i] = nil; updateQBBtn(i)
+            end
         end
-        qbSlots[currentEditSlot] = opt
+        qbSlots[currentEditSlot] = capOpt
         updateQBBtn(currentEditSlot)
         refreshAssignedLabels()
-        qbPanel.Visible = false
-        currentEditSlot = nil
+        qbPanel.Visible  = false
+        currentEditSlot  = nil
         saveConfig()
     end)
 end
 
 local clearRow = Instance.new("TextButton")
-clearRow.Size = UDim2.new(1, 0, 0, 26)
-clearRow.BackgroundColor3 = Color3.fromRGB(30, 10, 10)
-clearRow.Text = "[ X ]  Clear Slot"
-clearRow.TextColor3 = BW.Red
-clearRow.Font = Enum.Font.GothamBold
-clearRow.TextSize = 10
-clearRow.TextXAlignment = Enum.TextXAlignment.Left
-clearRow.ZIndex = 10
-clearRow.Parent = qbPanel
+clearRow.Size             = UDim2.new(1, 0, 0, 26)
+clearRow.BackgroundColor3 = Color3.fromRGB(30,10,10)
+clearRow.Text             = "[ X ]  Clear Slot"
+clearRow.TextColor3       = BW.Red
+clearRow.Font             = Enum.Font.GothamBold
+clearRow.TextSize         = 10
+clearRow.TextXAlignment   = Enum.TextXAlignment.Left
+clearRow.ZIndex           = 10
+clearRow.Parent           = qbPanel
 createCorner(clearRow, 6)
-
 local clPad = Instance.new("UIPadding", clearRow)
 clPad.PaddingLeft = UDim.new(0, 8)
 
@@ -807,51 +829,51 @@ qbPanelLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     qbPanel.Size = UDim2.new(0, 200, 0, qbPanelLayout.AbsoluteContentSize.Y + 12)
 end)
 
-for slotIdx = 1, 3 do
+for slotIdx = 1, QB_SLOTS do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 54, 0, 54)
+    btn.Size             = UDim2.new(0, 54, 0, 54)
     btn.BackgroundColor3 = BW.Row
-    btn.Text = "--"
-    btn.TextColor3 = BW.Dim
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 11
-    btn.Active = true
-    btn.ZIndex = 5
-    btn.Parent = qbContainer
+    btn.Text             = "--"
+    btn.TextColor3       = BW.Dim
+    btn.Font             = Enum.Font.GothamBold
+    btn.TextSize         = 11
+    btn.Active           = true
+    btn.ZIndex           = 5
+    btn.LayoutOrder      = slotIdx
+    btn.Parent           = qbContainer
     createCorner(btn, 10)
 
-    local stroke2 = createStroke(btn, BW.Border, 1)
-    qbStrokes[slotIdx] = stroke2
+    local strk = createStroke(btn, BW.Border, 1)
+    qbStrokes[slotIdx] = strk
 
     local nlbl = Instance.new("TextLabel")
-    nlbl.Size = UDim2.new(1, 0, 0, 12)
-    nlbl.Position = UDim2.new(0, 0, 1, 2)
+    nlbl.Size             = UDim2.new(1, 0, 0, 12)
+    nlbl.Position         = UDim2.new(0, 0, 1, 2)
     nlbl.BackgroundTransparency = 1
-    nlbl.Text = "Empty"
-    nlbl.Font = Enum.Font.GothamBold
-    nlbl.TextSize = 7
-    nlbl.TextColor3 = BW.Dim
-    nlbl.ZIndex = 5
-    nlbl.Parent = btn
-    qbNameLabels[slotIdx] = nlbl
+    nlbl.Text             = "Empty"
+    nlbl.Font             = Enum.Font.GothamBold
+    nlbl.TextSize         = 7
+    nlbl.TextColor3       = BW.Dim
+    nlbl.ZIndex           = 5
+    nlbl.Parent           = btn
+    qbNameLbls[slotIdx]  = nlbl
+    qbBtns[slotIdx]      = btn
 
-    qbBtns[slotIdx] = btn
-
-    local holdConn = nil
+    local holdConn  = nil
     local isHolding = false
 
     local function openPanel(si)
         currentEditSlot = si
         local ap = qbToggleBtn.AbsolutePosition
-        qbPanel.Position = UDim2.new(0, ap.X + 66, 0, ap.Y + 38 + (si-1)*60)
-        qbPanel.Visible = true
+        qbPanel.Position = UDim2.new(0, ap.X + 200, 0, ap.Y)
+        qbPanel.Visible  = true
         refreshAssignedLabels()
     end
 
     btn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             isHolding = false
-            holdConn = task.delay(0.4, function()
+            holdConn  = task.delay(0.4, function()
                 isHolding = true
                 openPanel(slotIdx)
             end)
@@ -868,7 +890,7 @@ for slotIdx = 1, 3 do
                     if opt.callback then opt.callback(CONFIG[opt.key]) end
                     if toggleSyncs[opt.key] then toggleSyncs[opt.key](CONFIG[opt.key]) end
                     updateQBBtn(slotIdx)
-                    Notif:Send((CONFIG[opt.key] and "ON" or "OFF") .. ": " .. opt.label, 2)
+                    Notif:Send((CONFIG[opt.key] and "ON" or "OFF")..": "..opt.label, 2)
                 else
                     openPanel(slotIdx)
                 end
@@ -877,10 +899,6 @@ for slotIdx = 1, 3 do
     end)
 end
 
-qbLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    qbContainer.Size = UDim2.new(0, 58, 0, qbLayout.AbsoluteContentSize.Y)
-end)
-
 local qbOpen = false
 qbToggleBtn.MouseButton1Click:Connect(function()
     qbOpen = not qbOpen
@@ -888,6 +906,8 @@ qbToggleBtn.MouseButton1Click:Connect(function()
     if not qbOpen then qbPanel.Visible = false end
     tween(qbToggleBtn, {BackgroundColor3 = qbOpen and BW.Active or BW.Panel}, 0.2)
 end)
+
+syncQBPositions()
 
 -- ============================================================
 -- POPULATE TABS
@@ -1214,7 +1234,7 @@ RunService.Heartbeat:Connect(function()
                 if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
             end
         end
-        for i = 1, 3 do updateQBBtn(i) end
+        for i = 1, QB_SLOTS do updateQBBtn(i) end
         ESP:Update(CONFIG, COLORS, rainbowHue)
     end)
 end)
