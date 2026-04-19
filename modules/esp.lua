@@ -351,10 +351,9 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
     local function espInfoColor()  return CONFIG.ESPColor end
 
     local function isEnemy(plr)
-        -- No team filter = everyone is shown as player
         if not CONFIG.TeamFilter then return false end
-        -- No teams assigned = can't tell, treat as enemy
-        if not player.Team or not plr.Team then return true end
+        -- If either player has no team, cannot determine — treat as neutral (not enemy)
+        if not player.Team or not plr.Team then return false end
         -- Different team = enemy
         return player.Team ~= plr.Team
     end
