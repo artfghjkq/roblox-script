@@ -208,10 +208,26 @@ local function drawSkel(container, hum, skel, color, camera)
 end
 
 -- ── Aimbot ────────────────────────────────────────────────────
-local AIMBOT_SMOOTH = 0.15   -- lerp factor per frame (0.05=slow, 0.3=fast)
-local AIMBOT_FOV    = 300    -- max screen pixel radius to look for targets
+local AIMBOT_SMOOTH = 0.15
+local AIMBOT_FOV    = 300
+
+local aimbotLocked     = false   -- locked mode on/off
+local aimbotLockedPart = nil     -- the locked target part
 
 local function getAimbotTarget(CONFIG, player, camera)
+    -- If locked and target still valid, return it
+    if aimbotLocked and aimbotLockedPart and aimbotLockedPart.Parent then
+        local hum = aimbotLockedPart.Parent:FindFirstChildWhichIsA("Humanoid")
+            or (aimbotLockedPart.Parent.Parent and aimbotLockedPart.Parent.Parent:FindFirstChildWhichIsA("Humanoid"))
+        if hum and hum.Health > 0 then
+            return aimbotLockedPart
+        else
+            -- Target died, unlock
+            aimbotLocked     = false
+            aimbotLockedPart = nil
+        end
+    end
+
     local bestDist = math.huge
     local bestPart = nil
     local vpSize   = camera.ViewportSize
@@ -223,15 +239,14 @@ local function getAimbotTarget(CONFIG, player, camera)
         if not hum or hum.Health <= 0 then return end
         local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
         if not onScreen then return end
-        local sp  = Vector2.new(screenPos.X, screenPos.Y)
-        local d   = (sp - center).Magnitude
+        local sp = Vector2.new(screenPos.X, screenPos.Y)
+        local d  = (sp - center).Magnitude
         if d < AIMBOT_FOV and d < bestDist then
             bestDist = d
             bestPart = part
         end
     end
 
-    -- Players
     if CONFIG.AimbotPlayers then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character then
@@ -244,14 +259,12 @@ local function getAimbotTarget(CONFIG, player, camera)
         end
     end
 
-    -- Monsters
     if CONFIG.AimbotMonsters then
         for model, cat in pairs(knownEntities) do
             if cat == "monster" and model and model.Parent then
                 local part = (CONFIG.AimbotTarget == "head")
                     and model:FindFirstChild("Head")
-                    or (model:FindFirstChild("HumanoidRootPart")
-                        or model:FindFirstChild("Torso"))
+                    or (model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso"))
                 tryPart(model, part)
             end
         end
@@ -259,6 +272,14 @@ local function getAimbotTarget(CONFIG, player, camera)
 
     return bestPart
 end
+
+function ESP:SetAimbotLocked(locked)
+    aimbotLocked = locked
+    if not locked then aimbotLockedPart = nil end
+end
+
+function ESP:IsAimbotLocked() return aimbotLocked end
+function ESP:GetLockedPart()  return aimbotLockedPart end
 
 function ESP:StartAimbot(CONFIG)
     if aimbotConn then return end
@@ -271,24 +292,35 @@ function ESP:StartAimbot(CONFIG)
         if not (CONFIG.AimbotPlayers or CONFIG.AimbotMonsters) then return end
 
         local tgtPart = getAimbotTarget(CONFIG, player, camera)
-        if not tgtPart or not tgtPart.Parent then return end
+        if not tgtPart or not tgtPart.Parent then
+            -- Lost target, clear lock
+            if aimbotLocked then
+                aimbotLocked     = false
+                aimbotLockedPart = nil
+            end
+            return
+        end
 
-        -- Smooth lerp towards target using slerp on camera CFrame
+        -- If not locked yet, update locked part to current best target
+        if not aimbotLocked then
+            aimbotLockedPart = tgtPart
+        end
+
         local camPos   = camera.CFrame.Position
         local tgtPos   = tgtPart.Position
         local curLook  = camera.CFrame.LookVector
         local wantLook = (tgtPos - camPos).Unit
-
-        -- Smooth factor scales with dt so it's frame-rate independent
-        local smooth = math.clamp(AIMBOT_SMOOTH * (dt * 60), 0.01, 1)
-        local newLook = curLook:Lerp(wantLook, smooth).Unit
+        local smooth   = math.clamp(AIMBOT_SMOOTH * (dt * 60), 0.01, 1)
+        local newLook  = curLook:Lerp(wantLook, smooth).Unit
 
         camera.CFrame = CFrame.new(camPos, camPos + newLook)
     end)
 end
 
 function ESP:StopAimbot()
-    aimbotActive = false
+    aimbotActive     = false
+    aimbotLocked     = false
+    aimbotLockedPart = nil
     if aimbotConn then aimbotConn:Disconnect(); aimbotConn = nil end
 end
 
@@ -318,18 +350,28 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
     local function boxColor()      return CONFIG.BoxRainbow      and rainbow() or CONFIG.ESPColor end
     local function espInfoColor()  return CONFIG.ESPColor end
 
+    local function isEnemy(plr)
+        -- No team filter = everyone is shown as player
+        if not CONFIG.TeamFilter then return false end
+        -- No teams assigned = can't tell, treat as enemy
+        if not player.Team or not plr.Team then return true end
+        -- Different team = enemy
+        return player.Team ~= plr.Team
+    end
+
     local function plrBoxColor(plr)
-        if CONFIG.TeamFilter and player.Team and plr.Team and player.Team == plr.Team then
-            return Color3.fromRGB(0,255,0)
+        if CONFIG.TeamFilter then
+            if isEnemy(plr) then
+                return Color3.fromRGB(220, 50, 50)   -- red = enemy
+            else
+                return Color3.fromRGB(50, 220, 50)   -- green = teammate
+            end
         end
-        return boxColor()
+        return CONFIG.BoxRainbow and rainbow() or CONFIG.ESPColor
     end
 
     local function shouldShow(plr)
-        if plr == player then return false end
-        if not CONFIG.TeamFilter then return true end
-        if player.Team and plr.Team then return player.Team ~= plr.Team end
-        return true
+        return plr ~= player
     end
 
     -- ══════════════════════════════════════════════════════════
@@ -383,11 +425,28 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
 
         -- Player Info: tag + hp + names + tracer + skeleton (all one toggle)
         if CONFIG.PlayerInfo then
-            local pct = math.clamp(hum.Health / math.max(hum.MaxHealth,1), 0, 1)
+            local pct       = math.clamp(hum.Health / math.max(hum.MaxHealth,1), 0, 1)
             local infoColor = CONFIG.BoxRainbow and rainbow() or CONFIG.ESPColor
+            local enemy     = isEnemy(plr)
 
-            d.tagText.Text     = "[PLAYER]"
-            d.tagText.Color    = Color3.fromRGB(0,220,255)
+            -- Tag color: red for enemy, cyan for teammate, cyan default
+            local tagColor
+            local tagStr
+            if CONFIG.TeamFilter then
+                if enemy then
+                    tagColor = Color3.fromRGB(220, 50, 50)
+                    tagStr   = "[ENEMY]"
+                else
+                    tagColor = Color3.fromRGB(50, 220, 50)
+                    tagStr   = "[TEAMMATE]"
+                end
+            else
+                tagColor = Color3.fromRGB(0, 220, 255)
+                tagStr   = "[PLAYER]"
+            end
+
+            d.tagText.Text     = tagStr
+            d.tagText.Color    = tagColor
             d.tagText.Position = Vector2.new(cenX, topY - 50)
             d.tagText.Visible  = true
 

@@ -620,8 +620,20 @@ local QB_OPTIONS = {
     {label="FPS",      icon="FPS", key="FPSBoost",       callback=function(v) Lighting.GlobalShadows=not v Lighting.Technology=v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap end},
     {label="ESP Mon",  icon="EMN", key="NPCMonster",     callback=function(v) if v then ESP:RescanNPCs() end end},
     {label="ESP Plr",  icon="EPL", key="PlayerInfo",     callback=nil},
-    {label="AB Mon",   icon="AMN", key="AimbotMonsters", callback=function(v) if CONFIG.Aimbot then ESP:StartAimbot(CONFIG) end end},
-    {label="AB Plr",   icon="APL", key="AimbotPlayers",  callback=function(v) if CONFIG.Aimbot then ESP:StartAimbot(CONFIG) end end},
+    {label="AB Mon",   icon="AMN", key="AimbotMonsters", callback=function(v)
+        if v then
+            CONFIG.Aimbot = true
+            if toggleSyncs["Aimbot"] then toggleSyncs["Aimbot"](true) end
+            ESP:StartAimbot(CONFIG)
+        end
+    end},
+    {label="AB Plr",   icon="APL", key="AimbotPlayers",  callback=function(v)
+        if v then
+            CONFIG.Aimbot = true
+            if toggleSyncs["Aimbot"] then toggleSyncs["Aimbot"](true) end
+            ESP:StartAimbot(CONFIG)
+        end
+    end},
 }
 
 local QB_SLOTS   = 5
@@ -1112,6 +1124,96 @@ end
 
 toggleSyncs["AimbotPlayers"]  = createToggle(espContent, "Aim at Players",  "AimbotPlayers")
 toggleSyncs["AimbotMonsters"] = createToggle(espContent, "Aim at Monsters", "AimbotMonsters")
+
+-- Lock Aim button (toggle)
+do
+    local lockRow = Instance.new("Frame")
+    lockRow.Size             = UDim2.new(1, -4, 0, 32)
+    lockRow.BackgroundColor3 = BW.Row
+    lockRow.Parent           = espContent
+    createCorner(lockRow, 8)
+    createStroke(lockRow, BW.Border, 1)
+
+    local lockLbl = Instance.new("TextLabel")
+    lockLbl.Size             = UDim2.new(1, -90, 1, 0)
+    lockLbl.Position         = UDim2.new(0, 8, 0, 0)
+    lockLbl.BackgroundTransparency = 1
+    lockLbl.Text             = "Lock Target"
+    lockLbl.Font             = Enum.Font.GothamSemibold
+    lockLbl.TextSize         = 10
+    lockLbl.TextColor3       = BW.Text
+    lockLbl.TextXAlignment   = Enum.TextXAlignment.Left
+    lockLbl.Parent           = lockRow
+
+    local lockSubLbl = Instance.new("TextLabel")
+    lockSubLbl.Size             = UDim2.new(1, -90, 0, 12)
+    lockSubLbl.Position         = UDim2.new(0, 8, 0, 18)
+    lockSubLbl.BackgroundTransparency = 1
+    lockSubLbl.Text             = "No target"
+    lockSubLbl.Font             = Enum.Font.Gotham
+    lockSubLbl.TextSize         = 8
+    lockSubLbl.TextColor3       = BW.Dim
+    lockSubLbl.TextXAlignment   = Enum.TextXAlignment.Left
+    lockSubLbl.Parent           = lockRow
+
+    local lockToggle = Instance.new("Frame")
+    lockToggle.Size             = UDim2.new(0, 34, 0, 17)
+    lockToggle.Position         = UDim2.new(1, -42, 0.5, -8.5)
+    lockToggle.BackgroundColor3 = BW.Border
+    lockToggle.Parent           = lockRow
+    createCorner(lockToggle, 9)
+
+    local lockKnob = Instance.new("Frame")
+    lockKnob.Size             = UDim2.new(0, 13, 0, 13)
+    lockKnob.Position         = UDim2.new(0, 2, 0.5, -6.5)
+    lockKnob.BackgroundColor3 = BW.Dim
+    lockKnob.Parent           = lockToggle
+    createCorner(lockKnob, 7)
+
+    local lockClick = Instance.new("TextButton")
+    lockClick.Size             = UDim2.new(1, 0, 1, 0)
+    lockClick.BackgroundTransparency = 1
+    lockClick.Text             = ""
+    lockClick.Parent           = lockRow
+
+    -- Update lock label every frame
+    RunService.Heartbeat:Connect(function()
+        if ESP:IsAimbotLocked() then
+            local part = ESP:GetLockedPart()
+            if part and part.Parent then
+                lockSubLbl.Text      = "Locked: "..part.Parent.Name
+                lockSubLbl.TextColor3 = Color3.fromRGB(220, 50, 50)
+            else
+                lockSubLbl.Text      = "Target lost"
+                lockSubLbl.TextColor3 = BW.Dim
+            end
+            lockToggle.BackgroundColor3 = BW.Active
+            lockKnob.Position = UDim2.new(1,-15,0.5,-6.5)
+            lockKnob.BackgroundColor3   = BW.ActFg
+        else
+            lockSubLbl.Text      = "No target locked"
+            lockSubLbl.TextColor3 = BW.Dim
+            lockToggle.BackgroundColor3 = BW.Border
+            lockKnob.Position = UDim2.new(0,2,0.5,-6.5)
+            lockKnob.BackgroundColor3   = BW.Dim
+        end
+    end)
+
+    lockClick.MouseButton1Click:Connect(function()
+        if ESP:IsAimbotLocked() then
+            ESP:SetAimbotLocked(false)
+            Notif:Send("Aim lock: OFF", 1)
+        else
+            local part = ESP:GetLockedPart()
+            if part and part.Parent then
+                ESP:SetAimbotLocked(true)
+                Notif:Send("Locked: "..part.Parent.Name, 2)
+            else
+                Notif:Send("No target to lock!", 2)
+            end
+        end
+    end)
+end
 
 -- ENTITY ESP divider
 makeDivider(espContent, "ENTITY ESP")
