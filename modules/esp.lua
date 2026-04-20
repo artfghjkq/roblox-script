@@ -51,7 +51,7 @@ local FRIENDLY_KW = {
     "quest","guide","helper","friendly","ally","companion","pet","tamer",
     "mayor","king","queen","prince","princess","knight","hero","saint",
     "child","baby","elder","old","sage","farmer","blacksmith","innkeeper",
-    "doctor","nurse","priest","monk","wizard","mage","sheriff","innocent"
+    "doctor","nurse","priest","monk","wizard","mage","sheriff","innocent",
 }
 
 -- MONSTER/ENEMY keywords — hostile, attacks player
@@ -76,7 +76,7 @@ local MONSTER_KW = {
     "robot","android","drone","turret","mech","cyborg","sentinel",
     -- Game terms
     "boss","minion","stalker","hunter","crawler","jumper","runner","charger",
-    "pursuer","zombie","monster","mob","imposter","killer","siren"
+    "pursuer","zombie","monster","mob","imposter","killer","siren",
 }
 
 -- ITEM keywords — collectibles, containers, objects
