@@ -1028,7 +1028,15 @@ local espContent = contentContainers["ESP"]
 toggleSyncs["BoxESP"]     = createToggle(espContent, "Box ESP",      "BoxESP")
 createESPColorRow(espContent, "Box Color", "ESPColor", "BoxRainbow")
 toggleSyncs["PlayerInfo"] = createToggle(espContent, "Player Info",  "PlayerInfo")
-toggleSyncs["TeamFilter"] = createToggle(espContent, "Team Filter",  "TeamFilter")
+toggleSyncs["TeamFilter"] = createToggle(espContent, "Team Filter",  "TeamFilter", function(v)
+    if v then
+        CONFIG.PlayerInfo = true
+        if toggleSyncs["PlayerInfo"] then toggleSyncs["PlayerInfo"](true) end
+        ESP:RescanNPCs()
+        Notif:Send("Team Filter ON — Player Info auto-enabled", 2)
+    end
+    saveConfig()
+end)
 
 -- AIMBOT divider
 local function makeDivider(parent, text)
