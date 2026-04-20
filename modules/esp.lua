@@ -76,7 +76,7 @@ local MONSTER_KW = {
     "robot","android","drone","turret","mech","cyborg","sentinel",
     -- Game terms
     "boss","minion","stalker","hunter","crawler","jumper","runner","charger",
-    "pursuer","zombie","monster","mob","imposter","killer","siren",
+    "pursuer","zombie","monster","mob","imposter","killer","siren","murderer",
 }
 
 -- ITEM keywords — collectibles, containers, objects
