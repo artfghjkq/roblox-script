@@ -1,4 +1,4 @@
--- HALO-HALO v0.1.3
+-- HALO-HALO v0.1.2
 -- Entry point -- loads all modules from GitHub
 
 local BASE_URL = "https://raw.githubusercontent.com/artfghjkq/roblox-script/refs/heads/main/modules/"
@@ -1219,55 +1219,6 @@ toggleSyncs["NPCItem"] = createToggle(espContent, "Items / Objects",    "NPCItem
     if v then ESP:RescanNPCs() end
 end)
 createESPColorRow(espContent, "Item Color", "NPCItemColor", nil)
-
--- Manual tag divider + clear button
-makeDivider(espContent, "MANUAL TAG")
-
-local clearTagBtn = Instance.new("TextButton")
-clearTagBtn.Size             = UDim2.new(1, -4, 0, 26)
-clearTagBtn.BackgroundColor3 = BW.Row
-clearTagBtn.Text             = "[ X ]  Clear All Tags"
-clearTagBtn.TextColor3       = BW.Dim
-clearTagBtn.Font             = Enum.Font.GothamBold
-clearTagBtn.TextSize         = 9
-clearTagBtn.TextXAlignment   = Enum.TextXAlignment.Left
-clearTagBtn.Parent           = espContent
-createCorner(clearTagBtn, 6)
-createStroke(clearTagBtn, BW.Border, 1)
-local ctPad = Instance.new("UIPadding", clearTagBtn)
-ctPad.PaddingLeft = UDim.new(0, 8)
-
-clearTagBtn.MouseButton1Click:Connect(function()
-    ESP:ClearTags()
-    Notif:Send("All player tags cleared", 2)
-end)
-
-local tagHintLbl = Instance.new("TextLabel")
-tagHintLbl.Size             = UDim2.new(1, -4, 0, 26)
-tagHintLbl.BackgroundTransparency = 1
-tagHintLbl.Text             = "Tap player on screen to tag:\nPLAYER → ENEMY → FRIENDLY"
-tagHintLbl.Font             = Enum.Font.Gotham
-tagHintLbl.TextSize         = 8
-tagHintLbl.TextColor3       = BW.Dim
-tagHintLbl.TextWrapped       = true
-tagHintLbl.Parent            = espContent
-
--- Click-to-tag: tap on a player's position on screen to cycle their tag
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType ~= Enum.UserInputType.MouseButton1
-    and input.UserInputType ~= Enum.UserInputType.Touch then return end
-    if not (CONFIG.BoxESP or CONFIG.PlayerInfo) then return end
-
-    local sp  = input.Position
-    local plr = ESP:GetNearestPlayerToScreen(Vector2.new(sp.X, sp.Y))
-    if plr then
-        ESP:CycleTag(plr)
-        local tag = ESP:GetTag(plr)
-        local tagName = ({"PLAYER","ENEMY","FRIENDLY"})[tag + 1]
-        Notif:Send(plr.DisplayName..": "..tagName, 2)
-    end
-end)
 
 local fpsContent = contentContainers["FPS"]
 toggleSyncs["FPSBoost"] = createToggle(fpsContent, "FPS Boost", "FPSBoost", function(v)
