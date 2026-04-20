@@ -1,4 +1,4 @@
--- HALO-HALO v0.1.2
+-- HALO-HALO v0.1.3
 -- Entry point -- loads all modules from GitHub
 
 local BASE_URL = "https://raw.githubusercontent.com/artfghjkq/roblox-script/refs/heads/main/modules/"
