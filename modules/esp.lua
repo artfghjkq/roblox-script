@@ -324,10 +324,154 @@ function ESP:StopAimbot()
     if aimbotConn then aimbotConn:Disconnect(); aimbotConn = nil end
 end
 
--- ── Cleanup ───────────────────────────────────────────────────
+-- ── Auto-Detect Suspicious Players ───────────────────────────
+-- Scans character tools/accessories to detect likely killers/impostors
+-- Manual tag always overrides auto-detect
+
+local autoTags    = {}   -- [UserId] = "suspect" | "armed" | nil  (auto only)
+local autoScanTick = 0
+local AUTO_SCAN_INTERVAL = 120  -- every ~2s at 60fps
+
+-- Weapon/killer tool keywords
+local WEAPON_KW = {
+    "knife","blade","sword","dagger","machete","cleaver","scythe","axe","hatchet",
+    "gun","pistol","rifle","revolver","shotgun","sniper","weapon","firearm",
+    "bat","club","mace","hammer","wrench","pipe","crowbar",
+    "poison","syringe","inject","toxin",
+    -- Game-specific common names
+    "kill","murder","assassin","slayer","hunter","execute",
+}
+
+-- Innocent/safe tool keywords (to avoid false positives)
+local SAFE_KW = {
+    "candy","coin","flower","balloon","gift","present","hat","accessory",
+    "map","compass","note","clue","sheriff","detective","badge","radio",
+    "torch","flashlight","lantern","camera","binoculars",
+}
+
+local function isWeaponName(name)
+    local n = name:lower()
+    for _, kw in ipairs(SAFE_KW) do
+        if n:find(kw, 1, true) then return false end
+    end
+    for _, kw in ipairs(WEAPON_KW) do
+        if n:find(kw, 1, true) then return true end
+    end
+    return false
+end
+
+local function scanPlayerSuspicion(plr)
+    if not plr.Character then return nil end
+    local char = plr.Character
+
+    -- Check equipped tools (in character)
+    for _, obj in pairs(char:GetChildren()) do
+        if obj:IsA("Tool") or obj:IsA("HopperBin") then
+            if isWeaponName(obj.Name) then return "armed" end
+            -- Check tool children for part names
+            for _, child in pairs(obj:GetDescendants()) do
+                if child:IsA("BasePart") or child:IsA("MeshPart") then
+                    if isWeaponName(child.Name) then return "armed" end
+                end
+            end
+        end
+    end
+
+    -- Check backpack (unequipped tools)
+    local bp = plr:FindFirstChild("Backpack")
+    if bp then
+        for _, obj in pairs(bp:GetChildren()) do
+            if obj:IsA("Tool") then
+                if isWeaponName(obj.Name) then return "suspect" end
+            end
+        end
+    end
+
+    -- Check for unusual scripts/values that might indicate role
+    -- Some games use StringValues or BoolValues like "IsKiller", "Role", etc.
+    local roleKw = {"killer","murderer","impostor","imposter","traitor","evil","infected"}
+    for _, obj in pairs(char:GetDescendants()) do
+        if obj:IsA("StringValue") or obj:IsA("BoolValue") or obj:IsA("IntValue") then
+            local n = obj.Name:lower()
+            for _, kw in ipairs(roleKw) do
+                if n:find(kw, 1, true) then
+                    if obj:IsA("BoolValue") and obj.Value == true then return "suspect" end
+                    if obj:IsA("StringValue") and obj.Value ~= "" then return "suspect" end
+                    if obj:IsA("IntValue") and obj.Value > 0 then return "suspect" end
+                end
+            end
+            -- Check value content too
+            if obj:IsA("StringValue") then
+                local v = obj.Value:lower()
+                for _, kw in ipairs(roleKw) do
+                    if v:find(kw, 1, true) then return "suspect" end
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+local function runAutoScan()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= Players.LocalPlayer then
+            -- Don't overwrite manual tags
+            local manual = playerTags[plr.UserId] or 0
+            if manual == 0 then
+                autoTags[plr.UserId] = scanPlayerSuspicion(plr)
+            end
+        end
+    end
+end
+
+-- Clean up auto tag on leave
+Players.PlayerRemoving:Connect(function(plr)
+    autoTags[plr.UserId] = nil
+end)
+
+function ESP:CycleTag(plr)
+    local uid = plr.UserId
+    local current = playerTags[uid] or 0
+    playerTags[uid] = (current + 1) % 3
+end
+
+function ESP:GetTag(plr)
+    return playerTags[plr.UserId] or 0
+end
+
+function ESP:ClearTags()
+    playerTags = {}
+end
+
+-- Clean up tag when player leaves
+Players.PlayerRemoving:Connect(function(plr)
+    playerTags[plr.UserId] = nil
+end)
+
 function ESP:Cleanup(plr)
     removeAll(plrDrawings[plr])
     plrDrawings[plr] = nil
+end
+
+-- Returns player nearest to a screen position (for click-to-tag)
+function ESP:GetNearestPlayerToScreen(screenPos)
+    local best   = nil
+    local bestD  = 50  -- max pixel radius
+    local camera = workspace.CurrentCamera
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= Players.LocalPlayer and plr.Character then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local sp, onScreen = camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    local d = (Vector2.new(sp.X, sp.Y) - screenPos).Magnitude
+                    if d < bestD then bestD = d; best = plr end
+                end
+            end
+        end
+    end
+    return best
 end
 
 function ESP:RescanNPCs()
@@ -350,22 +494,46 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
     local function boxColor()      return CONFIG.BoxRainbow      and rainbow() or CONFIG.ESPColor end
     local function espInfoColor()  return CONFIG.ESPColor end
 
-    local function isEnemy(plr)
-        if not CONFIG.TeamFilter then return false end
-        -- If either player has no team, cannot determine — treat as neutral (not enemy)
-        if not player.Team or not plr.Team then return false end
-        -- Different team = enemy
-        return player.Team ~= plr.Team
+    -- Run auto-detect scan periodically
+    autoScanTick = autoScanTick + 1
+    if autoScanTick >= AUTO_SCAN_INTERVAL then
+        autoScanTick = 0
+        pcall(runAutoScan)
     end
+    if not next(autoTags) and autoScanTick == 0 then pcall(runAutoScan) end
 
-    local function plrBoxColor(plr)
+    -- Tag resolution: manual > auto-detect > team filter > neutral
+    local function getPlayerTag(plr)
+        local manual = playerTags[plr.UserId] or 0
+        if manual == 1 then return "enemy" end
+        if manual == 2 then return "friendly" end
+        -- Auto-detect
+        local auto = autoTags[plr.UserId]
+        if auto == "armed"   then return "armed" end
+        if auto == "suspect" then return "suspect" end
+        -- Team filter
         if CONFIG.TeamFilter then
-            if isEnemy(plr) then
-                return Color3.fromRGB(220, 50, 50)   -- red = enemy
-            else
-                return Color3.fromRGB(50, 220, 50)   -- green = teammate
+            if player.Team and plr.Team then
+                return player.Team ~= plr.Team and "enemy" or "friendly"
             end
         end
+        return "neutral"
+    end
+
+    local TAG_INFO = {
+        enemy    = {str="[ENEMY]",    color=Color3.fromRGB(220, 50,  50)},
+        friendly = {str="[FRIENDLY]", color=Color3.fromRGB(50,  220, 50)},
+        armed    = {str="[ARMED]",    color=Color3.fromRGB(255, 165, 0)},   -- orange = has weapon equipped
+        suspect  = {str="[SUSPECT]",  color=Color3.fromRGB(255, 220, 0)},   -- yellow = suspicious
+        neutral  = {str="[PLAYER]",   color=Color3.fromRGB(0,   220, 255)},
+    }
+
+    local function plrBoxColor(plr)
+        local tag = getPlayerTag(plr)
+        if tag == "enemy"    then return Color3.fromRGB(220, 50,  50) end
+        if tag == "friendly" then return Color3.fromRGB(50,  220, 50) end
+        if tag == "armed"    then return Color3.fromRGB(255, 165, 0)  end
+        if tag == "suspect"  then return Color3.fromRGB(255, 220, 0)  end
         return CONFIG.BoxRainbow and rainbow() or CONFIG.ESPColor
     end
 
@@ -426,26 +594,11 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         if CONFIG.PlayerInfo then
             local pct       = math.clamp(hum.Health / math.max(hum.MaxHealth,1), 0, 1)
             local infoColor = CONFIG.BoxRainbow and rainbow() or CONFIG.ESPColor
-            local enemy     = isEnemy(plr)
+            local tag       = getPlayerTag(plr)
+            local tagInfo   = TAG_INFO[tag]
 
-            -- Tag color: red for enemy, cyan for teammate, cyan default
-            local tagColor
-            local tagStr
-            if CONFIG.TeamFilter then
-                if enemy then
-                    tagColor = Color3.fromRGB(220, 50, 50)
-                    tagStr   = "[ENEMY]"
-                else
-                    tagColor = Color3.fromRGB(50, 220, 50)
-                    tagStr   = "[TEAMMATE]"
-                end
-            else
-                tagColor = Color3.fromRGB(0, 220, 255)
-                tagStr   = "[PLAYER]"
-            end
-
-            d.tagText.Text     = tagStr
-            d.tagText.Color    = tagColor
+            d.tagText.Text     = tagInfo.str
+            d.tagText.Color    = tagInfo.color
             d.tagText.Position = Vector2.new(cenX, topY - 50)
             d.tagText.Visible  = true
 
