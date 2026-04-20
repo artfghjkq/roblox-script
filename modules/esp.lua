@@ -82,7 +82,7 @@ local MONSTER_KW = {
 -- ITEM keywords — collectibles, containers, objects
 local ITEM_KW = {
     -- Weapons as items (not humanoid)
-    "gun","rifle","pistol","shotgun","sniper","smg","weapon","ammo","bullet","ak-47","tracker"
+    "gun","rifle","pistol","shotgun","sniper","smg","weapon","ammo","bullet","ak-47","tracker",
     "magazine","clip","grenade","explosive","mine",
     "knife","sword","blade","axe","bow","crossbow","spear",
     -- Food & medical
