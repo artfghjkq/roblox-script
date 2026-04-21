@@ -74,21 +74,45 @@ local MONSTER_KW = {
 
 local ITEM_KW = {
     "gun", "rifle", "pistol", "shotgun", "sniper", "smg", "revolver", "musket",
-    "ak47", "ak-47", "m16", "m4", "uzi", "deagle", "glock", "beretta", "colt",
-    "weapon", "ammo", "bullet", "magazine", "clip", "grenade", "explosive", "mine",
-    "knife", "sword", "blade", "axe", "bow", "crossbow", "spear",
-    "food", "water", "drink", "meal", "ration", "snack", "fruit", "meat", "bread",
-    "can", "burger", "sandwich", "pizza", "hotdog", "apple", "banana", "juice",
-    "medkit", "bandage", "heal", "aid", "potion", "elixir", "antidote", "pill", "syringe",
-    "crate", "chest", "box", "barrel", "bag", "backpack", "case", "container",
-    "loot", "drop", "pickup", "package", "airdrop", "supply", "cache", "stash", "locker",
-    "ore", "wood", "stone", "metal", "iron", "steel", "crystal", "gem", "diamond",
-    "coin", "coins", "gold", "cash", "money", "credit", "token", "chip", "key",
-    "fuel", "battery", "scrap", "material", "resource", "artifact", "relic",
+    "ak47", "ak-47", "m16", "m4", "m4a1", "uzi", "deagle", "glock", "beretta",
+    "colt", "mp5", "p90", "aug", "scar", "famas", "g36", "ak74", "vector",
+    "minigun", "railgun", "lasergun", "plasmagun", "flamethrower",
+    "weapon", "ammo", "bullet", "magazine", "clip", "grenade", "explosive",
+    "mine", "landmine", "c4", "flashbang", "smoke",
+    "knife", "sword", "blade", "axe", "bow", "crossbow", "spear", "hammer",
+    "machete", "dagger", "katana", "scythe", "sickle", "mace", "club",
+    "apple", "banana", "orange", "grape", "watermelon", "strawberry", "cherry",
+    "lemon", "lime", "mango", "peach", "pear", "pineapple", "coconut", "blueberry",
+    "raspberry", "kiwi", "papaya", "guava", "avocado", "melon", "pomegranate",
+    "food", "meal", "ration", "snack", "bread", "burger", "sandwich", "pizza",
+    "hotdog", "taco", "sushi", "rice", "noodle", "pasta", "soup", "stew",
+    "cookie", "cake", "donut", "pie", "candy", "chocolate", "chips", "popcorn",
+    "meat", "chicken", "fish", "beef", "pork", "egg", "cheese", "butter",
+    "cereal", "cracker", "pretzel", "waffle", "pancake", "bacon", "biscuit",
+    "water", "drink", "juice", "soda", "cola", "milk", "coffee", "tea",
+    "beer", "wine", "smoothie", "shake", "energy",
+    "medkit", "bandage", "heal", "aid", "potion", "elixir", "antidote",
+    "pill", "syringe", "medicine", "herb", "remedy", "cure",
+    "chest", "crate", "box", "barrel", "bag", "backpack", "case", "container",
+    "trunk", "bin", "bucket", "basket", "vault", "safe", "locker",
+    "drawer", "cabinet", "shelf", "rack", "cages",
+    "loot", "drop", "pickup", "package", "airdrop", "supply", "supplies",
+    "cache", "stash", "reward", "prize", "gift", "present",
+    "ore", "wood", "stone", "metal", "iron", "steel", "copper", "silver",
+    "crystal", "gem", "diamond", "ruby", "emerald", "sapphire",
+    "coin", "coins", "gold", "cash", "money", "credit", "token",
+    "chip", "key", "keycard", "fuel", "battery", "oil", "gas",
+    "scrap", "material", "resource", "artifact", "relic",
+    "plank", "log", "rock", "sand", "glass", "plastic", "rubber", "cloth",
+    "computer", "laptop", "pc", "terminal", "console", "monitor", "screen",
+    "keyboard", "server", "router", "tablet", "phone", "radio",
+    "walkie", "radar", "scanner", "tracker",
+    "tool", "equipment", "device", "machine", "generator", "engine",
+    "wrench", "screwdriver", "drill", "saw", "crowbar",
+    "flashlight", "torch", "lantern", "rope", "chain", "wire",
+    "helmet", "armor", "vest", "shield", "mask", "goggle",
     "shop", "store", "market", "door", "button", "lever", "switch",
-    "terminal", "computer", "laptop", "pc", "console", "machine", "device",
-    "tool", "equipment", "vault", "safe", "prop", "object", "item",
-    "pickup", "collectible", "trophy", "tracker",
+    "prop", "object", "item", "collectible", "trophy",
 }
 
 local function classifyModel(model)
@@ -97,19 +121,15 @@ local function classifyModel(model)
     for _, kw in ipairs(TEAMMATE_KW) do
         if n:find(kw, 1, true) then return "teammate" end
     end
-
     for _, kw in ipairs(ENEMY_KW) do
         if n:find(kw, 1, true) then return "monster" end
     end
-
     for _, kw in ipairs(FRIENDLY_KW) do
         if n:find(kw, 1, true) then return "item" end
     end
-
     for _, kw in ipairs(MONSTER_KW) do
         if n:find(kw, 1, true) then return "monster" end
     end
-
     for _, kw in ipairs(ITEM_KW) do
         if n:find(kw, 1, true) then return "item" end
     end
@@ -209,7 +229,6 @@ end
 
 local AIMBOT_SMOOTH = 0.15
 local AIMBOT_FOV    = 300
-
 local aimbotLocked     = false
 local aimbotLockedPart = nil
 
@@ -297,16 +316,14 @@ function ESP:StartAimbot(CONFIG)
             return
         end
 
-        if not aimbotLocked then
-            aimbotLockedPart = tgtPart
-        end
+        if not aimbotLocked then aimbotLockedPart = tgtPart end
 
-        local camPos  = camera.CFrame.Position
-        local tgtPos  = tgtPart.Position
-        local curLook = camera.CFrame.LookVector
+        local camPos   = camera.CFrame.Position
+        local tgtPos   = tgtPart.Position
+        local curLook  = camera.CFrame.LookVector
         local wantLook = (tgtPos - camPos).Unit
-        local smooth  = math.clamp(AIMBOT_SMOOTH * (dt * 60), 0.01, 1)
-        local newLook = curLook:Lerp(wantLook, smooth).Unit
+        local smooth   = math.clamp(AIMBOT_SMOOTH * (dt * 60), 0.01, 1)
+        local newLook  = curLook:Lerp(wantLook, smooth).Unit
 
         camera.CFrame = CFrame.new(camPos, camPos + newLook)
     end)
@@ -337,43 +354,35 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
     local player = Players.LocalPlayer
     local camera = workspace.CurrentCamera
 
-    local function rainbow()      return Color3.fromHSV(rainbowHue % 1, 1, 1) end
-    local function boxColor()     return CONFIG.BoxRainbow and rainbow() or CONFIG.ESPColor end
+    local function rainbow() return Color3.fromHSV(rainbowHue % 1, 1, 1) end
 
-    local function getRoleFromTeam(plr)
-        local teamName = plr.Team and plr.Team.Name:lower() or ""
-        local nameLower = plr.Name:lower()
+    local function getRoleFromName(plr)
+        local n = plr.Name:lower()
+        local t = plr.Team and plr.Team.Name:lower() or ""
         for _, kw in ipairs(TEAMMATE_KW) do
-            if teamName:find(kw, 1, true) or nameLower:find(kw, 1, true) then return "teammate" end
+            if n:find(kw, 1, true) or t:find(kw, 1, true) then return "teammate" end
         end
         for _, kw in ipairs(ENEMY_KW) do
-            if teamName:find(kw, 1, true) or nameLower:find(kw, 1, true) then return "enemy" end
+            if n:find(kw, 1, true) or t:find(kw, 1, true) then return "enemy" end
         end
         return "neutral"
     end
 
     local function isEnemy(plr)
         if not CONFIG.TeamFilter then return false end
-        if player.Team and plr.Team then
-            return player.Team ~= plr.Team
-        end
-        local role = getRoleFromTeam(plr)
-        if role == "enemy" then return true end
-        if role == "teammate" then return false end
-        return false
+        if player.Team and plr.Team then return player.Team ~= plr.Team end
+        return getRoleFromName(plr) == "enemy"
     end
 
     local function isTeammate(plr)
         if not CONFIG.TeamFilter then return false end
-        if player.Team and plr.Team then
-            return player.Team == plr.Team
-        end
-        return getRoleFromTeam(plr) == "teammate"
+        if player.Team and plr.Team then return player.Team == plr.Team end
+        return getRoleFromName(plr) == "teammate"
     end
 
     local function plrTracerColor(plr)
         if CONFIG.TeamFilter then
-            if isEnemy(plr) then return Color3.fromRGB(220, 50, 50) end
+            if isEnemy(plr)    then return Color3.fromRGB(220, 50, 50) end
             if isTeammate(plr) then return Color3.fromRGB(50, 220, 100) end
         end
         return CONFIG.BoxRainbow and rainbow() or CONFIG.ESPColor
@@ -381,14 +390,10 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
 
     local function plrBoxColor(plr)
         if CONFIG.TeamFilter then
-            if isEnemy(plr) then return Color3.fromRGB(220, 50, 50) end
+            if isEnemy(plr)    then return Color3.fromRGB(220, 50, 50) end
             if isTeammate(plr) then return Color3.fromRGB(50, 220, 100) end
         end
         return CONFIG.BoxRainbow and rainbow() or CONFIG.ESPColor
-    end
-
-    local function shouldShow(plr)
-        return plr ~= player
     end
 
     for _, plr in pairs(Players:GetPlayers()) do
@@ -397,16 +402,12 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         local hum  = char and char:FindFirstChild("Humanoid")
         local d    = plrDrawings[plr]
 
-        if not shouldShow(plr) or not hrp or not hum then
-            hideAll(d); continue
-        end
+        if plr == player or not hrp or not hum then hideAll(d); continue end
 
         local rootPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
         local dist = math.floor((camera.CFrame.Position - hrp.Position).Magnitude)
 
-        if dist > MAX_DIST_ALL or not onScreen then
-            hideAll(d); continue
-        end
+        if dist > MAX_DIST_ALL or not onScreen then hideAll(d); continue end
 
         if not d then
             d = {
@@ -422,14 +423,15 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
             plrDrawings[plr] = d
         end
 
-        local bCol    = plrBoxColor(plr)
-        local tCol    = plrTracerColor(plr)
-        local sz      = math.clamp((1000 / math.max(dist, 1)) * 2, 10, 600)
-        local bW, bH  = sz, sz * 1.5
-        local bX      = rootPos.X - bW / 2
-        local bY      = rootPos.Y - bH / 2
-        local topY    = bY
-        local cenX    = rootPos.X
+        local bCol = plrBoxColor(plr)
+        local tCol = plrTracerColor(plr)
+        local sz   = math.clamp((1000 / math.max(dist, 1)) * 2, 10, 600)
+        local bW   = sz
+        local bH   = sz * 1.5
+        local bX   = rootPos.X - bW / 2
+        local bY   = rootPos.Y - bH / 2
+        local topY = bY
+        local cenX = rootPos.X
 
         if CONFIG.BoxESP then
             d.box.Size     = Vector2.new(bW, bH)
@@ -541,22 +543,18 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         local showInfo = (cat == "monster" and CONFIG.NPCMonster) or (cat == "item" and CONFIG.NPCItem)
         local showBox  = CONFIG.NPCBoxESP
 
-        if not showInfo and not showBox then
-            hideAll(entDrawings[model]); continue
-        end
+        if not showInfo and not showBox then hideAll(entDrawings[model]); continue end
 
         local hrp = model:FindFirstChild("HumanoidRootPart")
                or  model:FindFirstChild("Torso")
                or  model:FindFirstChild("HRP")
         if not hrp then hideAll(entDrawings[model]); continue end
 
-        local hum                = model:FindFirstChildWhichIsA("Humanoid")
-        local rootPos, onScreen  = camera:WorldToViewportPoint(hrp.Position)
-        local dist               = math.floor((camera.CFrame.Position - hrp.Position).Magnitude)
+        local hum               = model:FindFirstChildWhichIsA("Humanoid")
+        local rootPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+        local dist              = math.floor((camera.CFrame.Position - hrp.Position).Magnitude)
 
-        if dist > MAX_DIST_ALL or not onScreen then
-            hideAll(entDrawings[model]); continue
-        end
+        if dist > MAX_DIST_ALL or not onScreen then hideAll(entDrawings[model]); continue end
 
         local eCol = entityColor(CONFIG, cat)
         local d    = entDrawings[model]
@@ -574,12 +572,13 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
             entDrawings[model] = d
         end
 
-        local sz   = math.clamp((1000 / math.max(dist, 1)) * 2, 10, 600)
-        local bW, bH = sz, sz * 1.5
-        local bX   = rootPos.X - bW / 2
-        local bY   = rootPos.Y - bH / 2
-        local topY = bY
-        local cenX = rootPos.X
+        local sz     = math.clamp((1000 / math.max(dist, 1)) * 2, 10, 600)
+        local bW     = sz
+        local bH     = sz * 1.5
+        local bX     = rootPos.X - bW / 2
+        local bY     = rootPos.Y - bH / 2
+        local topY   = bY
+        local cenX   = rootPos.X
 
         if showBox then
             d.box.Size     = Vector2.new(bW, bH)

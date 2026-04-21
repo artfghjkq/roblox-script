@@ -54,9 +54,13 @@ local Invi     = req("invi.lua")
 local Troll    = req("troll.lua")
 local UI       = req("ui.lua")
 local Spectate = req("spectate.lua")
+local Camera   = req("camera.lua")
 
-Troll.inviModule = Invi   -- so ScareOnce can temporarily show avatar even when invisible
-Troll.configRef  = CONFIG -- so RushScare can restore noclip state after rush
+Troll.inviModule = Invi
+Troll.configRef  = CONFIG
+
+CONFIG.CameraView = CONFIG.CameraView or false
+CONFIG.CameraMode = CONFIG.CameraMode or "normal"
 
 local COLORS         = ColLib.COLORS
 local createCorner   = ColLib.createCorner
@@ -1024,6 +1028,18 @@ end
 
 toggleSyncs["KingMode"] = createToggle(mainContent, "King Mode", "KingMode")
 
+local cameraHub = Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
+
+toggleSyncs["CameraView"] = createToggle(mainContent, "Camera View", "CameraView", function(v)
+    cameraHub.Visible = v
+    if not v then
+        Camera:Stop()
+        CONFIG.CameraMode = "normal"
+    else
+        Notif:Send("Camera Hub opened", 2)
+    end
+end)
+
 local espContent = contentContainers["ESP"]
 toggleSyncs["BoxESP"]     = createToggle(espContent, "Box ESP",      "BoxESP")
 createESPColorRow(espContent, "Box Color", "ESPColor", "BoxRainbow")
@@ -1033,7 +1049,7 @@ toggleSyncs["TeamFilter"] = createToggle(espContent, "Team Filter",  "TeamFilter
         CONFIG.PlayerInfo = true
         if toggleSyncs["PlayerInfo"] then toggleSyncs["PlayerInfo"](true) end
         ESP:RescanNPCs()
-        Notif:Send("Team Filter ON — Player Info auto-enabled", 2)
+        Notif:Send("Team Filter ON - Player Info auto-enabled", 2)
     end
     saveConfig()
 end)
