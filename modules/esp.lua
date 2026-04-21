@@ -13,8 +13,13 @@ local SCAN_INTERVAL  = 180
 local MAX_DIST_ALL   = 500
 local MAX_DIST_SKEL  = 200
 
-local aimbotActive  = false
-local aimbotConn    = nil
+local aimbotActive     = false
+local aimbotConn       = nil
+local aimbotLocked     = false
+local aimbotLockedPart = nil
+
+local AIMBOT_SMOOTH = 0.35
+local AIMBOT_FOV    = 400
 
 local function cd(t, p)
     local o = Drawing.new(t)
@@ -39,11 +44,11 @@ local function removeAll(d)
 end
 
 local TEAMMATE_KW = {
-    "sheriff", "innocent", "hider",
+    "sheriff", "innocent",
 }
 
 local ENEMY_KW = {
-    "killer", "murderer", "siren", "cartoon_cat", "imposter", "seeker",
+    "killer", "murderer", "siren", "cartoon_cat", "imposter",
 }
 
 local FRIENDLY_KW = {
@@ -69,7 +74,7 @@ local MONSTER_KW = {
     "robot", "android", "drone", "turret", "mech", "cyborg", "sentinel",
     "boss", "minion", "stalker", "hunter", "crawler", "jumper", "runner", "charger",
     "pursuer", "monster", "mob",
-    "killer", "murderer", "siren", "cartoon_cat", "imposter", "seeker",
+    "killer", "murderer", "siren", "cartoon_cat", "imposter",
 }
 
 local ITEM_KW = {
@@ -81,7 +86,7 @@ local ITEM_KW = {
     "mine", "landmine", "c4", "flashbang", "smoke",
     "knife", "sword", "blade", "axe", "bow", "crossbow", "spear", "hammer",
     "machete", "dagger", "katana", "scythe", "sickle", "mace", "club",
-    "apple", "banana", "orange", "grape", "watermelon", "strawberry", "cherry", "berry",
+    "apple", "banana", "orange", "grape", "watermelon", "strawberry", "cherry",
     "lemon", "lime", "mango", "peach", "pear", "pineapple", "coconut", "blueberry",
     "raspberry", "kiwi", "papaya", "guava", "avocado", "melon", "pomegranate",
     "food", "meal", "ration", "snack", "bread", "burger", "sandwich", "pizza",
@@ -117,31 +122,17 @@ local ITEM_KW = {
 
 local function classifyModel(model)
     local n = model.Name:lower()
-
-    for _, kw in ipairs(TEAMMATE_KW) do
-        if n:find(kw, 1, true) then return "teammate" end
-    end
-    for _, kw in ipairs(ENEMY_KW) do
-        if n:find(kw, 1, true) then return "monster" end
-    end
-    for _, kw in ipairs(FRIENDLY_KW) do
-        if n:find(kw, 1, true) then return "item" end
-    end
-    for _, kw in ipairs(MONSTER_KW) do
-        if n:find(kw, 1, true) then return "monster" end
-    end
-    for _, kw in ipairs(ITEM_KW) do
-        if n:find(kw, 1, true) then return "item" end
-    end
-
+    for _, kw in ipairs(TEAMMATE_KW) do if n:find(kw, 1, true) then return "teammate" end end
+    for _, kw in ipairs(ENEMY_KW)    do if n:find(kw, 1, true) then return "monster"  end end
+    for _, kw in ipairs(FRIENDLY_KW) do if n:find(kw, 1, true) then return "item"     end end
+    for _, kw in ipairs(MONSTER_KW)  do if n:find(kw, 1, true) then return "monster"  end end
+    for _, kw in ipairs(ITEM_KW)     do if n:find(kw, 1, true) then return "item"     end end
     local hum = model:FindFirstChildWhichIsA("Humanoid")
     return hum and "monster" or "item"
 end
 
 local function entityColor(CONFIG, cat)
-    if cat == "monster" then
-        return CONFIG.NPCMonsterColor or Color3.fromRGB(220, 50, 50)
-    end
+    if cat == "monster" then return CONFIG.NPCMonsterColor or Color3.fromRGB(220, 50, 50) end
     return CONFIG.NPCItemColor or Color3.fromRGB(255, 165, 0)
 end
 
@@ -212,8 +203,8 @@ local function drawSkel(container, hum, skel, color, camera)
             local posA, osA = camera:WorldToViewportPoint(pA.Position)
             local posB, osB = camera:WorldToViewportPoint(pB.Position)
             local line = skel[i] or cd("Line", {Thickness=2, Transparency=1})
-            skel[i] = line
-            line.Color = color
+            skel[i]      = line
+            line.Color   = color
             if osA and osB then
                 line.From    = Vector2.new(posA.X, posA.Y)
                 line.To      = Vector2.new(posB.X, posB.Y)
@@ -227,21 +218,36 @@ local function drawSkel(container, hum, skel, color, camera)
     end
 end
 
-local AIMBOT_SMOOTH = 0.15
-local AIMBOT_FOV    = 300
-local aimbotLocked     = false
-local aimbotLockedPart = nil
+-- ── Aimbot helpers ────────────────────────────────────────────
 
-local function getAimbotTarget(CONFIG, player, camera)
+local function isOnScreen(camera, worldPos)
+    local screenPos, onScreen = camera:WorldToViewportPoint(worldPos)
+    -- onScreen alone is not enough — Z must be positive (in front of camera)
+    return onScreen and screenPos.Z > 0, screenPos
+end
+
+-- Recursively search for a Humanoid in model and all ancestors up to 2 levels
+local function findHum(model)
+    if not model then return nil end
+    local h = model:FindFirstChildWhichIsA("Humanoid")
+    if h then return h end
+    -- Check one level up (for rigs where HRP is a child of a sub-model)
+    if model.Parent and model.Parent:IsA("Model") then
+        h = model.Parent:FindFirstChildWhichIsA("Humanoid")
+        if h then return h end
+    end
+    return nil
+end
+
+local function getAimbotTarget(CONFIG, localPlayer, camera)
+    -- If locked and still alive, keep current target
     if aimbotLocked and aimbotLockedPart and aimbotLockedPart.Parent then
-        local hum = aimbotLockedPart.Parent:FindFirstChildWhichIsA("Humanoid")
-            or (aimbotLockedPart.Parent.Parent and aimbotLockedPart.Parent.Parent:FindFirstChildWhichIsA("Humanoid"))
+        local hum = findHum(aimbotLockedPart.Parent)
         if hum and hum.Health > 0 then
             return aimbotLockedPart
-        else
-            aimbotLocked     = false
-            aimbotLockedPart = nil
         end
+        aimbotLocked     = false
+        aimbotLockedPart = nil
     end
 
     local bestDist = math.huge
@@ -249,12 +255,12 @@ local function getAimbotTarget(CONFIG, player, camera)
     local vpSize   = camera.ViewportSize
     local center   = Vector2.new(vpSize.X / 2, vpSize.Y / 2)
 
-    local function tryPart(char, part)
-        if not char or not part then return end
-        local hum = char:FindFirstChildWhichIsA("Humanoid")
+    local function tryPart(model, part)
+        if not model or not part then return end
+        local hum = findHum(model)
         if not hum or hum.Health <= 0 then return end
-        local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
-        if not onScreen then return end
+        local ok, screenPos = isOnScreen(camera, part.Position)
+        if not ok then return end
         local sp = Vector2.new(screenPos.X, screenPos.Y)
         local d  = (sp - center).Magnitude
         if d < AIMBOT_FOV and d < bestDist then
@@ -265,9 +271,9 @@ local function getAimbotTarget(CONFIG, player, camera)
 
     if CONFIG.AimbotPlayers then
         for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character then
+            if plr ~= localPlayer and plr.Character then
                 local char = plr.Character
-                local part = (CONFIG.AimbotTarget == "head")
+                local part = CONFIG.AimbotTarget == "head"
                     and char:FindFirstChild("Head")
                     or  char:FindFirstChild("HumanoidRootPart")
                 tryPart(char, part)
@@ -278,9 +284,9 @@ local function getAimbotTarget(CONFIG, player, camera)
     if CONFIG.AimbotMonsters then
         for model, cat in pairs(knownEntities) do
             if cat == "monster" and model and model.Parent then
-                local part = (CONFIG.AimbotTarget == "head")
-                    and model:FindFirstChild("Head")
-                    or (model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso"))
+                local part = CONFIG.AimbotTarget == "head"
+                    and (model:FindFirstChild("Head") or model:FindFirstChildWhichIsA("BasePart"))
+                    or  (model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChildWhichIsA("BasePart"))
                 tryPart(model, part)
             end
         end
@@ -288,6 +294,8 @@ local function getAimbotTarget(CONFIG, player, camera)
 
     return bestPart
 end
+
+-- ── Aimbot public API ─────────────────────────────────────────
 
 function ESP:SetAimbotLocked(locked)
     aimbotLocked = locked
@@ -298,32 +306,38 @@ function ESP:IsAimbotLocked() return aimbotLocked end
 function ESP:GetLockedPart()  return aimbotLockedPart end
 
 function ESP:StartAimbot(CONFIG)
-    if aimbotConn then return end
-    local player = Players.LocalPlayer
-    local camera = workspace.CurrentCamera
-    aimbotActive = true
+    -- FIX: always stop first so we never skip because aimbotConn is stale
+    self:StopAimbot()
+
+    local localPlayer = Players.LocalPlayer
+    local camera      = workspace.CurrentCamera
+    aimbotActive      = true
 
     aimbotConn = RunService.RenderStepped:Connect(function(dt)
         if not CONFIG.Aimbot or not aimbotActive then return end
         if not (CONFIG.AimbotPlayers or CONFIG.AimbotMonsters) then return end
 
-        local tgtPart = getAimbotTarget(CONFIG, player, camera)
+        -- Refresh camera ref every frame (can change on respawn)
+        camera = workspace.CurrentCamera
+
+        local tgtPart = getAimbotTarget(CONFIG, localPlayer, camera)
         if not tgtPart or not tgtPart.Parent then
-            if aimbotLocked then
-                aimbotLocked     = false
-                aimbotLockedPart = nil
-            end
+            aimbotLocked     = false
+            aimbotLockedPart = nil
             return
         end
 
-        if not aimbotLocked then aimbotLockedPart = tgtPart end
+        if not aimbotLocked then
+            aimbotLockedPart = tgtPart
+        end
 
         local camPos   = camera.CFrame.Position
         local tgtPos   = tgtPart.Position
         local curLook  = camera.CFrame.LookVector
         local wantLook = (tgtPos - camPos).Unit
-        local smooth   = math.clamp(AIMBOT_SMOOTH * (dt * 60), 0.01, 1)
-        local newLook  = curLook:Lerp(wantLook, smooth).Unit
+        -- Smooth: higher value = snappier. Use dt-independent factor.
+        local factor   = math.clamp(1 - (1 - AIMBOT_SMOOTH) ^ (dt * 60), 0.01, 1)
+        local newLook  = curLook:Lerp(wantLook, factor).Unit
 
         camera.CFrame = CFrame.new(camPos, camPos + newLook)
     end)
@@ -350,6 +364,9 @@ function ESP:RescanNPCs()
     scanEntities()
 end
 
+-- ══════════════════════════════════════════════════════════════
+-- MAIN UPDATE
+-- ══════════════════════════════════════════════════════════════
 function ESP:Update(CONFIG, COLORS, rainbowHue)
     local player = Players.LocalPlayer
     local camera = workspace.CurrentCamera
@@ -396,6 +413,7 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         return CONFIG.BoxRainbow and rainbow() or CONFIG.ESPColor
     end
 
+    -- ── Player ESP ────────────────────────────────────────────
     for _, plr in pairs(Players:GetPlayers()) do
         local char = plr.Character
         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
@@ -405,9 +423,10 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         if plr == player or not hrp or not hum then hideAll(d); continue end
 
         local rootPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
-        local dist = math.floor((camera.CFrame.Position - hrp.Position).Magnitude)
+        if not onScreen or rootPos.Z <= 0 then hideAll(d); continue end
 
-        if dist > MAX_DIST_ALL or not onScreen then hideAll(d); continue end
+        local dist = math.floor((camera.CFrame.Position - hrp.Position).Magnitude)
+        if dist > MAX_DIST_ALL then hideAll(d); continue end
 
         if not d then
             d = {
@@ -430,8 +449,8 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         local bH   = sz * 1.5
         local bX   = rootPos.X - bW / 2
         local bY   = rootPos.Y - bH / 2
-        local topY = bY
         local cenX = rootPos.X
+        local topY = bY
 
         if CONFIG.BoxESP then
             d.box.Size     = Vector2.new(bW, bH)
@@ -449,16 +468,9 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
 
             local tagColor, tagStr
             if CONFIG.TeamFilter then
-                if enemy then
-                    tagColor = Color3.fromRGB(220, 50, 50)
-                    tagStr   = "[ENEMY]"
-                elseif teammate then
-                    tagColor = Color3.fromRGB(50, 220, 100)
-                    tagStr   = "[TEAMMATE]"
-                else
-                    tagColor = Color3.fromRGB(0, 220, 255)
-                    tagStr   = "[PLAYER]"
-                end
+                if enemy        then tagColor = Color3.fromRGB(220, 50, 50);  tagStr = "[ENEMY]"
+                elseif teammate then tagColor = Color3.fromRGB(50, 220, 100); tagStr = "[TEAMMATE]"
+                else                 tagColor = Color3.fromRGB(0, 220, 255);  tagStr = "[PLAYER]" end
             else
                 tagColor = Color3.fromRGB(0, 220, 255)
                 tagStr   = "[PLAYER]"
@@ -485,8 +497,8 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
             d.userText.Visible  = true
 
             if dist <= MAX_DIST_SKEL then
-                local vpSize = camera.ViewportSize
-                local fromPt = Vector2.new(vpSize.X / 2, vpSize.Y)
+                local vp     = camera.ViewportSize
+                local fromPt = Vector2.new(vp.X / 2, vp.Y)
                 local toPt   = Vector2.new(cenX, rootPos.Y)
 
                 d.tracerOutline.From      = fromPt
@@ -518,6 +530,7 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         end
     end
 
+    -- ── Entity ESP ────────────────────────────────────────────
     local anyEntity = CONFIG.NPCBoxESP or CONFIG.NPCMonster or CONFIG.NPCItem
 
     if not anyEntity then
@@ -552,9 +565,10 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
 
         local hum               = model:FindFirstChildWhichIsA("Humanoid")
         local rootPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
-        local dist              = math.floor((camera.CFrame.Position - hrp.Position).Magnitude)
+        if not onScreen or rootPos.Z <= 0 then hideAll(entDrawings[model]); continue end
 
-        if dist > MAX_DIST_ALL or not onScreen then hideAll(entDrawings[model]); continue end
+        local dist = math.floor((camera.CFrame.Position - hrp.Position).Magnitude)
+        if dist > MAX_DIST_ALL then hideAll(entDrawings[model]); continue end
 
         local eCol = entityColor(CONFIG, cat)
         local d    = entDrawings[model]
@@ -572,13 +586,13 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
             entDrawings[model] = d
         end
 
-        local sz     = math.clamp((1000 / math.max(dist, 1)) * 2, 10, 600)
-        local bW     = sz
-        local bH     = sz * 1.5
-        local bX     = rootPos.X - bW / 2
-        local bY     = rootPos.Y - bH / 2
-        local topY   = bY
-        local cenX   = rootPos.X
+        local sz   = math.clamp((1000 / math.max(dist, 1)) * 2, 10, 600)
+        local bW   = sz
+        local bH   = sz * 1.5
+        local bX   = rootPos.X - bW / 2
+        local bY   = rootPos.Y - bH / 2
+        local cenX = rootPos.X
+        local topY = bY
 
         if showBox then
             d.box.Size     = Vector2.new(bW, bH)
@@ -612,8 +626,8 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
             d.nameText.Visible  = true
 
             if dist <= MAX_DIST_SKEL then
-                local vpSize = camera.ViewportSize
-                local fromPt = Vector2.new(vpSize.X / 2, vpSize.Y)
+                local vp     = camera.ViewportSize
+                local fromPt = Vector2.new(vp.X / 2, vp.Y)
                 local toPt   = Vector2.new(cenX, rootPos.Y)
 
                 d.tracerOutline.From      = fromPt

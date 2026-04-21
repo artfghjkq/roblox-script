@@ -12,6 +12,7 @@ local cam    = workspace.CurrentCamera
 local activeMode = "normal"
 local thirdConn  = nil
 local inputConn  = nil
+local rmbConn    = nil
 
 local thirdDist  = 6
 local thirdOffX  = 2.5
@@ -20,10 +21,11 @@ local thirdFov   = 80
 local origFov    = 70
 
 local camYaw     = 0
-local camPitch   = -0.3
-local SENS       = 0.004
+local camPitch   = -0.25
+local SENS       = 0.005
 local PITCH_MIN  = math.rad(-70)
 local PITCH_MAX  = math.rad(60)
+local rmbHeld    = false
 
 local function tw(obj, props, dur)
     if not obj or not obj.Parent then return end
@@ -38,12 +40,11 @@ end
 local function stopThird()
     if thirdConn then thirdConn:Disconnect(); thirdConn = nil end
     if inputConn then inputConn:Disconnect(); inputConn = nil end
+    if rmbConn   then rmbConn:Disconnect();   rmbConn   = nil end
+    rmbHeld = false
     pcall(function()
         cam.CameraType  = Enum.CameraType.Custom
         cam.FieldOfView = origFov
-    end)
-    pcall(function()
-        ContextActionService:UnbindAction("CamHubLock")
         UserInputService.MouseBehavior = Enum.MouseBehavior.Default
     end)
 end
@@ -53,12 +54,13 @@ local function startThird()
 
     origFov = cam.FieldOfView
 
+    -- Initialise yaw from current character facing direction
     local char = player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     if hrp then
-        local _, yaw, _ = hrp.CFrame:ToEulerAnglesYXZ()
-        camYaw   = yaw
-        camPitch = -0.3
+        local _, y, _ = hrp.CFrame:ToEulerAnglesYXZ()
+        camYaw   = y
+        camPitch = -0.25
     end
 
     pcall(function()
@@ -66,20 +68,29 @@ local function startThird()
         cam.FieldOfView = thirdFov
     end)
 
-    pcall(function()
-        ContextActionService:BindAction(
-            "CamHubLock",
-            function() return Enum.ContextActionResult.Sink end,
-            false,
-            Enum.UserInputType.MouseButton2
-        )
-        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-    end)
-
-    inputConn = UserInputService.InputChanged:Connect(function(input)
+    -- Track RMB state
+    rmbConn = UserInputService.InputChanged:Connect(function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+        if not rmbHeld then return end
+        -- Only rotate camera when RMB is held
         camYaw   = camYaw - input.Delta.X * SENS
         camPitch = math.clamp(camPitch - input.Delta.Y * SENS, PITCH_MIN, PITCH_MAX)
+    end)
+
+    inputConn = UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            rmbHeld = true
+            UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+        end
+    end)
+
+    local releaseConn
+    releaseConn = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            rmbHeld = false
+            UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        end
     end)
 
     thirdConn = RunService.RenderStepped:Connect(function()
@@ -88,20 +99,31 @@ local function startThird()
             local hrp = c and c:FindFirstChild("HumanoidRootPart")
             if not hrp then return end
 
-            local pivot = hrp.Position + Vector3.new(0, thirdOffY, 0)
+            -- When RMB is NOT held, camera yaw follows the HRP (character turn)
+            -- so camera always stays behind character during normal walking
+            if not rmbHeld then
+                local _, y, _ = hrp.CFrame:ToEulerAnglesYXZ()
+                -- Smooth yaw follow
+                local diff = y - camYaw
+                -- Wrap diff to [-pi, pi]
+                diff = ((diff + math.pi) % (2 * math.pi)) - math.pi
+                camYaw = camYaw + diff * 0.12
+            end
 
+            local pivot   = hrp.Position + Vector3.new(0, thirdOffY, 0)
             local rotCF   = CFrame.fromEulerAnglesYXZ(camPitch, camYaw, 0)
             local back    = rotCF.LookVector * -thirdDist
             local right   = rotCF.RightVector * thirdOffX
             local camPos  = pivot + back + right
 
+            -- Wall clip prevention
             local rp = RaycastParams.new()
             rp.FilterType = Enum.RaycastFilterType.Exclude
             rp.FilterDescendantsInstances = {c}
             local hit = workspace:Raycast(pivot, camPos - pivot, rp)
             if hit then
-                local safeDist = (hit.Position - pivot).Magnitude - 0.25
-                camPos = pivot + (camPos - pivot).Unit * math.max(safeDist, 0.5)
+                local safeDist = (hit.Position - pivot).Magnitude - 0.3
+                camPos = pivot + (camPos - pivot).Unit * math.max(safeDist, 0.6)
             end
 
             cam.CFrame = CFrame.new(camPos, pivot)
@@ -127,7 +149,7 @@ end
 
 function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     local HUB_W = 240
-    local HUB_H = 290
+    local HUB_H = 300
 
     local BW = {
         BG     = Color3.fromRGB(10,  10,  10),
@@ -144,7 +166,7 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     local hub = Instance.new("Frame")
     hub.Name             = "CameraHub"
     hub.Size             = UDim2.new(0, HUB_W, 0, HUB_H)
-    hub.Position         = UDim2.new(0.5, HUB_W/2 + 10, 0.5, -HUB_H/2)
+    hub.Position         = UDim2.new(0.5, HUB_W / 2 + 10, 0.5, -HUB_H / 2)
     hub.BackgroundColor3 = BW.BG
     hub.Active           = true
     hub.Draggable        = true
@@ -269,7 +291,7 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
 
     local function updateModeBtns(current)
         for i, key in ipairs(modeKeys) do
-            local on = (key == current)
+            local on = key == current
             modeBtns[i].BackgroundColor3 = on and BW.Active or BW.Panel
             modeBtns[i].TextColor3       = on and BW.ActFg or BW.Dim
         end
@@ -352,14 +374,15 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
         end)
     end
 
-    numRow(4, "Distance",     thirdDist,                  2,  20, function(v) thirdDist = v; if activeMode == "third" then startThird() end end)
-    numRow(5, "Side Offset",  thirdOffX,                 -5,   5, function(v) thirdOffX = v; if activeMode == "third" then startThird() end end)
-    numRow(6, "Height Offset",thirdOffY,                 -3,   5, function(v) thirdOffY = v; if activeMode == "third" then startThird() end end)
-    numRow(7, "Field of View",thirdFov,                  50, 120, function(v) thirdFov = v;  if activeMode == "third" then pcall(function() cam.FieldOfView = thirdFov end) end end)
-    numRow(8, "Sensitivity",  math.floor(SENS * 1000),    1,  20, function(v) SENS = v / 1000 end)
+    numRow(4, "Distance",      thirdDist,                   2,  20, function(v) thirdDist = v; if activeMode == "third" then startThird() end end)
+    numRow(5, "Side Offset",   thirdOffX,                  -5,   5, function(v) thirdOffX = v; if activeMode == "third" then startThird() end end)
+    numRow(6, "Height Offset", thirdOffY,                  -3,   5, function(v) thirdOffY = v; if activeMode == "third" then startThird() end end)
+    numRow(7, "Field of View", thirdFov,                   50, 120, function(v) thirdFov = v;  if activeMode == "third" then pcall(function() cam.FieldOfView = thirdFov end) end end)
+    numRow(8, "Sensitivity",   math.floor(SENS * 1000),     1,  20, function(v) SENS = v / 1000 end)
 
+    -- Hint row
     local hintRow = Instance.new("Frame")
-    hintRow.Size             = UDim2.new(1, 0, 0, 22)
+    hintRow.Size             = UDim2.new(1, 0, 0, 30)
     hintRow.BackgroundColor3 = BW.Panel
     hintRow.LayoutOrder      = 9
     hintRow.ZIndex           = 21
@@ -367,14 +390,15 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     createCorner(hintRow, 6)
 
     local hintLbl = Instance.new("TextLabel")
-    hintLbl.Size               = UDim2.new(1, -8, 1, 0)
+    hintLbl.Size               = UDim2.new(1, -12, 1, 0)
     hintLbl.Position           = UDim2.new(0, 6, 0, 0)
     hintLbl.BackgroundTransparency = 1
-    hintLbl.Text               = "Move mouse to rotate  |  Normal to restore"
+    hintLbl.Text               = "Hold RIGHT CLICK to rotate camera\nRelease to walk freely"
     hintLbl.Font               = Enum.Font.Gotham
     hintLbl.TextSize           = 8
     hintLbl.TextColor3         = BW.Dim
     hintLbl.TextXAlignment     = Enum.TextXAlignment.Left
+    hintLbl.TextWrapped        = true
     hintLbl.ZIndex             = 22
     hintLbl.Parent             = hintRow
 
