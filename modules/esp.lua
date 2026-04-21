@@ -39,11 +39,11 @@ local function removeAll(d)
 end
 
 local TEAMMATE_KW = {
-    "sheriff", "innocent",
+    "sheriff", "innocent", "hider",
 }
 
 local ENEMY_KW = {
-    "killer", "murderer", "siren", "cartoon_cat", "imposter",
+    "killer", "murderer", "siren", "cartoon_cat", "imposter", "seeker",
 }
 
 local FRIENDLY_KW = {
@@ -69,7 +69,7 @@ local MONSTER_KW = {
     "robot", "android", "drone", "turret", "mech", "cyborg", "sentinel",
     "boss", "minion", "stalker", "hunter", "crawler", "jumper", "runner", "charger",
     "pursuer", "monster", "mob",
-    "killer", "murderer", "siren", "cartoon_cat", "imposter",
+    "killer", "murderer", "siren", "cartoon_cat", "imposter", "seeker",
 }
 
 local ITEM_KW = {
