@@ -81,7 +81,7 @@ local ITEM_KW = {
     "mine", "landmine", "c4", "flashbang", "smoke",
     "knife", "sword", "blade", "axe", "bow", "crossbow", "spear", "hammer",
     "machete", "dagger", "katana", "scythe", "sickle", "mace", "club",
-    "apple", "banana", "orange", "grape", "watermelon", "strawberry", "cherry",
+    "apple", "banana", "orange", "grape", "watermelon", "strawberry", "cherry", "berry",
     "lemon", "lime", "mango", "peach", "pear", "pineapple", "coconut", "blueberry",
     "raspberry", "kiwi", "papaya", "guava", "avocado", "melon", "pomegranate",
     "food", "meal", "ration", "snack", "bread", "burger", "sandwich", "pizza",

@@ -1,19 +1,29 @@
 local Camera = {}
 
-local Players       = game:GetService("Players")
-local RunService    = game:GetService("RunService")
-local TweenService  = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+local Players              = game:GetService("Players")
+local RunService           = game:GetService("RunService")
+local TweenService         = game:GetService("TweenService")
+local UserInputService     = game:GetService("UserInputService")
+local ContextActionService = game:GetService("ContextActionService")
 
-local player     = Players.LocalPlayer
-local camera     = workspace.CurrentCamera
+local player = Players.LocalPlayer
+local cam    = workspace.CurrentCamera
 
-local activeMode     = "normal"
-local thirdConn      = nil
-local thirdOffset    = Vector3.new(2.5, 1.5, 6)
-local thirdFov       = 80
-local origFov        = camera.FieldOfView
-local origCamType    = camera.CameraType
+local activeMode = "normal"
+local thirdConn  = nil
+local inputConn  = nil
+
+local thirdDist  = 6
+local thirdOffX  = 2.5
+local thirdOffY  = 1.5
+local thirdFov   = 80
+local origFov    = 70
+
+local camYaw     = 0
+local camPitch   = -0.3
+local SENS       = 0.004
+local PITCH_MIN  = math.rad(-70)
+local PITCH_MAX  = math.rad(60)
 
 local function tw(obj, props, dur)
     if not obj or not obj.Parent then return end
@@ -27,32 +37,74 @@ end
 
 local function stopThird()
     if thirdConn then thirdConn:Disconnect(); thirdConn = nil end
+    if inputConn then inputConn:Disconnect(); inputConn = nil end
     pcall(function()
-        camera.CameraType    = Enum.CameraType.Custom
-        camera.FieldOfView   = origFov
+        cam.CameraType  = Enum.CameraType.Custom
+        cam.FieldOfView = origFov
+    end)
+    pcall(function()
+        ContextActionService:UnbindAction("CamHubLock")
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
     end)
 end
 
 local function startThird()
     stopThird()
+
+    origFov = cam.FieldOfView
+
+    local char = player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local _, yaw, _ = hrp.CFrame:ToEulerAnglesYXZ()
+        camYaw   = yaw
+        camPitch = -0.3
+    end
+
     pcall(function()
-        camera.CameraType  = Enum.CameraType.Scriptable
-        camera.FieldOfView = thirdFov
+        cam.CameraType  = Enum.CameraType.Scriptable
+        cam.FieldOfView = thirdFov
+    end)
+
+    pcall(function()
+        ContextActionService:BindAction(
+            "CamHubLock",
+            function() return Enum.ContextActionResult.Sink end,
+            false,
+            Enum.UserInputType.MouseButton2
+        )
+        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+    end)
+
+    inputConn = UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+        camYaw   = camYaw - input.Delta.X * SENS
+        camPitch = math.clamp(camPitch - input.Delta.Y * SENS, PITCH_MIN, PITCH_MAX)
     end)
 
     thirdConn = RunService.RenderStepped:Connect(function()
         pcall(function()
-            local char = player.Character
-            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            local c   = player.Character
+            local hrp = c and c:FindFirstChild("HumanoidRootPart")
             if not hrp then return end
-            local hum    = char:FindFirstChildWhichIsA("Humanoid")
-            local lookDir = hrp.CFrame.LookVector
-            local offset  = thirdOffset
-            local camPos  = hrp.Position
-                + hrp.CFrame.RightVector * offset.X
-                + Vector3.new(0, offset.Y, 0)
-                - lookDir * offset.Z
-            camera.CFrame = CFrame.new(camPos, hrp.Position + Vector3.new(0, 1.5, 0))
+
+            local pivot = hrp.Position + Vector3.new(0, thirdOffY, 0)
+
+            local rotCF   = CFrame.fromEulerAnglesYXZ(camPitch, camYaw, 0)
+            local back    = rotCF.LookVector * -thirdDist
+            local right   = rotCF.RightVector * thirdOffX
+            local camPos  = pivot + back + right
+
+            local rp = RaycastParams.new()
+            rp.FilterType = Enum.RaycastFilterType.Exclude
+            rp.FilterDescendantsInstances = {c}
+            local hit = workspace:Raycast(pivot, camPos - pivot, rp)
+            if hit then
+                local safeDist = (hit.Position - pivot).Magnitude - 0.25
+                camPos = pivot + (camPos - pivot).Unit * math.max(safeDist, 0.5)
+            end
+
+            cam.CFrame = CFrame.new(camPos, pivot)
         end)
     end)
 end
@@ -75,7 +127,7 @@ end
 
 function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     local HUB_W = 240
-    local HUB_H = 260
+    local HUB_H = 290
 
     local BW = {
         BG     = Color3.fromRGB(10,  10,  10),
@@ -92,7 +144,7 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     local hub = Instance.new("Frame")
     hub.Name             = "CameraHub"
     hub.Size             = UDim2.new(0, HUB_W, 0, HUB_H)
-    hub.Position         = UDim2.new(0.5, -HUB_W/2 + 160, 0.5, -HUB_H/2)
+    hub.Position         = UDim2.new(0.5, HUB_W/2 + 10, 0.5, -HUB_H/2)
     hub.BackgroundColor3 = BW.BG
     hub.Active           = true
     hub.Draggable        = true
@@ -202,18 +254,18 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     mRowStroke.Color = BW.Border; mRowStroke.Thickness = 1
 
     local modeLayout = Instance.new("UIListLayout", modeRow)
-    modeLayout.FillDirection         = Enum.FillDirection.Horizontal
-    modeLayout.SortOrder             = Enum.SortOrder.LayoutOrder
-    modeLayout.HorizontalAlignment   = Enum.HorizontalAlignment.Center
-    modeLayout.VerticalAlignment     = Enum.VerticalAlignment.Center
-    modeLayout.Padding               = UDim.new(0, 6)
+    modeLayout.FillDirection       = Enum.FillDirection.Horizontal
+    modeLayout.SortOrder           = Enum.SortOrder.LayoutOrder
+    modeLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    modeLayout.VerticalAlignment   = Enum.VerticalAlignment.Center
+    modeLayout.Padding             = UDim.new(0, 6)
     local modePad = Instance.new("UIPadding", modeRow)
     modePad.PaddingLeft  = UDim.new(0, 6)
     modePad.PaddingRight = UDim.new(0, 6)
 
-    local MODES     = {"Normal", "Third"}
-    local modeKeys  = {"normal", "third"}
-    local modeBtns  = {}
+    local MODES    = {"Normal", "Third"}
+    local modeKeys = {"normal", "third"}
+    local modeBtns = {}
 
     local function updateModeBtns(current)
         for i, key in ipairs(modeKeys) do
@@ -237,12 +289,13 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
         createCorner(btn, 6)
         modeBtns[i] = btn
 
-        local capKey = modeKeys[i]
+        local capKey   = modeKeys[i]
+        local capLabel = label
         btn.MouseButton1Click:Connect(function()
             setMode(capKey)
             updateModeBtns(capKey)
             CONFIG.CameraMode = capKey
-            Notif:Send("Camera: " .. label, 2)
+            Notif:Send("Camera: " .. capLabel, 2)
         end)
     end
 
@@ -297,31 +350,33 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
                 box.Text = tostring(defaultVal)
             end
         end)
-
-        return box
     end
 
-    numRow(4, "Distance (Z)", thirdOffset.Z, 2, 20, function(v)
-        thirdOffset = Vector3.new(thirdOffset.X, thirdOffset.Y, v)
-        if activeMode == "third" then startThird() end
-    end)
+    numRow(4, "Distance",     thirdDist,                  2,  20, function(v) thirdDist = v; if activeMode == "third" then startThird() end end)
+    numRow(5, "Side Offset",  thirdOffX,                 -5,   5, function(v) thirdOffX = v; if activeMode == "third" then startThird() end end)
+    numRow(6, "Height Offset",thirdOffY,                 -3,   5, function(v) thirdOffY = v; if activeMode == "third" then startThird() end end)
+    numRow(7, "Field of View",thirdFov,                  50, 120, function(v) thirdFov = v;  if activeMode == "third" then pcall(function() cam.FieldOfView = thirdFov end) end end)
+    numRow(8, "Sensitivity",  math.floor(SENS * 1000),    1,  20, function(v) SENS = v / 1000 end)
 
-    numRow(5, "Side Offset (X)", thirdOffset.X, -5, 5, function(v)
-        thirdOffset = Vector3.new(v, thirdOffset.Y, thirdOffset.Z)
-        if activeMode == "third" then startThird() end
-    end)
+    local hintRow = Instance.new("Frame")
+    hintRow.Size             = UDim2.new(1, 0, 0, 22)
+    hintRow.BackgroundColor3 = BW.Panel
+    hintRow.LayoutOrder      = 9
+    hintRow.ZIndex           = 21
+    hintRow.Parent           = body
+    createCorner(hintRow, 6)
 
-    numRow(6, "Height Offset (Y)", thirdOffset.Y, -3, 5, function(v)
-        thirdOffset = Vector3.new(thirdOffset.X, v, thirdOffset.Z)
-        if activeMode == "third" then startThird() end
-    end)
-
-    numRow(7, "Field of View", thirdFov, 50, 120, function(v)
-        thirdFov = v
-        if activeMode == "third" then
-            pcall(function() camera.FieldOfView = thirdFov end)
-        end
-    end)
+    local hintLbl = Instance.new("TextLabel")
+    hintLbl.Size               = UDim2.new(1, -8, 1, 0)
+    hintLbl.Position           = UDim2.new(0, 6, 0, 0)
+    hintLbl.BackgroundTransparency = 1
+    hintLbl.Text               = "Move mouse to rotate  |  Normal to restore"
+    hintLbl.Font               = Enum.Font.Gotham
+    hintLbl.TextSize           = 8
+    hintLbl.TextColor3         = BW.Dim
+    hintLbl.TextXAlignment     = Enum.TextXAlignment.Left
+    hintLbl.ZIndex             = 22
+    hintLbl.Parent             = hintRow
 
     local minimized = false
     local savedH    = HUB_H
@@ -339,7 +394,7 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     end)
 
     hubClose.MouseButton1Click:Connect(function()
-        hub.Visible    = false
+        hub.Visible       = false
         CONFIG.CameraView = false
         if toggleSyncs and toggleSyncs["CameraView"] then toggleSyncs["CameraView"](false) end
         Camera:Stop()
