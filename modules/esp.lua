@@ -305,21 +305,21 @@ end
 function ESP:IsAimbotLocked() return aimbotLocked end
 function ESP:GetLockedPart()  return aimbotLockedPart end
 
+local AIMBOT_STEP = "HaloHaloAimbot"
+
 function ESP:StartAimbot(CONFIG)
-    -- FIX: always stop first so we never skip because aimbotConn is stale
     self:StopAimbot()
 
     local localPlayer = Players.LocalPlayer
-    local camera      = workspace.CurrentCamera
     aimbotActive      = true
 
-    aimbotConn = RunService.RenderStepped:Connect(function(dt)
+    RunService:BindToRenderStep(AIMBOT_STEP, Enum.RenderPriority.Camera.Value - 1, function(dt)
         if not CONFIG.Aimbot or not aimbotActive then return end
         if not (CONFIG.AimbotPlayers or CONFIG.AimbotMonsters) then return end
 
-        -- Refresh camera ref every frame (can change on respawn)
-        camera = workspace.CurrentCamera
+        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then return end
 
+        local camera = workspace.CurrentCamera
         local tgtPart = getAimbotTarget(CONFIG, localPlayer, camera)
         if not tgtPart or not tgtPart.Parent then
             aimbotLocked     = false
@@ -331,23 +331,31 @@ function ESP:StartAimbot(CONFIG)
             aimbotLockedPart = tgtPart
         end
 
-        local camPos   = camera.CFrame.Position
+        local camCF    = camera.CFrame
+        local camPos   = camCF.Position
         local tgtPos   = tgtPart.Position
-        local curLook  = camera.CFrame.LookVector
+        local curLook  = camCF.LookVector
         local wantLook = (tgtPos - camPos).Unit
-        -- Smooth: higher value = snappier. Use dt-independent factor.
         local factor   = math.clamp(1 - (1 - AIMBOT_SMOOTH) ^ (dt * 60), 0.01, 1)
         local newLook  = curLook:Lerp(wantLook, factor).Unit
 
-        camera.CFrame = CFrame.new(camPos, camPos + newLook)
+        local newRight = newLook:Cross(Vector3.new(0, 1, 0))
+        if newRight.Magnitude < 0.01 then newRight = camCF.RightVector end
+        local newUp   = newRight.Unit:Cross(newLook)
+        camera.CFrame = CFrame.fromMatrix(camPos, newRight.Unit, newUp.Unit, -newLook)
     end)
+
+    aimbotConn = true
 end
 
 function ESP:StopAimbot()
     aimbotActive     = false
     aimbotLocked     = false
     aimbotLockedPart = nil
-    if aimbotConn then aimbotConn:Disconnect(); aimbotConn = nil end
+    if aimbotConn then
+        pcall(function() RunService:UnbindFromRenderStep(AIMBOT_STEP) end)
+        aimbotConn = nil
+    end
 end
 
 function ESP:Cleanup(plr)
