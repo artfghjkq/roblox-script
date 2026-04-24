@@ -1,4 +1,4 @@
--- HALO-HALO v0.1.2
+-- HALO-HALO v0.1.3
 -- Entry point -- loads all modules from GitHub
 
 local BASE_URL = "https://raw.githubusercontent.com/artfghjkq/roblox-script/refs/heads/main/modules/"
@@ -6,37 +6,27 @@ local BASE_URL = "https://raw.githubusercontent.com/artfghjkq/roblox-script/refs
 local function req(file)
     local url = BASE_URL .. file
     local raw = nil
-
-    -- Retry up to 3 times (handles GitHub rate limits / network blips)
     for attempt = 1, 3 do
-        local ok, result = pcall(function()
-            return game:HttpGet(url)
-        end)
+        local ok, result = pcall(function() return game:HttpGet(url) end)
         if ok and result and result ~= "" and not result:find("^<!") then
-            raw = result
-            break
+            raw = result; break
         end
         if attempt < 3 then task.wait(1) end
     end
-
     if not raw then
         error("[HALO-HALO] Could not fetch: " .. file .. " (check GitHub & HTTP enabled)", 2)
     end
-
     local fn, err = loadstring(raw)
     if not fn then
         error("[HALO-HALO] Syntax error in: " .. file .. "\n" .. tostring(err), 2)
     end
-
     local ok2, result2 = pcall(fn)
     if not ok2 then
         error("[HALO-HALO] Runtime error in: " .. file .. "\n" .. tostring(result2), 2)
     end
-
     return result2
 end
 
--- Services
 local Players          = game:GetService("Players")
 local player           = Players.LocalPlayer
 local RunService       = game:GetService("RunService")
@@ -44,7 +34,6 @@ local UserInputService = game:GetService("UserInputService")
 local CoreGui          = game:GetService("CoreGui")
 local Lighting         = game:GetService("Lighting")
 
--- Load modules
 local CONFIG   = req("config.lua")
 local ColLib   = req("colors.lua")
 local Notif    = req("notif.lua")
@@ -69,319 +58,36 @@ local createGradient = ColLib.createGradient
 local galaxyGradient = ColLib.galaxyGradient
 local tween          = ColLib.tween
 
--- Rainbow hue (shared)
 local rainbowHue = 0
 
--- ESP cleanup on player leave
-Players.PlayerRemoving:Connect(function(plr)
-    ESP:Cleanup(plr)
-end)
+Players.PlayerRemoving:Connect(function(plr) ESP:Cleanup(plr) end)
 
--- Invisibility (handled by invi.lua module)
-local function applyInvisibility(state)
-    Invi:Set(state)
-end
+local function applyInvisibility(state) Invi:Set(state) end
 
 -- ============================================================
--- UI
+-- SCREEN GUI
 -- ============================================================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "HALO-HALO"
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.Parent = CoreGui
+screenGui.Name            = "HALO-HALO"
+screenGui.ResetOnSpawn    = false
+screenGui.ZIndexBehavior  = Enum.ZIndexBehavior.Sibling
+screenGui.Parent          = CoreGui
 
--- B&W palette (used for ALL UI)
 local BW = {
-    BG      = Color3.fromRGB(10,  10,  10),
-    Panel   = Color3.fromRGB(18,  18,  18),
-    Row     = Color3.fromRGB(26,  26,  26),
-    Border  = Color3.fromRGB(55,  55,  55),
-    Active  = Color3.fromRGB(220, 220, 220),
-    ActFg   = Color3.fromRGB(10,  10,  10),
-    Text    = Color3.fromRGB(210, 210, 210),
-    Dim     = Color3.fromRGB(110, 110, 110),
-    White   = Color3.fromRGB(255, 255, 255),
-    Red     = Color3.fromRGB(220,  60,  60),
+    BG     = Color3.fromRGB(10,  10,  10),
+    Panel  = Color3.fromRGB(18,  18,  18),
+    Row    = Color3.fromRGB(26,  26,  26),
+    Border = Color3.fromRGB(55,  55,  55),
+    Active = Color3.fromRGB(220, 220, 220),
+    ActFg  = Color3.fromRGB(10,  10,  10),
+    Text   = Color3.fromRGB(210, 210, 210),
+    Dim    = Color3.fromRGB(110, 110, 110),
+    White  = Color3.fromRGB(255, 255, 255),
+    Red    = Color3.fromRGB(220,  60,  60),
 }
 
--- Icon button
-local iconBtn = Instance.new("TextButton")
-iconBtn.Size = UDim2.new(0, 54, 0, 54)
-iconBtn.Position = UDim2.new(0, 20, 0, 20)
-iconBtn.BackgroundColor3 = BW.BG
-iconBtn.Text = "HH"
-iconBtn.TextColor3 = BW.White
-iconBtn.Font = Enum.Font.GothamBlack
-iconBtn.TextSize = 16
-iconBtn.Active = true
-iconBtn.Draggable = true
-iconBtn.Parent = screenGui
-createCorner(iconBtn, 10)
-createStroke(iconBtn, BW.Border, 2)
-
--- Main frame
-local FRAME_W, FRAME_H, TAB_W = 310, 380, 70
-
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, FRAME_W, 0, FRAME_H)
-mainFrame.Position = UDim2.new(0.5, -FRAME_W/2, 0.5, -FRAME_H/2)
-mainFrame.BackgroundColor3 = BW.BG
-mainFrame.Visible = false
-mainFrame.Active = true
-mainFrame.Draggable = true
-mainFrame.ClipsDescendants = true
-mainFrame.Parent = screenGui
-createCorner(mainFrame, 12)
-createStroke(mainFrame, BW.Border, 1)
-
--- Top bar
-local topBar = Instance.new("Frame")
-topBar.Size = UDim2.new(1, 0, 0, 42)
-topBar.BackgroundColor3 = BW.Panel
-topBar.Parent = mainFrame
-createCorner(topBar, 12)
--- flat bottom
-local topFill = Instance.new("Frame")
-topFill.Size = UDim2.new(1, 0, 0.5, 0)
-topFill.Position = UDim2.new(0, 0, 0.5, 0)
-topFill.BackgroundColor3 = BW.Panel
-topFill.BorderSizePixel = 0
-topFill.Parent = topBar
-
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, -80, 1, 0)
-titleLabel.Position = UDim2.new(0, 15, 0, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "HALO-HALO"
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.TextSize = 13
-titleLabel.TextColor3 = BW.White
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-titleLabel.Parent = topBar
-
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 22, 0, 22)
-closeBtn.Position = UDim2.new(1, -30, 0.5, -11)
-closeBtn.Text = "✕"
-closeBtn.BackgroundColor3 = BW.Row
-closeBtn.TextColor3 = BW.Dim
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 11
-closeBtn.Parent = topBar
-createCorner(closeBtn, 5)
-createStroke(closeBtn, BW.Border, 1)
-
--- Sidebar
-local tabSidebar = Instance.new("Frame")
-tabSidebar.Size = UDim2.new(0, TAB_W, 1, -42)
-tabSidebar.Position = UDim2.new(0, 0, 0, 42)
-tabSidebar.BackgroundColor3 = BW.Panel
-tabSidebar.Parent = mainFrame
-
-local sideLayout = Instance.new("UIListLayout", tabSidebar)
-sideLayout.SortOrder = Enum.SortOrder.LayoutOrder
-sideLayout.Padding = UDim.new(0, 4)
-
-local sidePad = Instance.new("UIPadding", tabSidebar)
-sidePad.PaddingTop = UDim.new(0, 6)
-sidePad.PaddingLeft = UDim.new(0, 4)
-sidePad.PaddingRight = UDim.new(0, 4)
-
-local contentFrame = Instance.new("Frame")
-contentFrame.Size = UDim2.new(1, -TAB_W, 1, -42)
-contentFrame.Position = UDim2.new(0, TAB_W, 0, 42)
-contentFrame.BackgroundTransparency = 1
-contentFrame.Parent = mainFrame
-
-local tabButtons, contentContainers = {}, {}
-local tabs = {"MAIN", "ESP", "FPS", "SCRIPTS", "TROLL", "SPEC"}
-local tabIcons = {MAIN="SYS", ESP="ESP", FPS="FPS", SCRIPTS="SCR", TROLL="TRL", SPEC="SPC"}
-
-local function setActiveTab(tabName)
-    for name, btn in pairs(tabButtons) do
-        btn.BackgroundColor3 = (name == tabName) and BW.Active or BW.Row
-        btn.TextColor3 = (name == tabName) and BW.ActFg or BW.Dim
-    end
-    for name, c in pairs(contentContainers) do c.Visible = (name == tabName) end
-end
-
-for i, tabName in ipairs(tabs) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 50)
-    btn.BackgroundColor3 = (i == 1) and BW.Active or BW.Row
-    btn.TextColor3 = (i == 1) and BW.ActFg or BW.Dim
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 8
-    btn.Text = tabIcons[tabName] .. "\n" .. tabName
-    btn.TextWrapped = true
-    btn.Parent = tabSidebar
-    createCorner(btn, 8)
-    tabButtons[tabName] = btn
-
-    local container = Instance.new("ScrollingFrame")
-    container.Size = UDim2.new(1, 0, 1, 0)
-    container.BackgroundTransparency = 1
-    container.BorderSizePixel = 0
-    container.ScrollBarThickness = 2
-    container.Visible = (i == 1)
-    container.CanvasSize = UDim2.new(0, 0, 0, 0)
-    container.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    container.Parent = contentFrame
-    contentContainers[tabName] = container
-
-    local layout = Instance.new("UIListLayout", container)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Padding = UDim.new(0, 4)
-
-    local pad = Instance.new("UIPadding", container)
-    pad.PaddingTop = UDim.new(0, 4)
-    pad.PaddingLeft = UDim.new(0, 4)
-    pad.PaddingRight = UDim.new(0, 4)
-
-    btn.MouseButton1Click:Connect(function() setActiveTab(tabName) end)
-end
-
-
 -- ============================================================
--- SAVE / LOAD CONFIG
--- ============================================================
-local SAVE_FILE = "halohalo_config.json"
-
-local COLOR_KEYS = {ESPColor=true, NPCMonsterColor=true, NPCItemColor=true}
-
-local function color3ToTable(c)
-    return {r=c.R, g=c.G, b=c.B}
-end
-
-local function tableToColor3(t)
-    return Color3.new(t.r, t.g, t.b)
-end
-
-local function qbSlotsToTable()
-    local t = {}
-    for i = 1, QB_SLOTS do
-        local opt = qbSlots[i]
-        t[i] = opt and (opt.key.."|"..opt.label) or false
-    end
-    return t
-end
-
-local function saveConfig()
-    if not (writefile) then return end
-    pcall(function()
-        local data = {}
-
-        data.config = {}
-        for k, v in pairs(CONFIG) do
-            if COLOR_KEYS[k] then
-                data.config[k] = color3ToTable(v)
-            else
-                data.config[k] = v
-            end
-        end
-
-        data.qbSlots = qbSlotsToTable()
-
-        local function serialize(val)
-            local t = type(val)
-            if t == "boolean" then return val and "true" or "false"
-            elseif t == "number" then return tostring(val)
-            elseif t == "string" then return '"' .. val:gsub('"', '\\"') .. '"'
-            elseif t == "table" then
-                local parts = {}
-                local isArr = (#val > 0)
-                for k2, v2 in pairs(val) do
-                    if isArr then
-                        parts[#parts+1] = serialize(v2)
-                    else
-                        parts[#parts+1] = '"' .. tostring(k2) .. '":' .. serialize(v2)
-                    end
-                end
-                if isArr then
-                    return "[" .. table.concat(parts, ",") .. "]"
-                else
-                    return "{" .. table.concat(parts, ",") .. "}"
-                end
-            else
-                return "null"
-            end
-        end
-
-        writefile(SAVE_FILE, serialize(data))
-    end)
-end
-
-local function loadConfig()
-    if not (readfile and isfile) then return end
-    if not isfile(SAVE_FILE) then return end
-    pcall(function()
-        local raw = readfile(SAVE_FILE)
-
-        local function parseColor(s)
-            local r,g,b = s:match('"r":([%d%.]+).-"g":([%d%.]+).-"b":([%d%.]+)')
-            if r then return Color3.new(tonumber(r), tonumber(g), tonumber(b)) end
-        end
-
-        for k, _ in pairs(CONFIG) do
-            if COLOR_KEYS[k] then
-                local block = raw:match('"'..k..'":(%b{})')
-                if block then
-                    local c = parseColor(block)
-                    if c then CONFIG[k] = c end
-                end
-            else
-                local val = raw:match('"'..k..'":([^,}%]]+)')
-                if val then
-                    val = val:match("^%s*(.-)%s*$")
-                    if val == "true" then CONFIG[k] = true
-                    elseif val == "false" then CONFIG[k] = false
-                    else
-                        local n = tonumber(val)
-                        if n then CONFIG[k] = n end
-                    end
-                end
-            end
-        end
-
-        local qbBlock = raw:match('"qbSlots":%[(.-)%]')
-        if qbBlock then
-            local i = 0
-            for entry in qbBlock:gmatch('[^,]+') do
-                i = i + 1
-                if i > QB_SLOTS then break end
-                entry = entry:match('^%s*"?(.-)\"?%s*$')
-                if entry ~= "false" and entry ~= "" then
-                    local eKey, eLabel = entry:match("^(.+)|(.+)$")
-                    for _, opt in ipairs(QB_OPTIONS) do
-                        if eLabel then
-                            if opt.key == eKey and opt.label == eLabel then
-                                qbSlots[i] = opt; break
-                            end
-                        else
-                            -- legacy format (key only)
-                            if opt.key == entry then
-                                qbSlots[i] = opt; break
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-        for i = 1, QB_SLOTS do updateQBBtn(i) end
-
-        if CONFIG.Invisibility then applyInvisibility(true) end
-        if CONFIG.FPSBoost then
-            Lighting.GlobalShadows = false
-            Lighting.Technology = Enum.Technology.Compatibility
-        end
-    end)
-end
-
-
--- ============================================================
--- COMPONENTS
+-- SHARED COMPONENTS
 -- ============================================================
 local COLOR_PRESETS = {
     {name="White",  color=Color3.fromRGB(255,255,255)},
@@ -396,256 +102,36 @@ local COLOR_PRESETS = {
 }
 
 local toggleSyncs = {}
-
-local function createToggle(parent, text, key, callback)
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -4, 0, 32)
-    container.BackgroundColor3 = BW.Row
-    container.Parent = parent
-    createCorner(container, 8)
-    createStroke(container, BW.Border, 1)
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -50, 1, 0)
-    label.Position = UDim2.new(0, 8, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.Font = Enum.Font.GothamSemibold
-    label.TextSize = 10
-    label.TextColor3 = BW.Text
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = container
-
-    local toggleBtn = Instance.new("Frame")
-    toggleBtn.Size = UDim2.new(0, 34, 0, 17)
-    toggleBtn.Position = UDim2.new(1, -42, 0.5, -8.5)
-    toggleBtn.BackgroundColor3 = CONFIG[key] and BW.Active or BW.Border
-    toggleBtn.Parent = container
-    createCorner(toggleBtn, 9)
-
-    local indicator = Instance.new("Frame")
-    indicator.Size = UDim2.new(0, 13, 0, 13)
-    indicator.Position = CONFIG[key] and UDim2.new(1,-15,0.5,-6.5) or UDim2.new(0,2,0.5,-6.5)
-    indicator.BackgroundColor3 = CONFIG[key] and BW.ActFg or BW.Dim
-    indicator.Parent = toggleBtn
-    createCorner(indicator, 7)
-
-    local click = Instance.new("TextButton")
-    click.Size = UDim2.new(1, 0, 1, 0)
-    click.BackgroundTransparency = 1
-    click.Text = ""
-    click.Parent = container
-
-    local function updateVisuals(state)
-        tween(toggleBtn, {BackgroundColor3 = state and BW.Active or BW.Border}, 0.2)
-        tween(indicator, {
-            Position = state and UDim2.new(1,-15,0.5,-6.5) or UDim2.new(0,2,0.5,-6.5),
-            BackgroundColor3 = state and BW.ActFg or BW.Dim
-        }, 0.2)
-    end
-
-    click.MouseButton1Click:Connect(function()
-        CONFIG[key] = not CONFIG[key]
-        updateVisuals(CONFIG[key])
-        if callback then callback(CONFIG[key]) end
-        saveConfig()
-    end)
-
-    return updateVisuals
-end
-
 local sliderSyncs = {}
 
-local function createSlider(parent, text, key, min, max, callback)
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -4, 0, 45)
-    container.BackgroundColor3 = BW.Row
-    container.Parent = parent
-    createCorner(container, 8)
-    createStroke(container, BW.Border, 1)
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -8, 0, 18)
-    label.Position = UDim2.new(0, 8, 0, 4)
-    label.BackgroundTransparency = 1
-    label.Text = text .. ": " .. CONFIG[key]
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 9
-    label.TextColor3 = BW.Text
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = container
-
-    local sliderBg = Instance.new("Frame")
-    sliderBg.Size = UDim2.new(1, -16, 0, 4)
-    sliderBg.Position = UDim2.new(0, 8, 0, 33)
-    sliderBg.BackgroundColor3 = BW.Border
-    sliderBg.Parent = container
-    createCorner(sliderBg, 2)
-
-    local ip = math.clamp((CONFIG[key]-min)/(max-min), 0, 1)
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new(ip, 0, 1, 0)
-    fill.BackgroundColor3 = BW.Active
-    fill.Parent = sliderBg
-    createCorner(fill, 2)
-
-    local knob = Instance.new("Frame")
-    knob.Size = UDim2.new(0, 12, 0, 12)
-    knob.Position = UDim2.new(ip, -6, 0.5, -6)
-    knob.BackgroundColor3 = BW.White
-    knob.Parent = sliderBg
-    createCorner(knob, 6)
-    createStroke(knob, BW.Border, 1)
-
-    local dragging = false
-    local function update(input)
-        local pos = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X)/sliderBg.AbsoluteSize.X, 0, 1)
-        local val = math.floor(min + (max-min)*pos)
-        CONFIG[key] = val
-        label.Text = text .. ": " .. val
-        fill.Size = UDim2.new(pos, 0, 1, 0)
-        knob.Position = UDim2.new(pos, -6, 0.5, -6)
-        if callback then callback(val) end
-    end
-
-    local function refresh()
-        local val = CONFIG[key]
-        local pos = math.clamp((val - min) / (max - min), 0, 1)
-        label.Text = text .. ": " .. val
-        fill.Size = UDim2.new(pos, 0, 1, 0)
-        knob.Position = UDim2.new(pos, -6, 0.5, -6)
-    end
-    sliderSyncs[key] = refresh
-
-    sliderBg.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging=true update(i) end end)
-    UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then if dragging then dragging=false; saveConfig() end end end)
-    UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then update(i) end end)
-end
-
-local function createESPColorRow(parent, text, colorKey, rainbowKey)
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -4, 0, 54)
-    container.BackgroundColor3 = BW.Row
-    container.Parent = parent
-    createCorner(container, 8)
-    createStroke(container, BW.Border, 1)
-
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -8, 0, 18)
-    lbl.Position = UDim2.new(0, 8, 0, 4)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextSize = 9
-    lbl.TextColor3 = BW.Dim
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = container
-
-    local div = Instance.new("Frame")
-    div.Size = UDim2.new(1, -16, 0, 1)
-    div.Position = UDim2.new(0, 8, 0, 24)
-    div.BackgroundColor3 = BW.Border
-    div.Parent = container
-
-    local idx = 1
-    local swatch = Instance.new("Frame")
-    swatch.Size = UDim2.new(0, 16, 0, 16)
-    swatch.Position = UDim2.new(0, 8, 0, 31)
-    swatch.BackgroundColor3 = CONFIG[colorKey]
-    swatch.Parent = container
-    createCorner(swatch, 4)
-
-    local cName = Instance.new("TextLabel")
-    cName.Size = UDim2.new(0, 55, 0, 16)
-    cName.Position = UDim2.new(0, 28, 0, 31)
-    cName.BackgroundTransparency = 1
-    cName.Text = "Custom"
-    cName.Font = Enum.Font.GothamBold
-    cName.TextSize = 9
-    cName.TextColor3 = BW.Dim
-    cName.TextXAlignment = Enum.TextXAlignment.Left
-    cName.Parent = container
-
-    local cBtn = Instance.new("TextButton")
-    cBtn.Size = UDim2.new(0, 75, 0, 20)
-    cBtn.Position = UDim2.new(0, 5, 0, 29)
-    cBtn.BackgroundTransparency = 1
-    cBtn.Text = ""
-    cBtn.Parent = container
-
-    cBtn.MouseButton1Click:Connect(function()
-        idx = (idx % #COLOR_PRESETS) + 1
-        local c = COLOR_PRESETS[idx]
-        CONFIG[colorKey] = c.color
-        swatch.BackgroundColor3 = c.color
-        cName.Text = c.name
-        saveConfig()
-    end)
-
-    local rbBtn = Instance.new("TextButton")
-    rbBtn.Size = UDim2.new(0, 70, 0, 18)
-    rbBtn.Position = UDim2.new(1, -78, 0, 29)
-    rbBtn.Font = Enum.Font.GothamBold
-    rbBtn.TextSize = 7
-    rbBtn.Parent = container
-    createCorner(rbBtn, 6)
-
-    if rainbowKey then
-        rbBtn.BackgroundColor3 = CONFIG[rainbowKey] and BW.Active or BW.Border
-        rbBtn.Text = "RGB"
-        rbBtn.TextColor3 = CONFIG[rainbowKey] and BW.ActFg or BW.Dim
-        rbBtn.MouseButton1Click:Connect(function()
-            CONFIG[rainbowKey] = not CONFIG[rainbowKey]
-            tween(rbBtn, {
-                BackgroundColor3 = CONFIG[rainbowKey] and BW.Active or BW.Border,
-                TextColor3 = CONFIG[rainbowKey] and BW.ActFg or BW.Dim
-            }, 0.2)
-            saveConfig()
-        end)
-    else
-        rbBtn.BackgroundColor3 = BW.Panel
-        rbBtn.Text = ""
-        rbBtn.TextColor3 = BW.Dim
-        rbBtn.BackgroundTransparency = 1
-    end
-end
-
 -- ============================================================
--- QUICK BUTTONS
+-- SAVE / LOAD CONFIG
 -- ============================================================
-local QB_OPTIONS = {
-    {label="Speed",    icon="SPD", key="SpeedBoost",    callback=function(v) if not v then local h=player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") if h then h.WalkSpeed=16 end end end},
-    {label="Noclip",   icon="NCP", key="Noclip",        callback=nil},
-    {label="Invis",    icon="INV", key="Invisibility",   callback=function(v) applyInvisibility(v) end},
-    {label="Box ESP",  icon="BOX", key="BoxESP",         callback=nil},
-    {label="Plr Info", icon="PLR", key="PlayerInfo",     callback=nil},
-    {label="Jump",     icon="JMP", key="SuperJump",      callback=nil},
-    {label="King",     icon="KNG", key="KingMode",       callback=nil},
-    {label="FPS",      icon="FPS", key="FPSBoost",       callback=function(v) Lighting.GlobalShadows=not v Lighting.Technology=v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap end},
-    {label="ESP Mon",  icon="EMN", key="NPCMonster",     callback=function(v) if v then ESP:RescanNPCs() end end},
-    {label="ESP Plr",  icon="EPL", key="PlayerInfo",     callback=nil},
-    {label="AB Mon",   icon="AMN", key="AimbotMonsters", callback=function(v)
-        if v then
-            CONFIG.Aimbot = true
-            if toggleSyncs["Aimbot"] then toggleSyncs["Aimbot"](true) end
-            ESP:StartAimbot(CONFIG)
-        end
-    end},
-    {label="AB Plr",   icon="APL", key="AimbotPlayers",  callback=function(v)
-        if v then
-            CONFIG.Aimbot = true
-            if toggleSyncs["Aimbot"] then toggleSyncs["Aimbot"](true) end
-            ESP:StartAimbot(CONFIG)
-        end
-    end},
-}
+local SAVE_FILE  = "halohalo_config.json"
+local COLOR_KEYS = {ESPColor=true, NPCMonsterColor=true, NPCItemColor=true}
 
-local QB_SLOTS   = 5
-local qbSlots    = {}
-local qbBtns     = {}
+local function color3ToTable(c) return {r=c.R, g=c.G, b=c.B} end
+
+local QB_SLOTS = 5
+local qbSlots  = {}
+local qbBtns   = {}
 local qbStrokes  = {}
 local qbNameLbls = {}
 for i = 1, QB_SLOTS do qbSlots[i] = nil end
+
+local QB_OPTIONS = {
+    {label="Speed",   icon="SPD", key="SpeedBoost",    callback=function(v) if not v then local h=player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") if h then h.WalkSpeed=16 end end end},
+    {label="Noclip",  icon="NCP", key="Noclip",        callback=nil},
+    {label="Invis",   icon="INV", key="Invisibility",   callback=function(v) applyInvisibility(v) end},
+    {label="Box ESP", icon="BOX", key="BoxESP",         callback=nil},
+    {label="PlrInfo", icon="PLR", key="PlayerInfo",     callback=nil},
+    {label="Jump",    icon="JMP", key="SuperJump",      callback=nil},
+    {label="King",    icon="KNG", key="KingMode",       callback=nil},
+    {label="FPS",     icon="FPS", key="FPSBoost",       callback=function(v) Lighting.GlobalShadows=not v; Lighting.Technology=v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap end},
+    {label="Mon ESP", icon="EMN", key="NPCMonster",     callback=function(v) if v then ESP:RescanNPCs() end end},
+    {label="AB Mon",  icon="AMN", key="AimbotMonsters", callback=function(v) if v then CONFIG.Aimbot=true; if toggleSyncs["Aimbot"] then toggleSyncs["Aimbot"](true) end; ESP:StartAimbot(CONFIG) end end},
+    {label="AB Plr",  icon="APL", key="AimbotPlayers",  callback=function(v) if v then CONFIG.Aimbot=true; if toggleSyncs["Aimbot"] then toggleSyncs["Aimbot"](true) end; ESP:StartAimbot(CONFIG) end end},
+}
 
 local function updateQBBtn(i)
     local btn  = qbBtns[i]
@@ -669,6 +155,747 @@ local function updateQBBtn(i)
     end
 end
 
+local function qbSlotsToTable()
+    local t = {}
+    for i = 1, QB_SLOTS do
+        local opt = qbSlots[i]
+        t[i] = opt and (opt.key .. "|" .. opt.label) or false
+    end
+    return t
+end
+
+local function saveConfig()
+    if not writefile then return end
+    pcall(function()
+        local data = { config = {}, qbSlots = qbSlotsToTable() }
+        for k, v in pairs(CONFIG) do
+            data.config[k] = COLOR_KEYS[k] and color3ToTable(v) or v
+        end
+        local function ser(val)
+            local t = type(val)
+            if t == "boolean" then return val and "true" or "false"
+            elseif t == "number" then return tostring(val)
+            elseif t == "string" then return '"' .. val:gsub('"', '\\"') .. '"'
+            elseif t == "table" then
+                local parts, isArr = {}, (#val > 0)
+                for k2, v2 in pairs(val) do
+                    parts[#parts+1] = isArr and ser(v2) or ('"'..tostring(k2)..'":' .. ser(v2))
+                end
+                return isArr and ("["..table.concat(parts,",").."]") or ("{"..table.concat(parts,",").."}")
+            else return "null" end
+        end
+        writefile(SAVE_FILE, ser(data))
+    end)
+end
+
+local function loadConfig()
+    if not (readfile and isfile) then return end
+    if not isfile(SAVE_FILE) then return end
+    pcall(function()
+        local raw = readfile(SAVE_FILE)
+        local function parseColor(s)
+            local r,g,b = s:match('"r":([%d%.]+).-"g":([%d%.]+).-"b":([%d%.]+)')
+            if r then return Color3.new(tonumber(r),tonumber(g),tonumber(b)) end
+        end
+        for k in pairs(CONFIG) do
+            if COLOR_KEYS[k] then
+                local block = raw:match('"'..k..'":(%b{})')
+                if block then local c=parseColor(block); if c then CONFIG[k]=c end end
+            else
+                local val = raw:match('"'..k..'":([^,}%]]+)')
+                if val then
+                    val = val:match("^%s*(.-)%s*$")
+                    if val=="true" then CONFIG[k]=true
+                    elseif val=="false" then CONFIG[k]=false
+                    else local n=tonumber(val); if n then CONFIG[k]=n end end
+                end
+            end
+        end
+        local qbBlock = raw:match('"qbSlots":%[(.-)%]')
+        if qbBlock then
+            local i = 0
+            for entry in qbBlock:gmatch('[^,]+') do
+                i = i + 1; if i > QB_SLOTS then break end
+                entry = entry:match('^%s*"?(.-)\"?%s*$')
+                if entry ~= "false" and entry ~= "" then
+                    local eKey, eLabel = entry:match("^(.+)|(.+)$")
+                    for _, opt in ipairs(QB_OPTIONS) do
+                        if eLabel then
+                            if opt.key==eKey and opt.label==eLabel then qbSlots[i]=opt; break end
+                        else
+                            if opt.key==entry then qbSlots[i]=opt; break end
+                        end
+                    end
+                end
+            end
+        end
+        for i2 = 1, QB_SLOTS do updateQBBtn(i2) end
+        if CONFIG.Invisibility then applyInvisibility(true) end
+        if CONFIG.FPSBoost then
+            Lighting.GlobalShadows = false
+            Lighting.Technology    = Enum.Technology.Compatibility
+        end
+    end)
+end
+
+-- ============================================================
+-- TOGGLE / COLOR ROW BUILDERS
+-- ============================================================
+local function createToggle(parent, text, key, callback)
+    local container = Instance.new("Frame")
+    container.Size             = UDim2.new(1, -4, 0, 32)
+    container.BackgroundColor3 = BW.Row
+    container.Parent           = parent
+    createCorner(container, 8)
+    createStroke(container, BW.Border, 1)
+
+    local label = Instance.new("TextLabel")
+    label.Size               = UDim2.new(1, -50, 1, 0)
+    label.Position           = UDim2.new(0, 8, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text               = text
+    label.Font               = Enum.Font.GothamSemibold
+    label.TextSize           = 10
+    label.TextColor3         = BW.Text
+    label.TextXAlignment     = Enum.TextXAlignment.Left
+    label.Parent             = container
+
+    local toggleBtn = Instance.new("Frame")
+    toggleBtn.Size             = UDim2.new(0, 34, 0, 17)
+    toggleBtn.Position         = UDim2.new(1, -42, 0.5, -8.5)
+    toggleBtn.BackgroundColor3 = CONFIG[key] and BW.Active or BW.Border
+    toggleBtn.Parent           = container
+    createCorner(toggleBtn, 9)
+
+    local indicator = Instance.new("Frame")
+    indicator.Size             = UDim2.new(0, 13, 0, 13)
+    indicator.Position         = CONFIG[key] and UDim2.new(1,-15,0.5,-6.5) or UDim2.new(0,2,0.5,-6.5)
+    indicator.BackgroundColor3 = CONFIG[key] and BW.ActFg or BW.Dim
+    indicator.Parent           = toggleBtn
+    createCorner(indicator, 7)
+
+    local click = Instance.new("TextButton")
+    click.Size               = UDim2.new(1, 0, 1, 0)
+    click.BackgroundTransparency = 1
+    click.Text               = ""
+    click.Parent             = container
+
+    local function updateVisuals(state)
+        tween(toggleBtn, {BackgroundColor3 = state and BW.Active or BW.Border}, 0.2)
+        tween(indicator, {
+            Position         = state and UDim2.new(1,-15,0.5,-6.5) or UDim2.new(0,2,0.5,-6.5),
+            BackgroundColor3 = state and BW.ActFg or BW.Dim
+        }, 0.2)
+    end
+
+    click.MouseButton1Click:Connect(function()
+        CONFIG[key] = not CONFIG[key]
+        updateVisuals(CONFIG[key])
+        if callback then callback(CONFIG[key]) end
+        saveConfig()
+    end)
+
+    return updateVisuals
+end
+
+local function createESPColorRow(parent, text, colorKey, rainbowKey)
+    local container = Instance.new("Frame")
+    container.Size             = UDim2.new(1, -4, 0, 54)
+    container.BackgroundColor3 = BW.Row
+    container.Parent           = parent
+    createCorner(container, 8)
+    createStroke(container, BW.Border, 1)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size               = UDim2.new(1, -8, 0, 18)
+    lbl.Position           = UDim2.new(0, 8, 0, 4)
+    lbl.BackgroundTransparency = 1
+    lbl.Text               = text
+    lbl.Font               = Enum.Font.GothamBold
+    lbl.TextSize           = 9
+    lbl.TextColor3         = BW.Dim
+    lbl.TextXAlignment     = Enum.TextXAlignment.Left
+    lbl.Parent             = container
+
+    local div = Instance.new("Frame")
+    div.Size             = UDim2.new(1, -16, 0, 1)
+    div.Position         = UDim2.new(0, 8, 0, 24)
+    div.BackgroundColor3 = BW.Border
+    div.Parent           = container
+
+    local idx = 1
+    local swatch = Instance.new("Frame")
+    swatch.Size             = UDim2.new(0, 16, 0, 16)
+    swatch.Position         = UDim2.new(0, 8, 0, 31)
+    swatch.BackgroundColor3 = CONFIG[colorKey]
+    swatch.Parent           = container
+    createCorner(swatch, 4)
+
+    local cName = Instance.new("TextLabel")
+    cName.Size               = UDim2.new(0, 55, 0, 16)
+    cName.Position           = UDim2.new(0, 28, 0, 31)
+    cName.BackgroundTransparency = 1
+    cName.Text               = "Custom"
+    cName.Font               = Enum.Font.GothamBold
+    cName.TextSize           = 9
+    cName.TextColor3         = BW.Dim
+    cName.TextXAlignment     = Enum.TextXAlignment.Left
+    cName.Parent             = container
+
+    local cBtn = Instance.new("TextButton")
+    cBtn.Size               = UDim2.new(0, 75, 0, 20)
+    cBtn.Position           = UDim2.new(0, 5, 0, 29)
+    cBtn.BackgroundTransparency = 1
+    cBtn.Text               = ""
+    cBtn.Parent             = container
+    cBtn.MouseButton1Click:Connect(function()
+        idx = (idx % #COLOR_PRESETS) + 1
+        local c = COLOR_PRESETS[idx]
+        CONFIG[colorKey]        = c.color
+        swatch.BackgroundColor3 = c.color
+        cName.Text              = c.name
+        saveConfig()
+    end)
+
+    local rbBtn = Instance.new("TextButton")
+    rbBtn.Size     = UDim2.new(0, 70, 0, 18)
+    rbBtn.Position = UDim2.new(1, -78, 0, 29)
+    rbBtn.Font     = Enum.Font.GothamBold
+    rbBtn.TextSize = 7
+    rbBtn.Parent   = container
+    createCorner(rbBtn, 6)
+    if rainbowKey then
+        rbBtn.BackgroundColor3 = CONFIG[rainbowKey] and BW.Active or BW.Border
+        rbBtn.Text             = "RGB"
+        rbBtn.TextColor3       = CONFIG[rainbowKey] and BW.ActFg or BW.Dim
+        rbBtn.MouseButton1Click:Connect(function()
+            CONFIG[rainbowKey] = not CONFIG[rainbowKey]
+            tween(rbBtn, {
+                BackgroundColor3 = CONFIG[rainbowKey] and BW.Active or BW.Border,
+                TextColor3       = CONFIG[rainbowKey] and BW.ActFg or BW.Dim,
+            }, 0.2)
+            saveConfig()
+        end)
+    else
+        rbBtn.BackgroundTransparency = 1
+        rbBtn.Text                   = ""
+    end
+end
+
+local function makeDivider(parent, text)
+    local div = Instance.new("Frame")
+    div.Size                 = UDim2.new(1, -4, 0, 20)
+    div.BackgroundTransparency = 1
+    div.Parent               = parent
+    local l1 = Instance.new("Frame")
+    l1.Size             = UDim2.new(0.25, 0, 0, 1)
+    l1.Position         = UDim2.new(0, 0, 0.5, 0)
+    l1.BackgroundColor3 = BW.Border
+    l1.BorderSizePixel  = 0
+    l1.Parent           = div
+    local lbl = Instance.new("TextLabel")
+    lbl.Size               = UDim2.new(0.5, 0, 1, 0)
+    lbl.Position           = UDim2.new(0.25, 0, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text               = text
+    lbl.Font               = Enum.Font.GothamBold
+    lbl.TextSize           = 8
+    lbl.TextColor3         = BW.Dim
+    lbl.Parent             = div
+    local l2 = Instance.new("Frame")
+    l2.Size             = UDim2.new(0.25, 0, 0, 1)
+    l2.Position         = UDim2.new(0.75, 0, 0.5, 0)
+    l2.BackgroundColor3 = BW.Border
+    l2.BorderSizePixel  = 0
+    l2.Parent           = div
+end
+
+-- ============================================================
+-- PANEL BUILDER  (reusable floating panel like ScareHub)
+-- ============================================================
+local openPanels = {}
+
+local function buildPanel(title, w, h, defaultPos)
+    local W = w or 260
+    local H = h or 360
+    local pos = defaultPos or UDim2.new(0.5, -W/2 + 80, 0.5, -H/2)
+
+    local panel = Instance.new("Frame")
+    panel.Name             = title .. "Panel"
+    panel.Size             = UDim2.new(0, W, 0, H)
+    panel.Position         = pos
+    panel.BackgroundColor3 = BW.BG
+    panel.Active           = true
+    panel.Draggable        = true
+    panel.Visible          = false
+    panel.ZIndex           = 20
+    panel.ClipsDescendants = true
+    panel.Parent           = screenGui
+    createCorner(panel, 12)
+    createStroke(panel, BW.Border, 1)
+
+    local topBar = Instance.new("Frame")
+    topBar.Size             = UDim2.new(1, 0, 0, 36)
+    topBar.BackgroundColor3 = BW.Panel
+    topBar.ZIndex           = 21
+    topBar.Parent           = panel
+    createCorner(topBar, 12)
+    local topFill = Instance.new("Frame")
+    topFill.Size             = UDim2.new(1, 0, 0.5, 0)
+    topFill.Position         = UDim2.new(0, 0, 0.5, 0)
+    topFill.BackgroundColor3 = BW.Panel
+    topFill.BorderSizePixel  = 0
+    topFill.ZIndex           = 21
+    topFill.Parent           = topBar
+
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Size               = UDim2.new(1, -70, 1, 0)
+    titleLbl.Position           = UDim2.new(0, 12, 0, 0)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Text               = title
+    titleLbl.Font               = Enum.Font.GothamBold
+    titleLbl.TextSize           = 12
+    titleLbl.TextColor3         = BW.White
+    titleLbl.TextXAlignment     = Enum.TextXAlignment.Left
+    titleLbl.ZIndex             = 22
+    titleLbl.Parent             = topBar
+
+    local minimizeBtn = Instance.new("TextButton")
+    minimizeBtn.Size             = UDim2.new(0, 22, 0, 22)
+    minimizeBtn.Position         = UDim2.new(1, -50, 0.5, -11)
+    minimizeBtn.BackgroundColor3 = BW.Row
+    minimizeBtn.Text             = "—"
+    minimizeBtn.TextColor3       = BW.Dim
+    minimizeBtn.Font             = Enum.Font.GothamBold
+    minimizeBtn.TextSize         = 10
+    minimizeBtn.ZIndex           = 22
+    minimizeBtn.Parent           = topBar
+    createCorner(minimizeBtn, 5)
+    createStroke(minimizeBtn, BW.Border, 1)
+
+    local closeBtn2 = Instance.new("TextButton")
+    closeBtn2.Size             = UDim2.new(0, 22, 0, 22)
+    closeBtn2.Position         = UDim2.new(1, -26, 0.5, -11)
+    closeBtn2.BackgroundColor3 = BW.Row
+    closeBtn2.Text             = "✕"
+    closeBtn2.TextColor3       = BW.Dim
+    closeBtn2.Font             = Enum.Font.GothamBold
+    closeBtn2.TextSize         = 10
+    closeBtn2.ZIndex           = 22
+    closeBtn2.Parent           = topBar
+    createCorner(closeBtn2, 5)
+    createStroke(closeBtn2, BW.Border, 1)
+
+    local body = Instance.new("ScrollingFrame")
+    body.Size                 = UDim2.new(1, -6, 1, -40)
+    body.Position             = UDim2.new(0, 3, 0, 38)
+    body.BackgroundTransparency = 1
+    body.BorderSizePixel      = 0
+    body.ScrollBarThickness   = 2
+    body.CanvasSize           = UDim2.new(0, 0, 0, 0)
+    body.AutomaticCanvasSize  = Enum.AutomaticSize.Y
+    body.ZIndex               = 20
+    body.Parent               = panel
+
+    local bodyLayout = Instance.new("UIListLayout", body)
+    bodyLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    bodyLayout.Padding   = UDim.new(0, 4)
+    local bodyPad = Instance.new("UIPadding", body)
+    bodyPad.PaddingTop = UDim.new(0, 4); bodyPad.PaddingBottom = UDim.new(0, 6)
+    bodyPad.PaddingLeft = UDim.new(0, 4); bodyPad.PaddingRight = UDim.new(0, 4)
+
+    local minimized = false
+    local savedH    = H
+
+    minimizeBtn.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        if minimized then
+            savedH = panel.AbsoluteSize.Y
+            tween(panel, {Size = UDim2.new(0, W, 0, 36)}, 0.2)
+            minimizeBtn.Text = "+"
+        else
+            tween(panel, {Size = UDim2.new(0, W, 0, savedH)}, 0.25, Enum.EasingStyle.Back)
+            minimizeBtn.Text = "—"
+        end
+    end)
+
+    closeBtn2.MouseButton1Click:Connect(function()
+        panel.Visible = false
+        if openPanels[title] then
+            openPanels[title] = false
+        end
+    end)
+
+    return panel, body
+end
+
+-- ============================================================
+-- ICON BUTTON (HH)
+-- ============================================================
+local iconBtn = Instance.new("TextButton")
+iconBtn.Size             = UDim2.new(0, 54, 0, 54)
+iconBtn.Position         = UDim2.new(0, 20, 0, 20)
+iconBtn.BackgroundColor3 = BW.BG
+iconBtn.Text             = "HH"
+iconBtn.TextColor3       = BW.White
+iconBtn.Font             = Enum.Font.GothamBlack
+iconBtn.TextSize         = 16
+iconBtn.Active           = true
+iconBtn.Draggable        = true
+iconBtn.Parent           = screenGui
+createCorner(iconBtn, 10)
+createStroke(iconBtn, BW.Border, 2)
+
+-- ============================================================
+-- MAIN FRAME  (command list — no sidebar tabs)
+-- ============================================================
+local FRAME_W = 260
+local FRAME_H = 420
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size             = UDim2.new(0, FRAME_W, 0, FRAME_H)
+mainFrame.Position         = UDim2.new(0.5, -FRAME_W/2, 0.5, -FRAME_H/2)
+mainFrame.BackgroundColor3 = BW.BG
+mainFrame.Visible          = false
+mainFrame.Active           = true
+mainFrame.Draggable        = true
+mainFrame.ClipsDescendants = true
+mainFrame.Parent           = screenGui
+createCorner(mainFrame, 12)
+createStroke(mainFrame, BW.Border, 1)
+
+local topBar = Instance.new("Frame")
+topBar.Size             = UDim2.new(1, 0, 0, 42)
+topBar.BackgroundColor3 = BW.Panel
+topBar.Parent           = mainFrame
+createCorner(topBar, 12)
+local topFill = Instance.new("Frame")
+topFill.Size             = UDim2.new(1, 0, 0.5, 0)
+topFill.Position         = UDim2.new(0, 0, 0.5, 0)
+topFill.BackgroundColor3 = BW.Panel
+topFill.BorderSizePixel  = 0
+topFill.Parent           = topBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size               = UDim2.new(1, -80, 1, 0)
+titleLabel.Position           = UDim2.new(0, 15, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text               = "HALO-HALO"
+titleLabel.Font               = Enum.Font.GothamBold
+titleLabel.TextSize           = 13
+titleLabel.TextColor3         = BW.White
+titleLabel.TextXAlignment     = Enum.TextXAlignment.Left
+titleLabel.Parent             = topBar
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size             = UDim2.new(0, 22, 0, 22)
+closeBtn.Position         = UDim2.new(1, -30, 0.5, -11)
+closeBtn.Text             = "✕"
+closeBtn.BackgroundColor3 = BW.Row
+closeBtn.TextColor3       = BW.Dim
+closeBtn.Font             = Enum.Font.GothamBold
+closeBtn.TextSize         = 11
+closeBtn.Parent           = topBar
+createCorner(closeBtn, 5)
+createStroke(closeBtn, BW.Border, 1)
+
+local listFrame = Instance.new("ScrollingFrame")
+listFrame.Size                 = UDim2.new(1, -6, 1, -46)
+listFrame.Position             = UDim2.new(0, 3, 0, 44)
+listFrame.BackgroundTransparency = 1
+listFrame.BorderSizePixel      = 0
+listFrame.ScrollBarThickness   = 2
+listFrame.CanvasSize           = UDim2.new(0, 0, 0, 0)
+listFrame.AutomaticCanvasSize  = Enum.AutomaticSize.Y
+listFrame.Parent               = mainFrame
+
+local listLayout = Instance.new("UIListLayout", listFrame)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding   = UDim.new(0, 4)
+local listPad = Instance.new("UIPadding", listFrame)
+listPad.PaddingTop = UDim.new(0, 4); listPad.PaddingBottom = UDim.new(0, 6)
+listPad.PaddingLeft = UDim.new(0, 4); listPad.PaddingRight = UDim.new(0, 4)
+
+-- Command row builder
+local function makeCommandRow(icon, label, desc, lo, onTap)
+    local row = Instance.new("TextButton")
+    row.Size             = UDim2.new(1, -4, 0, 48)
+    row.BackgroundColor3 = BW.Row
+    row.Text             = ""
+    row.LayoutOrder      = lo
+    row.Parent           = listFrame
+    createCorner(row, 10)
+    createStroke(row, BW.Border, 1)
+
+    local iconLbl = Instance.new("TextLabel")
+    iconLbl.Size               = UDim2.new(0, 38, 0, 38)
+    iconLbl.Position           = UDim2.new(0, 6, 0.5, -19)
+    iconLbl.BackgroundColor3   = BW.Panel
+    iconLbl.Text               = icon
+    iconLbl.Font               = Enum.Font.GothamBold
+    iconLbl.TextSize           = 11
+    iconLbl.TextColor3         = BW.Dim
+    iconLbl.Parent             = row
+    createCorner(iconLbl, 8)
+
+    local nameLbl = Instance.new("TextLabel")
+    nameLbl.Size               = UDim2.new(1, -100, 0, 18)
+    nameLbl.Position           = UDim2.new(0, 52, 0, 7)
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.Text               = label
+    nameLbl.Font               = Enum.Font.GothamBold
+    nameLbl.TextSize           = 12
+    nameLbl.TextColor3         = BW.White
+    nameLbl.TextXAlignment     = Enum.TextXAlignment.Left
+    nameLbl.Parent             = row
+
+    local descLbl = Instance.new("TextLabel")
+    descLbl.Size               = UDim2.new(1, -100, 0, 14)
+    descLbl.Position           = UDim2.new(0, 52, 0, 26)
+    descLbl.BackgroundTransparency = 1
+    descLbl.Text               = desc
+    descLbl.Font               = Enum.Font.Gotham
+    descLbl.TextSize           = 9
+    descLbl.TextColor3         = BW.Dim
+    descLbl.TextXAlignment     = Enum.TextXAlignment.Left
+    descLbl.Parent             = row
+
+    local arrow = Instance.new("TextLabel")
+    arrow.Size               = UDim2.new(0, 20, 1, 0)
+    arrow.Position           = UDim2.new(1, -24, 0, 0)
+    arrow.BackgroundTransparency = 1
+    arrow.Text               = "›"
+    arrow.Font               = Enum.Font.GothamBold
+    arrow.TextSize           = 20
+    arrow.TextColor3         = BW.Dim
+    arrow.Parent             = row
+
+    row.MouseButton1Click:Connect(function()
+        tween(row, {BackgroundColor3 = BW.Panel}, 0.1)
+        task.delay(0.12, function() tween(row, {BackgroundColor3 = BW.Row}, 0.15) end)
+        if onTap then onTap() end
+    end)
+
+    return row, iconLbl
+end
+
+-- Helper to toggle panel open/close
+local function togglePanel(panel, key)
+    local isOpen = panel.Visible
+    panel.Visible = not isOpen
+    openPanels[key] = not isOpen
+end
+
+-- ============================================================
+-- BUILD ALL PANELS
+-- ============================================================
+
+-- ── MOVEMENT PANEL ──────────────────────────────────────────
+local movPanel, movBody = buildPanel("MOVEMENT", 260, 340, UDim2.new(0.5, 80, 0.5, -170))
+
+toggleSyncs["SpeedBoost"] = createToggle(movBody, "Speed Boost", "SpeedBoost", function(v)
+    if not v then
+        local hum = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid")
+        if hum then hum.WalkSpeed = 16 end
+    end
+end)
+
+do
+    local row = Instance.new("Frame")
+    row.Size             = UDim2.new(1, -4, 0, 32)
+    row.BackgroundColor3 = BW.Row
+    row.Parent           = movBody
+    createCorner(row, 8); createStroke(row, BW.Border, 1)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1,-80,1,0); lbl.Position = UDim2.new(0,8,0,0)
+    lbl.BackgroundTransparency = 1; lbl.Text = "Walk Speed"
+    lbl.Font = Enum.Font.GothamSemibold; lbl.TextSize = 10
+    lbl.TextColor3 = BW.Text; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = row
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0,64,0,22); box.Position = UDim2.new(1,-70,0.5,-11)
+    box.BackgroundColor3 = BW.Panel; box.Text = tostring(CONFIG.WalkSpeed)
+    box.Font = Enum.Font.GothamBold; box.TextSize = 11; box.TextColor3 = BW.White
+    box.ClearTextOnFocus = false; box.TextXAlignment = Enum.TextXAlignment.Center; box.Parent = row
+    createCorner(box, 5); createStroke(box, BW.Border, 1)
+    box.FocusLost:Connect(function()
+        local v = tonumber(box.Text)
+        if v and v >= 1 and v <= 1000 then CONFIG.WalkSpeed = math.floor(v); saveConfig()
+        else box.Text = tostring(CONFIG.WalkSpeed) end
+    end)
+end
+
+toggleSyncs["Noclip"]      = createToggle(movBody, "Noclip",      "Noclip")
+toggleSyncs["SuperJump"]   = createToggle(movBody, "Super Jump",  "SuperJump")
+
+do
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,-4,0,32); row.BackgroundColor3 = BW.Row; row.Parent = movBody
+    createCorner(row, 8); createStroke(row, BW.Border, 1)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1,-80,1,0); lbl.Position = UDim2.new(0,8,0,0)
+    lbl.BackgroundTransparency = 1; lbl.Text = "Jump Power"
+    lbl.Font = Enum.Font.GothamSemibold; lbl.TextSize = 10
+    lbl.TextColor3 = BW.Text; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = row
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0,64,0,22); box.Position = UDim2.new(1,-70,0.5,-11)
+    box.BackgroundColor3 = BW.Panel; box.Text = tostring(CONFIG.JumpPower)
+    box.Font = Enum.Font.GothamBold; box.TextSize = 11; box.TextColor3 = BW.White
+    box.ClearTextOnFocus = false; box.TextXAlignment = Enum.TextXAlignment.Center; box.Parent = row
+    createCorner(box, 5); createStroke(box, BW.Border, 1)
+    box.FocusLost:Connect(function()
+        local v = tonumber(box.Text)
+        if v and v >= 1 and v <= 5000 then CONFIG.JumpPower = math.floor(v); saveConfig()
+        else box.Text = tostring(CONFIG.JumpPower) end
+    end)
+end
+
+toggleSyncs["KingMode"]    = createToggle(movBody, "King Mode",   "KingMode")
+toggleSyncs["Invisibility"]= createToggle(movBody, "Invisibility","Invisibility", function(v) applyInvisibility(v) end)
+
+-- ── ESP PANEL ───────────────────────────────────────────────
+local espPanel, espBody = buildPanel("ESP", 260, 400, UDim2.new(0.5, 80, 0.5, -200))
+
+toggleSyncs["BoxESP"]     = createToggle(espBody, "Box ESP",     "BoxESP")
+createESPColorRow(espBody, "Box Color", "ESPColor", "BoxRainbow")
+toggleSyncs["PlayerInfo"] = createToggle(espBody, "Player Info", "PlayerInfo")
+toggleSyncs["TeamFilter"] = createToggle(espBody, "Team Filter", "TeamFilter", function(v)
+    if v then
+        CONFIG.PlayerInfo = true
+        if toggleSyncs["PlayerInfo"] then toggleSyncs["PlayerInfo"](true) end
+        ESP:RescanNPCs()
+        Notif:Send("Team Filter ON - Player Info auto-enabled", 2)
+    end
+    saveConfig()
+end)
+
+makeDivider(espBody, "AIMBOT")
+
+toggleSyncs["Aimbot"] = createToggle(espBody, "Aimbot", "Aimbot", function(v)
+    if v then ESP:StartAimbot(CONFIG) else ESP:StopAimbot() end
+end)
+
+do
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,-4,0,30); row.BackgroundColor3 = BW.Row; row.Parent = espBody
+    createCorner(row, 8); createStroke(row, BW.Border, 1)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.45,0,1,0); lbl.Position = UDim2.new(0,8,0,0)
+    lbl.BackgroundTransparency = 1; lbl.Text = "Target"
+    lbl.Font = Enum.Font.GothamSemibold; lbl.TextSize = 10
+    lbl.TextColor3 = BW.Text; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = row
+    local headBtn = Instance.new("TextButton")
+    headBtn.Size = UDim2.new(0,60,0,20); headBtn.Position = UDim2.new(1,-132,0.5,-10)
+    headBtn.BackgroundColor3 = CONFIG.AimbotTarget=="head" and BW.Active or BW.Panel
+    headBtn.Text = "HEAD"; headBtn.TextColor3 = CONFIG.AimbotTarget=="head" and BW.ActFg or BW.Dim
+    headBtn.Font = Enum.Font.GothamBold; headBtn.TextSize = 9; headBtn.Parent = row
+    createCorner(headBtn, 5)
+    local bodyBtn2 = Instance.new("TextButton")
+    bodyBtn2.Size = UDim2.new(0,60,0,20); bodyBtn2.Position = UDim2.new(1,-68,0.5,-10)
+    bodyBtn2.BackgroundColor3 = CONFIG.AimbotTarget=="body" and BW.Active or BW.Panel
+    bodyBtn2.Text = "BODY"; bodyBtn2.TextColor3 = CONFIG.AimbotTarget=="body" and BW.ActFg or BW.Dim
+    bodyBtn2.Font = Enum.Font.GothamBold; bodyBtn2.TextSize = 9; bodyBtn2.Parent = row
+    createCorner(bodyBtn2, 5)
+    local function updateAB()
+        headBtn.BackgroundColor3  = CONFIG.AimbotTarget=="head" and BW.Active or BW.Panel
+        headBtn.TextColor3        = CONFIG.AimbotTarget=="head" and BW.ActFg or BW.Dim
+        bodyBtn2.BackgroundColor3 = CONFIG.AimbotTarget=="body" and BW.Active or BW.Panel
+        bodyBtn2.TextColor3       = CONFIG.AimbotTarget=="body" and BW.ActFg or BW.Dim
+    end
+    headBtn.MouseButton1Click:Connect(function()  CONFIG.AimbotTarget="head"; updateAB(); saveConfig() end)
+    bodyBtn2.MouseButton1Click:Connect(function() CONFIG.AimbotTarget="body"; updateAB(); saveConfig() end)
+end
+
+toggleSyncs["AimbotPlayers"]  = createToggle(espBody, "Aim at Players",  "AimbotPlayers")
+toggleSyncs["AimbotMonsters"] = createToggle(espBody, "Aim at Monsters", "AimbotMonsters")
+
+makeDivider(espBody, "ENTITY ESP")
+
+toggleSyncs["NPCBoxESP"]  = createToggle(espBody, "Entity Box ESP",   "NPCBoxESP",  function(v) if v then ESP:RescanNPCs() end end)
+toggleSyncs["NPCMonster"] = createToggle(espBody, "Monster / Enemy",  "NPCMonster", function(v) if v then ESP:RescanNPCs() end end)
+createESPColorRow(espBody, "Monster Color", "NPCMonsterColor", nil)
+toggleSyncs["NPCItem"]    = createToggle(espBody, "Items / Objects",   "NPCItem",    function(v) if v then ESP:RescanNPCs() end end)
+createESPColorRow(espBody, "Item Color", "NPCItemColor", nil)
+
+-- ── FPS PANEL ───────────────────────────────────────────────
+local fpsPanel, fpsBody = buildPanel("FPS BOOST", 260, 200, UDim2.new(0.5, 80, 0.5, -100))
+
+toggleSyncs["FPSBoost"] = createToggle(fpsBody, "FPS Boost", "FPSBoost", function(v)
+    Lighting.GlobalShadows = not v
+    Lighting.Technology    = v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap
+end)
+toggleSyncs["DisableParticles"] = createToggle(fpsBody, "Disable Particles", "DisableParticles")
+toggleSyncs["ShowFPS"]          = createToggle(fpsBody, "Show FPS",          "ShowFPS")
+
+-- ── SCRIPTS PANEL ───────────────────────────────────────────
+local scriptsPanel, scriptsBody = buildPanel("SCRIPTS", 260, 360, UDim2.new(0.5, 80, 0.5, -180))
+Scripts:Init(scriptsBody, BW, nil, createCorner, Notif)
+
+-- ── TROLL PANEL ─────────────────────────────────────────────
+local trollPanel, trollBody = buildPanel("TROLL", 260, 240, UDim2.new(0.5, 80, 0.5, -120))
+
+local scareHub = UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleSyncs)
+
+toggleSyncs["Scare"] = createToggle(trollBody, "Scare", "Scare", function(v)
+    scareHub.Visible = v
+    if v then
+        Notif:Send("Scare Hub opened", 2)
+        local tgt = Troll:GetTarget()
+        if tgt and not Troll:IsSpectating() then
+            local ok = Troll:StartSpectate(tgt, Troll:GetSpectateMode())
+            if ok then Notif:Send("Auto-spectating " .. tgt.Name, 2) end
+        end
+    else
+        if Troll:IsSpectating() then Troll:StopSpectate() end
+    end
+end)
+toggleSyncs["Fling"]    = createToggle(trollBody, "Fling",      "Fling",    function(v) if v then Troll:StartFling(); Notif:Send("Fling: ON",2) else Troll:StopFling(); Notif:Send("Fling: OFF",2) end end)
+toggleSyncs["WalkFling"]= createToggle(trollBody, "Walk Fling", "WalkFling",function(v) if v then Troll:StartWalkFling(); Notif:Send("Walk Fling: ON",2) else Troll:StopWalkFling(); Notif:Send("Walk Fling: OFF",2) end end)
+toggleSyncs["AntiFling"]= createToggle(trollBody, "Anti Fling", "AntiFling",function(v) if v then Troll:StartAntiFling(); Notif:Send("Anti Fling: ON",2) else Troll:StopAntiFling(); Notif:Send("Anti Fling: OFF",2) end end)
+
+-- ── SPECTATE PANEL ──────────────────────────────────────────
+local specPanel, specBody = buildPanel("SPECTATE", 260, 340, UDim2.new(0.5, 80, 0.5, -170))
+Spectate:Init(specBody, BW, createCorner, Notif)
+
+-- ── CAMERA PANEL ────────────────────────────────────────────
+local cameraHub = Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
+toggleSyncs["CameraView"] = function(state)
+    CONFIG.CameraView = state
+    cameraHub.Visible = state
+    if not state then Camera:Stop(); CONFIG.CameraMode = "normal" end
+end
+
+-- ============================================================
+-- COMMAND LIST ROWS
+-- ============================================================
+local cmdRows = {
+    {icon="MOV", label="Movement",  desc="Speed · Noclip · Jump · Invisibility", lo=1,
+     onTap=function() togglePanel(movPanel, "mov") end},
+    {icon="ESP", label="ESP",       desc="Box ESP · Aimbot · Entity · Team Filter", lo=2,
+     onTap=function() togglePanel(espPanel, "esp") end},
+    {icon="FPS", label="FPS Boost", desc="Boost FPS · Disable Particles", lo=3,
+     onTap=function() togglePanel(fpsPanel, "fps") end},
+    {icon="SCR", label="Scripts",   desc="Game-specific scripts", lo=4,
+     onTap=function() togglePanel(scriptsPanel, "scr") end},
+    {icon="TRL", label="Troll",     desc="Scare · Fling · Anti Fling", lo=5,
+     onTap=function() togglePanel(trollPanel, "trl") end},
+    {icon="SPC", label="Spectate",  desc="Spectate players", lo=6,
+     onTap=function() togglePanel(specPanel, "spc") end},
+    {icon="CAM", label="Camera",    desc="Third person view", lo=7,
+     onTap=function()
+         CONFIG.CameraView = not CONFIG.CameraView
+         cameraHub.Visible = CONFIG.CameraView
+         if not CONFIG.CameraView then Camera:Stop(); CONFIG.CameraMode = "normal" end
+         Notif:Send(CONFIG.CameraView and "Camera Hub opened" or "Camera View OFF", 2)
+     end},
+}
+
+for _, cmd in ipairs(cmdRows) do
+    makeCommandRow(cmd.icon, cmd.label, cmd.desc, cmd.lo, cmd.onTap)
+end
+
+-- ============================================================
+-- QUICK BUTTONS
+-- ============================================================
 local qbToggleBtn = Instance.new("TextButton")
 qbToggleBtn.Size             = UDim2.new(0, 32, 0, 32)
 qbToggleBtn.Position         = UDim2.new(0, 20, 0.5, -90)
@@ -684,20 +911,19 @@ qbToggleBtn.Parent           = screenGui
 createCorner(qbToggleBtn, 8)
 createStroke(qbToggleBtn, BW.Border, 1)
 
--- QB container: 2 rows (3 top + 2 bottom) using grid layout
 local qbContainer = Instance.new("Frame")
-qbContainer.Size             = UDim2.new(0, 180, 0, 10)
+qbContainer.Size                 = UDim2.new(0, 180, 0, 10)
 qbContainer.BackgroundTransparency = 1
-qbContainer.Active           = false
-qbContainer.Visible          = false
-qbContainer.ZIndex           = 5
-qbContainer.Parent           = screenGui
+qbContainer.Active               = false
+qbContainer.Visible              = false
+qbContainer.ZIndex               = 5
+qbContainer.Parent               = screenGui
 
 local qbGrid = Instance.new("UIGridLayout", qbContainer)
-qbGrid.CellSize      = UDim2.new(0, 54, 0, 54)
-qbGrid.CellPadding   = UDim2.new(0, 6, 0, 6)
-qbGrid.SortOrder     = Enum.SortOrder.LayoutOrder
-qbGrid.FillDirection = Enum.FillDirection.Horizontal
+qbGrid.CellSize            = UDim2.new(0, 54, 0, 54)
+qbGrid.CellPadding         = UDim2.new(0, 6, 0, 6)
+qbGrid.SortOrder           = Enum.SortOrder.LayoutOrder
+qbGrid.FillDirection       = Enum.FillDirection.Horizontal
 qbGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
 local qbPanel = Instance.new("Frame")
@@ -710,25 +936,20 @@ createCorner(qbPanel, 10)
 createStroke(qbPanel, BW.Border, 1)
 
 local function syncQBPositions()
-    local ap = qbToggleBtn.AbsolutePosition
-    qbContainer.Position = UDim2.new(0, ap.X, 0, ap.Y + 38)
-    -- Size: 3 per row, 2 rows if 4-5 slots
+    local ap   = qbToggleBtn.AbsolutePosition
     local rows = math.ceil(QB_SLOTS / 3)
     local cols = math.min(QB_SLOTS, 3)
-    qbContainer.Size = UDim2.new(0, cols*54 + (cols-1)*6, 0, rows*54 + (rows-1)*6)
+    qbContainer.Position = UDim2.new(0, ap.X, 0, ap.Y + 38)
+    qbContainer.Size     = UDim2.new(0, cols*54+(cols-1)*6, 0, rows*54+(rows-1)*6)
 end
-
 qbToggleBtn:GetPropertyChangedSignal("AbsolutePosition"):Connect(syncQBPositions)
 
 local qbPanelLayout = Instance.new("UIListLayout", qbPanel)
 qbPanelLayout.SortOrder = Enum.SortOrder.LayoutOrder
 qbPanelLayout.Padding   = UDim.new(0, 3)
-
 local qbPanelPad = Instance.new("UIPadding", qbPanel)
-qbPanelPad.PaddingTop    = UDim.new(0, 6)
-qbPanelPad.PaddingBottom = UDim.new(0, 6)
-qbPanelPad.PaddingLeft   = UDim.new(0, 6)
-qbPanelPad.PaddingRight  = UDim.new(0, 6)
+qbPanelPad.PaddingTop = UDim.new(0,6); qbPanelPad.PaddingBottom = UDim.new(0,6)
+qbPanelPad.PaddingLeft = UDim.new(0,6); qbPanelPad.PaddingRight = UDim.new(0,6)
 
 local qbPanelTitle = Instance.new("TextLabel")
 qbPanelTitle.Size               = UDim2.new(1, 0, 0, 20)
@@ -742,15 +963,15 @@ qbPanelTitle.ZIndex             = 10
 qbPanelTitle.Parent             = qbPanel
 
 local qbPanelClose = Instance.new("TextButton")
-qbPanelClose.Size             = UDim2.new(0, 18, 0, 18)
-qbPanelClose.Position         = UDim2.new(1, -24, 0, 1)
+qbPanelClose.Size               = UDim2.new(0, 18, 0, 18)
+qbPanelClose.Position           = UDim2.new(1, -24, 0, 1)
 qbPanelClose.BackgroundTransparency = 1
-qbPanelClose.Text             = "X"
-qbPanelClose.TextColor3       = BW.Dim
-qbPanelClose.Font             = Enum.Font.GothamBold
-qbPanelClose.TextSize         = 14
-qbPanelClose.ZIndex           = 10
-qbPanelClose.Parent           = qbPanel
+qbPanelClose.Text               = "X"
+qbPanelClose.TextColor3         = BW.Dim
+qbPanelClose.Font               = Enum.Font.GothamBold
+qbPanelClose.TextSize           = 14
+qbPanelClose.ZIndex             = 10
+qbPanelClose.Parent             = qbPanel
 
 local currentEditSlot = nil
 local qbOptionRows    = {}
@@ -761,7 +982,7 @@ local function refreshAssignedLabels()
         if slotOpt then
             for _, r in ipairs(qbOptionRows) do
                 if r.opt.key == slotOpt.key and r.opt.label == slotOpt.label then
-                    r.label.Text = "Slot "..i
+                    r.label.Text = "Slot " .. i
                 end
             end
         end
@@ -773,7 +994,7 @@ for _, opt in ipairs(QB_OPTIONS) do
     local row = Instance.new("TextButton")
     row.Size             = UDim2.new(1, 0, 0, 26)
     row.BackgroundColor3 = BW.Row
-    row.Text             = "["..opt.icon.."]  "..opt.label
+    row.Text             = "[" .. opt.icon .. "]  " .. opt.label
     row.TextColor3       = BW.Text
     row.Font             = Enum.Font.GothamSemibold
     row.TextSize         = 10
@@ -781,40 +1002,36 @@ for _, opt in ipairs(QB_OPTIONS) do
     row.ZIndex           = 10
     row.Parent           = qbPanel
     createCorner(row, 6)
-    local rPad = Instance.new("UIPadding", row)
-    rPad.PaddingLeft = UDim.new(0, 8)
-
+    local rPad = Instance.new("UIPadding", row); rPad.PaddingLeft = UDim.new(0, 8)
     local assignedLbl = Instance.new("TextLabel")
-    assignedLbl.Size             = UDim2.new(0, 50, 1, 0)
-    assignedLbl.Position         = UDim2.new(1, -55, 0, 0)
+    assignedLbl.Size               = UDim2.new(0, 50, 1, 0)
+    assignedLbl.Position           = UDim2.new(1, -55, 0, 0)
     assignedLbl.BackgroundTransparency = 1
-    assignedLbl.Text             = ""
-    assignedLbl.Font             = Enum.Font.GothamBold
-    assignedLbl.TextSize         = 8
-    assignedLbl.TextColor3       = BW.Dim
-    assignedLbl.ZIndex           = 10
-    assignedLbl.Parent           = row
+    assignedLbl.Text               = ""
+    assignedLbl.Font               = Enum.Font.GothamBold
+    assignedLbl.TextSize           = 8
+    assignedLbl.TextColor3         = BW.Dim
+    assignedLbl.ZIndex             = 10
+    assignedLbl.Parent             = row
     table.insert(qbOptionRows, {row=row, opt=capOpt, label=assignedLbl})
-
     row.MouseButton1Click:Connect(function()
         if not currentEditSlot then return end
         for i, s in ipairs(qbSlots) do
-            if s and s.key == capOpt.key and s.label == capOpt.label then
-                qbSlots[i] = nil; updateQBBtn(i)
+            if s and s.key==capOpt.key and s.label==capOpt.label then
+                qbSlots[i]=nil; updateQBBtn(i)
             end
         end
         qbSlots[currentEditSlot] = capOpt
         updateQBBtn(currentEditSlot)
         refreshAssignedLabels()
-        qbPanel.Visible  = false
-        currentEditSlot  = nil
+        qbPanel.Visible = false; currentEditSlot = nil
         saveConfig()
     end)
 end
 
 local clearRow = Instance.new("TextButton")
 clearRow.Size             = UDim2.new(1, 0, 0, 26)
-clearRow.BackgroundColor3 = Color3.fromRGB(30,10,10)
+clearRow.BackgroundColor3 = Color3.fromRGB(30, 10, 10)
 clearRow.Text             = "[ X ]  Clear Slot"
 clearRow.TextColor3       = BW.Red
 clearRow.Font             = Enum.Font.GothamBold
@@ -823,24 +1040,14 @@ clearRow.TextXAlignment   = Enum.TextXAlignment.Left
 clearRow.ZIndex           = 10
 clearRow.Parent           = qbPanel
 createCorner(clearRow, 6)
-local clPad = Instance.new("UIPadding", clearRow)
-clPad.PaddingLeft = UDim.new(0, 8)
-
+local clPad = Instance.new("UIPadding", clearRow); clPad.PaddingLeft = UDim.new(0, 8)
 clearRow.MouseButton1Click:Connect(function()
     if not currentEditSlot then return end
-    qbSlots[currentEditSlot] = nil
-    updateQBBtn(currentEditSlot)
-    refreshAssignedLabels()
-    qbPanel.Visible = false
-    currentEditSlot = nil
-    saveConfig()
+    qbSlots[currentEditSlot] = nil; updateQBBtn(currentEditSlot)
+    refreshAssignedLabels(); qbPanel.Visible = false; currentEditSlot = nil; saveConfig()
 end)
 
-qbPanelClose.MouseButton1Click:Connect(function()
-    qbPanel.Visible = false
-    currentEditSlot = nil
-end)
-
+qbPanelClose.MouseButton1Click:Connect(function() qbPanel.Visible = false; currentEditSlot = nil end)
 qbPanelLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     qbPanel.Size = UDim2.new(0, 200, 0, qbPanelLayout.AbsoluteContentSize.Y + 12)
 end)
@@ -858,10 +1065,8 @@ for slotIdx = 1, QB_SLOTS do
     btn.LayoutOrder      = slotIdx
     btn.Parent           = qbContainer
     createCorner(btn, 10)
-
     local strk = createStroke(btn, BW.Border, 1)
     qbStrokes[slotIdx] = strk
-
     local nlbl = Instance.new("TextLabel")
     nlbl.Size             = UDim2.new(1, 0, 0, 12)
     nlbl.Position         = UDim2.new(0, 0, 1, 2)
@@ -875,9 +1080,7 @@ for slotIdx = 1, QB_SLOTS do
     qbNameLbls[slotIdx]  = nlbl
     qbBtns[slotIdx]      = btn
 
-    local holdConn  = nil
-    local isHolding = false
-
+    local holdConn = nil; local isHolding = false
     local function openPanel(si)
         currentEditSlot = si
         local ap = qbToggleBtn.AbsolutePosition
@@ -885,17 +1088,12 @@ for slotIdx = 1, QB_SLOTS do
         qbPanel.Visible  = true
         refreshAssignedLabels()
     end
-
     btn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             isHolding = false
-            holdConn  = task.delay(0.4, function()
-                isHolding = true
-                openPanel(slotIdx)
-            end)
+            holdConn = task.delay(0.4, function() isHolding = true; openPanel(slotIdx) end)
         end
     end)
-
     btn.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             if holdConn then task.cancel(holdConn); holdConn = nil end
@@ -906,7 +1104,7 @@ for slotIdx = 1, QB_SLOTS do
                     if opt.callback then opt.callback(CONFIG[opt.key]) end
                     if toggleSyncs[opt.key] then toggleSyncs[opt.key](CONFIG[opt.key]) end
                     updateQBBtn(slotIdx)
-                    Notif:Send((CONFIG[opt.key] and "ON" or "OFF")..": "..opt.label, 2)
+                    Notif:Send((CONFIG[opt.key] and "ON" or "OFF") .. ": " .. opt.label, 2)
                 else
                     openPanel(slotIdx)
                 end
@@ -922,234 +1120,11 @@ qbToggleBtn.MouseButton1Click:Connect(function()
     if not qbOpen then qbPanel.Visible = false end
     tween(qbToggleBtn, {BackgroundColor3 = qbOpen and BW.Active or BW.Panel}, 0.2)
 end)
-
 syncQBPositions()
 
 -- ============================================================
--- POPULATE TABS
+-- AIMBOT LOCK FLOAT BUTTON
 -- ============================================================
-local mainContent = contentContainers["MAIN"]
-toggleSyncs["SpeedBoost"] = createToggle(mainContent, "Speed Boost", "SpeedBoost", function(v)
-    if not v then
-        local hum = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid")
-        if hum then hum.WalkSpeed = 16 end
-    end
-end)
-
--- Walk Speed input
-do
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, -4, 0, 32)
-    row.BackgroundColor3 = BW.Row
-    row.Parent = mainContent
-    createCorner(row, 8)
-    createStroke(row, BW.Border, 1)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -80, 1, 0)
-    lbl.Position = UDim2.new(0, 8, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = "Walk Speed"
-    lbl.Font = Enum.Font.GothamSemibold
-    lbl.TextSize = 10
-    lbl.TextColor3 = BW.Text
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = row
-    local box = Instance.new("TextBox")
-    box.Size = UDim2.new(0, 64, 0, 22)
-    box.Position = UDim2.new(1, -70, 0.5, -11)
-    box.BackgroundColor3 = BW.Panel
-    box.Text = tostring(CONFIG.WalkSpeed)
-    box.Font = Enum.Font.GothamBold
-    box.TextSize = 11
-    box.TextColor3 = BW.White
-    box.ClearTextOnFocus = false
-    box.TextXAlignment = Enum.TextXAlignment.Center
-    box.Parent = row
-    createCorner(box, 5)
-    createStroke(box, BW.Border, 1)
-    box.FocusLost:Connect(function()
-        local v = tonumber(box.Text)
-        if v and v >= 1 and v <= 1000 then
-            CONFIG.WalkSpeed = math.floor(v)
-            saveConfig()
-        else
-            box.Text = tostring(CONFIG.WalkSpeed)
-        end
-    end)
-end
-
-toggleSyncs["Noclip"] = createToggle(mainContent, "Noclip", "Noclip")
-toggleSyncs["Invisibility"] = createToggle(mainContent, "Invisibility", "Invisibility", function(v)
-    applyInvisibility(v)
-end)
-toggleSyncs["SuperJump"] = createToggle(mainContent, "Super Jump", "SuperJump")
-
--- Jump Power input
-do
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, -4, 0, 32)
-    row.BackgroundColor3 = BW.Row
-    row.Parent = mainContent
-    createCorner(row, 8)
-    createStroke(row, BW.Border, 1)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -80, 1, 0)
-    lbl.Position = UDim2.new(0, 8, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = "Jump Power"
-    lbl.Font = Enum.Font.GothamSemibold
-    lbl.TextSize = 10
-    lbl.TextColor3 = BW.Text
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = row
-    local box = Instance.new("TextBox")
-    box.Size = UDim2.new(0, 64, 0, 22)
-    box.Position = UDim2.new(1, -70, 0.5, -11)
-    box.BackgroundColor3 = BW.Panel
-    box.Text = tostring(CONFIG.JumpPower)
-    box.Font = Enum.Font.GothamBold
-    box.TextSize = 11
-    box.TextColor3 = BW.White
-    box.ClearTextOnFocus = false
-    box.TextXAlignment = Enum.TextXAlignment.Center
-    box.Parent = row
-    createCorner(box, 5)
-    createStroke(box, BW.Border, 1)
-    box.FocusLost:Connect(function()
-        local v = tonumber(box.Text)
-        if v and v >= 1 and v <= 5000 then
-            CONFIG.JumpPower = math.floor(v)
-            saveConfig()
-        else
-            box.Text = tostring(CONFIG.JumpPower)
-        end
-    end)
-end
-
-toggleSyncs["KingMode"] = createToggle(mainContent, "King Mode", "KingMode")
-
-local cameraHub = Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
-
-toggleSyncs["CameraView"] = createToggle(mainContent, "Camera View", "CameraView", function(v)
-    cameraHub.Visible = v
-    if not v then
-        Camera:Stop()
-        CONFIG.CameraMode = "normal"
-    else
-        Notif:Send("Camera Hub opened", 2)
-    end
-end)
-
-local espContent = contentContainers["ESP"]
-toggleSyncs["BoxESP"]     = createToggle(espContent, "Box ESP",      "BoxESP")
-createESPColorRow(espContent, "Box Color", "ESPColor", "BoxRainbow")
-toggleSyncs["PlayerInfo"] = createToggle(espContent, "Player Info",  "PlayerInfo")
-toggleSyncs["TeamFilter"] = createToggle(espContent, "Team Filter",  "TeamFilter", function(v)
-    if v then
-        CONFIG.PlayerInfo = true
-        if toggleSyncs["PlayerInfo"] then toggleSyncs["PlayerInfo"](true) end
-        ESP:RescanNPCs()
-        Notif:Send("Team Filter ON - Player Info auto-enabled", 2)
-    end
-    saveConfig()
-end)
-
--- AIMBOT divider
-local function makeDivider(parent, text)
-    local div = Instance.new("Frame")
-    div.Size = UDim2.new(1, -4, 0, 20)
-    div.BackgroundTransparency = 1
-    div.Parent = parent
-    local l1 = Instance.new("Frame")
-    l1.Size = UDim2.new(0.25, 0, 0, 1)
-    l1.Position = UDim2.new(0, 0, 0.5, 0)
-    l1.BackgroundColor3 = BW.Border
-    l1.BorderSizePixel = 0
-    l1.Parent = div
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(0.5, 0, 1, 0)
-    lbl.Position = UDim2.new(0.25, 0, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextSize = 8
-    lbl.TextColor3 = BW.Dim
-    lbl.Parent = div
-    local l2 = Instance.new("Frame")
-    l2.Size = UDim2.new(0.25, 0, 0, 1)
-    l2.Position = UDim2.new(0.75, 0, 0.5, 0)
-    l2.BackgroundColor3 = BW.Border
-    l2.BorderSizePixel = 0
-    l2.Parent = div
-end
-
-makeDivider(espContent, "AIMBOT")
-
-toggleSyncs["Aimbot"] = createToggle(espContent, "Aimbot", "Aimbot", function(v)
-    if v then ESP:StartAimbot(CONFIG)
-    else ESP:StopAimbot() end
-end)
-
--- Aimbot target selector (Head / Body)
-do
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, -4, 0, 30)
-    row.BackgroundColor3 = BW.Row
-    row.Parent = espContent
-    createCorner(row, 8)
-    createStroke(row, BW.Border, 1)
-
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(0.45, 0, 1, 0)
-    lbl.Position = UDim2.new(0, 8, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = "Target"
-    lbl.Font = Enum.Font.GothamSemibold
-    lbl.TextSize = 10
-    lbl.TextColor3 = BW.Text
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = row
-
-    local headBtn = Instance.new("TextButton")
-    headBtn.Size = UDim2.new(0, 60, 0, 20)
-    headBtn.Position = UDim2.new(1, -132, 0.5, -10)
-    headBtn.BackgroundColor3 = CONFIG.AimbotTarget == "head" and BW.Active or BW.Panel
-    headBtn.Text = "HEAD"
-    headBtn.TextColor3 = CONFIG.AimbotTarget == "head" and BW.ActFg or BW.Dim
-    headBtn.Font = Enum.Font.GothamBold
-    headBtn.TextSize = 9
-    headBtn.Parent = row
-    createCorner(headBtn, 5)
-
-    local bodyBtn = Instance.new("TextButton")
-    bodyBtn.Size = UDim2.new(0, 60, 0, 20)
-    bodyBtn.Position = UDim2.new(1, -68, 0.5, -10)
-    bodyBtn.BackgroundColor3 = CONFIG.AimbotTarget == "body" and BW.Active or BW.Panel
-    bodyBtn.Text = "BODY"
-    bodyBtn.TextColor3 = CONFIG.AimbotTarget == "body" and BW.ActFg or BW.Dim
-    bodyBtn.Font = Enum.Font.GothamBold
-    bodyBtn.TextSize = 9
-    bodyBtn.Parent = row
-    createCorner(bodyBtn, 5)
-
-    local function updateAimbotBtns()
-        headBtn.BackgroundColor3 = CONFIG.AimbotTarget=="head" and BW.Active or BW.Panel
-        headBtn.TextColor3       = CONFIG.AimbotTarget=="head" and BW.ActFg or BW.Dim
-        bodyBtn.BackgroundColor3 = CONFIG.AimbotTarget=="body" and BW.Active or BW.Panel
-        bodyBtn.TextColor3       = CONFIG.AimbotTarget=="body" and BW.ActFg or BW.Dim
-    end
-    headBtn.MouseButton1Click:Connect(function()
-        CONFIG.AimbotTarget = "head"; updateAimbotBtns(); saveConfig()
-    end)
-    bodyBtn.MouseButton1Click:Connect(function()
-        CONFIG.AimbotTarget = "body"; updateAimbotBtns(); saveConfig()
-    end)
-end
-
-toggleSyncs["AimbotPlayers"]  = createToggle(espContent, "Aim at Players",  "AimbotPlayers")
-toggleSyncs["AimbotMonsters"] = createToggle(espContent, "Aim at Monsters", "AimbotMonsters")
-
--- ── Floating Lock Button (appears near QB when aimbot is active) ──
 local lockFloatBtn = Instance.new("TextButton")
 lockFloatBtn.Size             = UDim2.new(0, 54, 0, 54)
 lockFloatBtn.BackgroundColor3 = BW.Panel
@@ -1166,17 +1141,16 @@ createCorner(lockFloatBtn, 10)
 local lockFloatStroke = createStroke(lockFloatBtn, BW.Border, 1)
 
 local lockNameLbl = Instance.new("TextLabel")
-lockNameLbl.Size             = UDim2.new(1, 2, 0, 12)
-lockNameLbl.Position         = UDim2.new(-0.02, 0, 1, 2)
+lockNameLbl.Size               = UDim2.new(1, 2, 0, 12)
+lockNameLbl.Position           = UDim2.new(-0.02, 0, 1, 2)
 lockNameLbl.BackgroundTransparency = 1
-lockNameLbl.Text             = ""
-lockNameLbl.Font             = Enum.Font.GothamBold
-lockNameLbl.TextSize         = 7
-lockNameLbl.TextColor3       = BW.Dim
-lockNameLbl.ZIndex           = 6
-lockNameLbl.Parent           = lockFloatBtn
+lockNameLbl.Text               = ""
+lockNameLbl.Font               = Enum.Font.GothamBold
+lockNameLbl.TextSize           = 7
+lockNameLbl.TextColor3         = BW.Dim
+lockNameLbl.ZIndex             = 6
+lockNameLbl.Parent             = lockFloatBtn
 
--- Position near QB toggle button (to the right)
 local function syncLockBtnPos()
     local ap = qbToggleBtn.AbsolutePosition
     lockFloatBtn.Position = UDim2.new(0, ap.X + 42, 0, ap.Y)
@@ -1186,42 +1160,34 @@ syncLockBtnPos()
 
 lockFloatBtn.MouseButton1Click:Connect(function()
     if ESP:IsAimbotLocked() then
-        ESP:SetAimbotLocked(false)
-        Notif:Send("Aim lock: OFF", 1)
+        ESP:SetAimbotLocked(false); Notif:Send("Aim lock: OFF", 1)
     else
         local part = ESP:GetLockedPart()
         if part and part.Parent then
-            ESP:SetAimbotLocked(true)
-            Notif:Send("Locked: "..part.Parent.Name, 2)
+            ESP:SetAimbotLocked(true); Notif:Send("Locked: " .. part.Parent.Name, 2)
         else
             Notif:Send("No target yet!", 2)
         end
     end
 end)
 
--- Update lock button state every frame
 RunService.Heartbeat:Connect(function()
     local aimbotOn = CONFIG.Aimbot and (CONFIG.AimbotPlayers or CONFIG.AimbotMonsters)
     lockFloatBtn.Visible = aimbotOn
-
     if not aimbotOn then return end
-
     if ESP:IsAimbotLocked() then
         local part = ESP:GetLockedPart()
-        local name = (part and part.Parent and part.Parent.Name) or "Lost"
         lockFloatBtn.BackgroundColor3 = BW.Active
         lockFloatBtn.TextColor3       = BW.ActFg
-        lockFloatBtn.Text             = "LOCK"
-        lockFloatStroke.Color         = Color3.fromRGB(220,50,50)
+        lockFloatStroke.Color         = Color3.fromRGB(220, 50, 50)
         lockFloatStroke.Thickness     = 2
-        lockNameLbl.Text              = name
-        lockNameLbl.TextColor3        = Color3.fromRGB(220,50,50)
+        lockNameLbl.Text              = (part and part.Parent and part.Parent.Name) or "Lost"
+        lockNameLbl.TextColor3        = Color3.fromRGB(220, 50, 50)
     else
         local part = ESP:GetLockedPart()
         local name = (part and part.Parent and part.Parent.Name) or ""
         lockFloatBtn.BackgroundColor3 = BW.Panel
         lockFloatBtn.TextColor3       = BW.Dim
-        lockFloatBtn.Text             = "LOCK"
         lockFloatStroke.Color         = BW.Border
         lockFloatStroke.Thickness     = 1
         lockNameLbl.Text              = name ~= "" and name or "tap to lock"
@@ -1229,88 +1195,15 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ENTITY ESP divider
-makeDivider(espContent, "ENTITY ESP")
-
-toggleSyncs["NPCBoxESP"] = createToggle(espContent, "Entity Box ESP",   "NPCBoxESP", function(v)
-    if v then ESP:RescanNPCs() end
-end)
-toggleSyncs["NPCMonster"] = createToggle(espContent, "Monster / Enemy", "NPCMonster", function(v)
-    if v then ESP:RescanNPCs() end
-end)
-createESPColorRow(espContent, "Monster Color", "NPCMonsterColor", nil)
-toggleSyncs["NPCItem"] = createToggle(espContent, "Items / Objects",    "NPCItem", function(v)
-    if v then ESP:RescanNPCs() end
-end)
-createESPColorRow(espContent, "Item Color", "NPCItemColor", nil)
-
-local fpsContent = contentContainers["FPS"]
-toggleSyncs["FPSBoost"] = createToggle(fpsContent, "FPS Boost", "FPSBoost", function(v)
-    Lighting.GlobalShadows = not v
-    Lighting.Technology = v and Enum.Technology.Compatibility or Enum.Technology.ShadowMap
-end)
-toggleSyncs["DisableParticles"] = createToggle(fpsContent, "Disable Particles", "DisableParticles")
-toggleSyncs["ShowFPS"]          = createToggle(fpsContent, "Show FPS", "ShowFPS")
-
-Scripts:Init(contentContainers["SCRIPTS"], BW, nil, createCorner, Notif)
-
 -- ============================================================
--- TROLL TAB
+-- LOAD CONFIG + SYNC VISUALS
 -- ============================================================
-local trollContent = contentContainers["TROLL"]
-
--- Build ScareHub via UI module (black & white minimal theme)
-local scareHub = UI:BuildScareHub(screenGui, Troll, Notif, CONFIG, createCorner, toggleSyncs)
-
-toggleSyncs["Scare"] = createToggle(trollContent, "Scare", "Scare", function(v)
-    scareHub.Visible = v
-    if v then
-        Notif:Send("Scare Hub opened", 2)
-        -- Auto-spectate the selected target when ScareHub opens
-        local tgt = Troll:GetTarget()
-        if tgt and not Troll:IsSpectating() then
-            local ok = Troll:StartSpectate(tgt, Troll:GetSpectateMode())
-            if ok then Notif:Send("Auto-spectating " .. tgt.Name, 2) end
-        end
-    else
-        -- Stop spectating when ScareHub closes
-        if Troll:IsSpectating() then
-            Troll:StopSpectate()
-        end
-    end
-end)
-
-toggleSyncs["Fling"] = createToggle(trollContent, "Fling", "Fling", function(v)
-    if v then Troll:StartFling(); Notif:Send("Fling: ON", 2)
-    else Troll:StopFling(); Notif:Send("Fling: OFF", 2) end
-end)
-toggleSyncs["WalkFling"] = createToggle(trollContent, "Walk Fling", "WalkFling", function(v)
-    if v then Troll:StartWalkFling(); Notif:Send("Walk Fling: ON", 2)
-    else Troll:StopWalkFling(); Notif:Send("Walk Fling: OFF", 2) end
-end)
-toggleSyncs["AntiFling"] = createToggle(trollContent, "Anti Fling", "AntiFling", function(v)
-    if v then Troll:StartAntiFling(); Notif:Send("Anti Fling: ON", 2)
-    else Troll:StopAntiFling(); Notif:Send("Anti Fling: OFF", 2) end
-end)
-
--- ============================================================
--- SPEC TAB
--- ============================================================
-Spectate:Init(contentContainers["SPEC"], BW, createCorner, Notif)
-
--- Load saved config (must run after QB_OPTIONS, qbSlots, toggleSyncs are all defined)
 loadConfig()
-
--- Sync toggle visuals to match loaded CONFIG values
 for key, updateFn in pairs(toggleSyncs) do
     if CONFIG[key] ~= nil then updateFn(CONFIG[key]) end
 end
--- Sync slider visuals
-for key, refreshFn in pairs(sliderSyncs) do
-    refreshFn()
-end
+for _, refreshFn in pairs(sliderSyncs) do refreshFn() end
 
--- Apply DisableParticles side-effect if restored
 if CONFIG.DisableParticles then
     for _, v in pairs(workspace:GetDescendants()) do
         if v:IsA("ParticleEmitter") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
@@ -1333,8 +1226,7 @@ iconBtn.MouseButton1Click:Connect(function()
 end)
 
 closeBtn.MouseButton1Click:Connect(function()
-    menuOpen = false
-    mainFrame.Visible = false
+    menuOpen = false; mainFrame.Visible = false
 end)
 
 RunService.Heartbeat:Connect(function()
@@ -1342,7 +1234,7 @@ RunService.Heartbeat:Connect(function()
         local char = player.Character
         local hum  = char and char:FindFirstChildWhichIsA("Humanoid")
         if hum then
-            if CONFIG.SpeedBoost then hum.WalkSpeed = CONFIG.WalkSpeed end
+            if CONFIG.SpeedBoost then hum.WalkSpeed  = CONFIG.WalkSpeed end
             if CONFIG.KingMode   then hum.Health = hum.MaxHealth; hum.MaxHealth = 999999 end
         end
         if CONFIG.Noclip and char then
@@ -1376,4 +1268,4 @@ end
 player.CharacterAdded:Connect(onCharacterAdded)
 if player.Character then onCharacterAdded(player.Character) end
 
-Notif:Send("HALO-HALO v0.1.2 loaded.", 4)
+Notif:Send("HALO-HALO v0.1.3 loaded.", 4)

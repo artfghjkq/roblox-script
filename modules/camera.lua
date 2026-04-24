@@ -1,18 +1,17 @@
 local Camera = {}
 
-local Players              = game:GetService("Players")
-local RunService           = game:GetService("RunService")
-local TweenService         = game:GetService("TweenService")
-local UserInputService     = game:GetService("UserInputService")
-local ContextActionService = game:GetService("ContextActionService")
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local cam    = workspace.CurrentCamera
 
 local activeMode = "normal"
 local thirdConn  = nil
-local inputConn  = nil
-local rmbConn    = nil
+local dragConn   = nil
+local endConn    = nil
 
 local thirdDist  = 6
 local thirdOffX  = 2.5
@@ -22,10 +21,12 @@ local origFov    = 70
 
 local camYaw     = 0
 local camPitch   = -0.25
-local SENS       = 0.005
+local SENS       = 0.008
 local PITCH_MIN  = math.rad(-70)
 local PITCH_MAX  = math.rad(60)
-local rmbHeld    = false
+
+local touchId    = nil
+local lastTouchPos = nil
 
 local function tw(obj, props, dur)
     if not obj or not obj.Parent then return end
@@ -39,13 +40,13 @@ end
 
 local function stopThird()
     if thirdConn then thirdConn:Disconnect(); thirdConn = nil end
-    if inputConn then inputConn:Disconnect(); inputConn = nil end
-    if rmbConn   then rmbConn:Disconnect();   rmbConn   = nil end
-    rmbHeld = false
+    if dragConn  then dragConn:Disconnect();  dragConn  = nil end
+    if endConn   then endConn:Disconnect();   endConn   = nil end
+    touchId      = nil
+    lastTouchPos = nil
     pcall(function()
         cam.CameraType  = Enum.CameraType.Custom
         cam.FieldOfView = origFov
-        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
     end)
 end
 
@@ -54,7 +55,6 @@ local function startThird()
 
     origFov = cam.FieldOfView
 
-    -- Initialise yaw from current character facing direction
     local char = player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     if hrp then
@@ -68,28 +68,32 @@ local function startThird()
         cam.FieldOfView = thirdFov
     end)
 
-    -- Track RMB state
-    rmbConn = UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-        if not rmbHeld then return end
-        -- Only rotate camera when RMB is held
-        camYaw   = camYaw - input.Delta.X * SENS
-        camPitch = math.clamp(camPitch - input.Delta.Y * SENS, PITCH_MIN, PITCH_MAX)
-    end)
-
-    inputConn = UserInputService.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if input.UserInputType == Enum.UserInputType.MouseButton2 then
-            rmbHeld = true
-            UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+    -- Touch/mouse drag to rotate
+    -- Supports both mobile touch AND mouse drag for desktop
+    dragConn = UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            if input.UserInputState == Enum.UserInputState.Change then
+                if touchId and input.Position == lastTouchPos then return end
+                if lastTouchPos then
+                    local delta = input.Position - lastTouchPos
+                    camYaw   = camYaw - delta.X * SENS
+                    camPitch = math.clamp(camPitch - delta.Y * SENS, PITCH_MIN, PITCH_MAX)
+                end
+                lastTouchPos = input.Position
+                touchId = input.Position
+            end
+        elseif input.UserInputType == Enum.UserInputType.MouseMovement then
+            if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+                camYaw   = camYaw - input.Delta.X * (SENS * 0.5)
+                camPitch = math.clamp(camPitch - input.Delta.Y * (SENS * 0.5), PITCH_MIN, PITCH_MAX)
+            end
         end
     end)
 
-    local releaseConn
-    releaseConn = UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton2 then
-            rmbHeld = false
-            UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    endConn = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            lastTouchPos = nil
+            touchId      = nil
         end
     end)
 
@@ -99,24 +103,20 @@ local function startThird()
             local hrp = c and c:FindFirstChild("HumanoidRootPart")
             if not hrp then return end
 
-            -- When RMB is NOT held, camera yaw follows the HRP (character turn)
-            -- so camera always stays behind character during normal walking
-            if not rmbHeld then
+            -- When not actively dragging, softly follow character yaw
+            if not lastTouchPos and not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
                 local _, y, _ = hrp.CFrame:ToEulerAnglesYXZ()
-                -- Smooth yaw follow
                 local diff = y - camYaw
-                -- Wrap diff to [-pi, pi]
                 diff = ((diff + math.pi) % (2 * math.pi)) - math.pi
-                camYaw = camYaw + diff * 0.12
+                camYaw = camYaw + diff * 0.08
             end
 
-            local pivot   = hrp.Position + Vector3.new(0, thirdOffY, 0)
-            local rotCF   = CFrame.fromEulerAnglesYXZ(camPitch, camYaw, 0)
-            local back    = rotCF.LookVector * -thirdDist
-            local right   = rotCF.RightVector * thirdOffX
-            local camPos  = pivot + back + right
+            local pivot  = hrp.Position + Vector3.new(0, thirdOffY, 0)
+            local rotCF  = CFrame.fromEulerAnglesYXZ(camPitch, camYaw, 0)
+            local back   = rotCF.LookVector * -thirdDist
+            local right  = rotCF.RightVector * thirdOffX
+            local camPos = pivot + back + right
 
-            -- Wall clip prevention
             local rp = RaycastParams.new()
             rp.FilterType = Enum.RaycastFilterType.Exclude
             rp.FilterDescendantsInstances = {c}
@@ -176,8 +176,7 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     hub.Parent           = screenGui
     createCorner(hub, 12)
     local hubStroke = Instance.new("UIStroke", hub)
-    hubStroke.Color     = BW.Border
-    hubStroke.Thickness = 1
+    hubStroke.Color = BW.Border; hubStroke.Thickness = 1
 
     local topBar = Instance.new("Frame")
     topBar.Size             = UDim2.new(1, 0, 0, 36)
@@ -217,10 +216,7 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
         b.ZIndex           = 22
         b.Parent           = topBar
         createCorner(b, 5)
-        local bs = Instance.new("UIStroke", b)
-        bs.Color = BW.Border; bs.Thickness = 1
-        b.MouseEnter:Connect(function() tw(b, {TextColor3 = BW.White}) end)
-        b.MouseLeave:Connect(function() tw(b, {TextColor3 = BW.Dim}) end)
+        local bs = Instance.new("UIStroke", b); bs.Color = BW.Border; bs.Thickness = 1
         return b
     end
 
@@ -233,7 +229,6 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     body.BackgroundTransparency = 1
     body.BorderSizePixel      = 0
     body.ScrollBarThickness   = 2
-    body.ScrollBarImageColor3 = BW.Border
     body.CanvasSize           = UDim2.new(0, 0, 0, 0)
     body.AutomaticCanvasSize  = Enum.AutomaticSize.Y
     body.ZIndex               = 20
@@ -242,12 +237,9 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     local bodyLayout = Instance.new("UIListLayout", body)
     bodyLayout.SortOrder = Enum.SortOrder.LayoutOrder
     bodyLayout.Padding   = UDim.new(0, 6)
-
     local bodyPad = Instance.new("UIPadding", body)
-    bodyPad.PaddingTop    = UDim.new(0, 6)
-    bodyPad.PaddingBottom = UDim.new(0, 6)
-    bodyPad.PaddingLeft   = UDim.new(0, 6)
-    bodyPad.PaddingRight  = UDim.new(0, 6)
+    bodyPad.PaddingTop = UDim.new(0, 6); bodyPad.PaddingBottom = UDim.new(0, 6)
+    bodyPad.PaddingLeft = UDim.new(0, 6); bodyPad.PaddingRight = UDim.new(0, 6)
 
     local function sectionLabel(txt, lo)
         local lbl = Instance.new("TextLabel")
@@ -282,8 +274,7 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     modeLayout.VerticalAlignment   = Enum.VerticalAlignment.Center
     modeLayout.Padding             = UDim.new(0, 6)
     local modePad = Instance.new("UIPadding", modeRow)
-    modePad.PaddingLeft  = UDim.new(0, 6)
-    modePad.PaddingRight = UDim.new(0, 6)
+    modePad.PaddingLeft = UDim.new(0, 6); modePad.PaddingRight = UDim.new(0, 6)
 
     local MODES    = {"Normal", "Third"}
     local modeKeys = {"normal", "third"}
@@ -310,9 +301,7 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
         btn.Parent           = modeRow
         createCorner(btn, 6)
         modeBtns[i] = btn
-
-        local capKey   = modeKeys[i]
-        local capLabel = label
+        local capKey, capLabel = modeKeys[i], label
         btn.MouseButton1Click:Connect(function()
             setMode(capKey)
             updateModeBtns(capKey)
@@ -374,15 +363,14 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
         end)
     end
 
-    numRow(4, "Distance",      thirdDist,                   2,  20, function(v) thirdDist = v; if activeMode == "third" then startThird() end end)
-    numRow(5, "Side Offset",   thirdOffX,                  -5,   5, function(v) thirdOffX = v; if activeMode == "third" then startThird() end end)
-    numRow(6, "Height Offset", thirdOffY,                  -3,   5, function(v) thirdOffY = v; if activeMode == "third" then startThird() end end)
-    numRow(7, "Field of View", thirdFov,                   50, 120, function(v) thirdFov = v;  if activeMode == "third" then pcall(function() cam.FieldOfView = thirdFov end) end end)
-    numRow(8, "Sensitivity",   math.floor(SENS * 1000),     1,  20, function(v) SENS = v / 1000 end)
+    numRow(4, "Distance",      thirdDist,               2,  20, function(v) thirdDist = v; if activeMode == "third" then startThird() end end)
+    numRow(5, "Side Offset",   thirdOffX,              -5,   5, function(v) thirdOffX = v; if activeMode == "third" then startThird() end end)
+    numRow(6, "Height Offset", thirdOffY,              -3,   5, function(v) thirdOffY = v; if activeMode == "third" then startThird() end end)
+    numRow(7, "Field of View", thirdFov,               50, 120, function(v) thirdFov = v;  if activeMode == "third" then pcall(function() cam.FieldOfView = thirdFov end) end end)
+    numRow(8, "Sensitivity",   math.floor(SENS * 1000), 1,  20, function(v) SENS = v / 1000 end)
 
-    -- Hint row
     local hintRow = Instance.new("Frame")
-    hintRow.Size             = UDim2.new(1, 0, 0, 30)
+    hintRow.Size             = UDim2.new(1, 0, 0, 32)
     hintRow.BackgroundColor3 = BW.Panel
     hintRow.LayoutOrder      = 9
     hintRow.ZIndex           = 21
@@ -393,7 +381,7 @@ function Camera:BuildHub(screenGui, Notif, CONFIG, createCorner, toggleSyncs)
     hintLbl.Size               = UDim2.new(1, -12, 1, 0)
     hintLbl.Position           = UDim2.new(0, 6, 0, 0)
     hintLbl.BackgroundTransparency = 1
-    hintLbl.Text               = "Hold RIGHT CLICK to rotate camera\nRelease to walk freely"
+    hintLbl.Text               = "Drag screen to rotate camera\nRelease to walk freely"
     hintLbl.Font               = Enum.Font.Gotham
     hintLbl.TextSize           = 8
     hintLbl.TextColor3         = BW.Dim
