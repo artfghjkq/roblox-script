@@ -48,11 +48,8 @@ local Camera   = req("camera.lua")
 Troll.inviModule = Invi
 Troll.configRef  = CONFIG
 
-CONFIG.CameraView    = CONFIG.CameraView    or false
-CONFIG.CameraMode    = CONFIG.CameraMode    or "normal"
-CONFIG.Chams         = CONFIG.Chams         or false
-CONFIG.ChamsMonster  = CONFIG.ChamsMonster  or false
-CONFIG.ChamsItem     = CONFIG.ChamsItem     or false
+CONFIG.CameraView = CONFIG.CameraView or false
+CONFIG.CameraMode = CONFIG.CameraMode or "normal"
 
 local COLORS         = ColLib.COLORS
 local createCorner   = ColLib.createCorner
@@ -111,7 +108,7 @@ local sliderSyncs = {}
 -- SAVE / LOAD CONFIG
 -- ============================================================
 local SAVE_FILE  = "halohalo_config.json"
-local COLOR_KEYS = {ESPColor=true, NPCMonsterColor=true, NPCItemColor=true, ChamsColor=true}
+local COLOR_KEYS = {ESPColor=true, NPCMonsterColor=true, NPCItemColor=true}
 
 local function color3ToTable(c) return {r=c.R, g=c.G, b=c.B} end
 
@@ -818,12 +815,6 @@ toggleSyncs["NPCMonster"] = createToggle(espBody, "Monster / Enemy",  "NPCMonste
 createESPColorRow(espBody, "Monster Color", "NPCMonsterColor", nil)
 toggleSyncs["NPCItem"]    = createToggle(espBody, "Items / Objects",   "NPCItem",    function(v) if v then ESP:RescanNPCs() end end)
 createESPColorRow(espBody, "Item Color", "NPCItemColor", nil)
-
-makeDivider(espBody, "CHAMS")
-
-toggleSyncs["Chams"]        = createToggle(espBody, "Player Chams",  "Chams")
-toggleSyncs["ChamsMonster"] = createToggle(espBody, "Monster Chams", "ChamsMonster")
-toggleSyncs["ChamsItem"]    = createToggle(espBody, "Item Chams",    "ChamsItem")
 
 -- ── FPS PANEL ───────────────────────────────────────────────
 local fpsPanel, fpsBody = buildPanel("FPS BOOST", 260, 200, UDim2.new(0.5, 80, 0.5, -100))

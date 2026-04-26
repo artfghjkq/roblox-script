@@ -6,12 +6,18 @@ local UserInputService = game:GetService("UserInputService")
 
 local plrDrawings = {}
 local entDrawings = {}
+local plrChams    = {}
+local entChams    = {}
+
+local chamsFolder = Instance.new("Folder")
+chamsFolder.Name  = "HHChams"
+chamsFolder.Parent = workspace
 
 local knownEntities  = {}
 local entityScanTick = 0
 local SCAN_INTERVAL  = 300
-local MAX_DIST_ALL   = 300
-local MAX_DIST_SKEL  = 150
+local MAX_DIST_ALL   = 500
+local MAX_DIST_SKEL  = 200
 local scanRunning    = false
 
 local aimbotActive     = false
@@ -42,6 +48,22 @@ local function removeAll(d)
         if d[k] then d[k]:Remove() end
     end
     if d.skel then for _, l in pairs(d.skel) do l:Remove() end end
+end
+
+local function makeHighlight(adornee, outlineColor, fillColor)
+    local h = Instance.new("Highlight")
+    h.Adornee           = adornee
+    h.OutlineColor      = outlineColor or Color3.fromRGB(255, 255, 255)
+    h.FillColor         = fillColor    or Color3.fromRGB(255, 255, 255)
+    h.FillTransparency  = 1
+    h.OutlineTransparency = 0
+    h.DepthMode         = Enum.HighlightDepthMode.AlwaysOnTop
+    h.Parent            = chamsFolder
+    return h
+end
+
+local function removeChams(h)
+    if h and h.Parent then h:Destroy() end
 end
 
 local TEAMMATE_KW = {
@@ -143,44 +165,70 @@ local function tagLabel(cat)
     else return "[ITEM]" end
 end
 
-local CHUNK_SIZE = 150
+local CHUNK_SIZE = 200
+
+local function getCharSet()
+    local chars = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character then chars[p.Character] = true end
+    end
+    return chars
+end
 
 local function scanEntitiesAsync()
     if scanRunning then return end
     scanRunning = true
 
     task.spawn(function()
-        local chars = {}
-        for _, p in pairs(Players:GetPlayers()) do
-            if p.Character then chars[p.Character] = true end
-        end
+        local chars = getCharSet()
 
-        -- Cleanup dead entries
         for model in pairs(knownEntities) do
             if not model or not model.Parent then
+                removeAll(entDrawings[model])
+                entDrawings[model]   = nil
+                knownEntities[model] = nil
+            elseif chars[model] then
                 removeAll(entDrawings[model])
                 entDrawings[model]   = nil
                 knownEntities[model] = nil
             end
         end
 
-        -- Chunked descendant scan - yields every CHUNK_SIZE objects
         local allObjs = workspace:GetDescendants()
         local count   = 0
+
         for _, obj in ipairs(allObjs) do
             count = count + 1
             if count % CHUNK_SIZE == 0 then
                 task.wait()
+                chars = getCharSet()
             end
+
+            if not obj or not obj.Parent then continue end
 
             local isHRP = obj:IsA("BasePart") and
                 (obj.Name == "HumanoidRootPart" or obj.Name == "Torso" or obj.Name == "HRP")
             local isHum = obj:IsA("Humanoid")
+
             if isHRP or isHum then
                 local model = obj.Parent
-                if model and model:IsA("Model") and not chars[model] and not knownEntities[model] then
+                if model
+                    and model:IsA("Model")
+                    and model.Parent ~= nil
+                    and not chars[model]
+                    and not knownEntities[model]
+                then
                     knownEntities[model] = classifyModel(model)
                 end
+            end
+        end
+
+        chars = getCharSet()
+        for model in pairs(knownEntities) do
+            if chars[model] then
+                removeAll(entDrawings[model])
+                entDrawings[model]   = nil
+                knownEntities[model] = nil
             end
         end
 
@@ -382,12 +430,16 @@ end
 function ESP:Cleanup(plr)
     removeAll(plrDrawings[plr])
     plrDrawings[plr] = nil
+    removeChams(plrChams[plr])
+    plrChams[plr] = nil
 end
 
 function ESP:RescanNPCs()
     for model in pairs(knownEntities) do
         removeAll(entDrawings[model])
         entDrawings[model] = nil
+        removeChams(entChams[model])
+        entChams[model] = nil
     end
     knownEntities = {}
     scanRunning   = false
@@ -451,6 +503,14 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         local d    = plrDrawings[plr]
 
         if plr == player or not hrp or not hum then hideAll(d); continue end
+
+        -- Team Filter: only show enemies — hide teammates and neutrals
+        if CONFIG.TeamFilter and not isEnemy(plr) then
+            hideAll(d)
+            local h = plrChams[plr]
+            if h then h.Enabled = false end
+            continue
+        end
 
         local rootPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
         if not onScreen or rootPos.Z <= 0 then hideAll(d); continue end
@@ -558,6 +618,23 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
             d.tracerOutline.Visible = false
             if d.skel then for _, l in pairs(d.skel) do l.Visible = false end end
         end
+
+        -- Chams: auto-on when PlayerInfo is on, or when Chams explicitly enabled
+        local chamsOn = CONFIG.Chams or CONFIG.PlayerInfo
+        if chamsOn and char then
+            local h = plrChams[plr]
+            if not h or not h.Parent then
+                h = makeHighlight(char, tCol, tCol)
+                plrChams[plr] = h
+            else
+                h.Adornee    = char
+                h.OutlineColor = tCol
+            end
+            h.Enabled = true
+        else
+            local h = plrChams[plr]
+            if h then h.Enabled = false end
+        end
     end
 
     -- ── Entity ESP ────────────────────────────────────────────
@@ -579,6 +656,8 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         if not model or not model.Parent then
             removeAll(entDrawings[model])
             entDrawings[model]   = nil
+            removeChams(entChams[model])
+            entChams[model]      = nil
             knownEntities[model] = nil
             continue
         end
@@ -621,6 +700,35 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
                 skel          = {},
             }
             entDrawings[model] = d
+        end
+
+        -- Entity Chams
+        local autoChamsMonster = CONFIG.ChamsMonster or CONFIG.NPCMonster
+        local autoChamsItem    = CONFIG.ChamsItem    or CONFIG.NPCItem
+
+        if autoChamsMonster and cat == "monster" then
+            local h = entChams[model]
+            if not h or not h.Parent then
+                h = makeHighlight(model, eCol, eCol)
+                entChams[model] = h
+            else
+                h.Adornee      = model
+                h.OutlineColor = eCol
+            end
+            h.Enabled = true
+        elseif autoChamsItem and cat == "item" then
+            local h = entChams[model]
+            if not h or not h.Parent then
+                h = makeHighlight(model, eCol, eCol)
+                entChams[model] = h
+            else
+                h.Adornee      = model
+                h.OutlineColor = eCol
+            end
+            h.Enabled = true
+        else
+            local h = entChams[model]
+            if h then h.Enabled = false end
         end
 
         local sz   = math.clamp((1000 / math.max(dist, 1)) * 2, 10, 600)
