@@ -9,9 +9,10 @@ local entDrawings = {}
 
 local knownEntities  = {}
 local entityScanTick = 0
-local SCAN_INTERVAL  = 180
-local MAX_DIST_ALL   = 500
-local MAX_DIST_SKEL  = 200
+local SCAN_INTERVAL  = 300
+local MAX_DIST_ALL   = 300
+local MAX_DIST_SKEL  = 150
+local scanRunning    = false
 
 local aimbotActive     = false
 local aimbotConn       = nil
@@ -142,29 +143,49 @@ local function tagLabel(cat)
     else return "[ITEM]" end
 end
 
-local function scanEntities()
-    local chars = {}
-    for _, p in pairs(Players:GetPlayers()) do
-        if p.Character then chars[p.Character] = true end
-    end
-    for model in pairs(knownEntities) do
-        if not model or not model.Parent then
-            removeAll(entDrawings[model])
-            entDrawings[model]   = nil
-            knownEntities[model] = nil
+local CHUNK_SIZE = 150
+
+local function scanEntitiesAsync()
+    if scanRunning then return end
+    scanRunning = true
+
+    task.spawn(function()
+        local chars = {}
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character then chars[p.Character] = true end
         end
-    end
-    for _, obj in pairs(workspace:GetDescendants()) do
-        local isHRP = obj:IsA("BasePart") and
-            (obj.Name == "HumanoidRootPart" or obj.Name == "Torso" or obj.Name == "HRP")
-        local isHum = obj:IsA("Humanoid")
-        if isHRP or isHum then
-            local model = obj.Parent
-            if model and model:IsA("Model") and not chars[model] and not knownEntities[model] then
-                knownEntities[model] = classifyModel(model)
+
+        -- Cleanup dead entries
+        for model in pairs(knownEntities) do
+            if not model or not model.Parent then
+                removeAll(entDrawings[model])
+                entDrawings[model]   = nil
+                knownEntities[model] = nil
             end
         end
-    end
+
+        -- Chunked descendant scan - yields every CHUNK_SIZE objects
+        local allObjs = workspace:GetDescendants()
+        local count   = 0
+        for _, obj in ipairs(allObjs) do
+            count = count + 1
+            if count % CHUNK_SIZE == 0 then
+                task.wait()
+            end
+
+            local isHRP = obj:IsA("BasePart") and
+                (obj.Name == "HumanoidRootPart" or obj.Name == "Torso" or obj.Name == "HRP")
+            local isHum = obj:IsA("Humanoid")
+            if isHRP or isHum then
+                local model = obj.Parent
+                if model and model:IsA("Model") and not chars[model] and not knownEntities[model] then
+                    knownEntities[model] = classifyModel(model)
+                end
+            end
+        end
+
+        scanRunning = false
+    end)
 end
 
 local function drawSkel(container, hum, skel, color, camera)
@@ -369,7 +390,8 @@ function ESP:RescanNPCs()
         entDrawings[model] = nil
     end
     knownEntities = {}
-    scanEntities()
+    scanRunning   = false
+    scanEntitiesAsync()
 end
 
 -- ══════════════════════════════════════════════════════════════
@@ -549,9 +571,9 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
     entityScanTick = entityScanTick + 1
     if entityScanTick >= SCAN_INTERVAL then
         entityScanTick = 0
-        scanEntities()
+        scanEntitiesAsync()
     end
-    if not next(knownEntities) then scanEntities() end
+    if not next(knownEntities) and not scanRunning then scanEntitiesAsync() end
 
     for model, cat in pairs(knownEntities) do
         if not model or not model.Parent then
@@ -569,14 +591,21 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
         local hrp = model:FindFirstChild("HumanoidRootPart")
                or  model:FindFirstChild("Torso")
                or  model:FindFirstChild("HRP")
-        if not hrp then hideAll(entDrawings[model]); continue end
+        if not hrp then
+            -- No anchor part — remove from tracking entirely so we don't retry every frame
+            removeAll(entDrawings[model])
+            entDrawings[model]   = nil
+            knownEntities[model] = nil
+            continue
+        end
+
+        -- Distance cull first (cheap) before WorldToViewportPoint
+        local dist = math.floor((camera.CFrame.Position - hrp.Position).Magnitude)
+        if dist > MAX_DIST_ALL then hideAll(entDrawings[model]); continue end
 
         local hum               = model:FindFirstChildWhichIsA("Humanoid")
         local rootPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
         if not onScreen or rootPos.Z <= 0 then hideAll(entDrawings[model]); continue end
-
-        local dist = math.floor((camera.CFrame.Position - hrp.Position).Magnitude)
-        if dist > MAX_DIST_ALL then hideAll(entDrawings[model]); continue end
 
         local eCol = entityColor(CONFIG, cat)
         local d    = entDrawings[model]
