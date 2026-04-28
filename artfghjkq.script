@@ -1,4 +1,4 @@
--- HALO-HALO v0.1.3
+-- HALO-HALO v0.1.4
 -- Entry point -- loads all modules from GitHub
 
 local BASE_URL = "https://raw.githubusercontent.com/artfghjkq/roblox-script/refs/heads/main/modules/"
@@ -31,8 +31,11 @@ local Players          = game:GetService("Players")
 local player           = Players.LocalPlayer
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local GuiService       = game:GetService("GuiService")
 local CoreGui          = game:GetService("CoreGui")
 local Lighting         = game:GetService("Lighting")
+
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 local CONFIG   = req("config.lua")
 local ColLib   = req("colors.lua")
@@ -246,7 +249,7 @@ end
 -- ============================================================
 local function createToggle(parent, text, key, callback)
     local container = Instance.new("Frame")
-    container.Size             = UDim2.new(1, -4, 0, 32)
+    container.Size             = UDim2.new(1, -4, 0, isMobile and 42 or 32)
     container.BackgroundColor3 = BW.Row
     container.Parent           = parent
     createCorner(container, 8)
@@ -419,7 +422,7 @@ end
 local openPanels = {}
 
 local function buildPanel(title, w, h, defaultPos)
-    local W = w or 260
+    local W = (w or 260) + (isMobile and 40 or 0)
     local H = h or 360
     local pos = defaultPos or UDim2.new(0.5, -W/2 + 80, 0.5, -H/2)
 
@@ -533,27 +536,118 @@ local function buildPanel(title, w, h, defaultPos)
 end
 
 -- ============================================================
+-- QUICK BAR BUILDER  (reusable per-panel quick toggles)
+-- ============================================================
+local function makeQuickBar(panel, items)
+    -- items = { {icon, label, key, callback?} }
+    local bar = Instance.new("Frame")
+    bar.Name             = "QuickBar"
+    local QB_H = isMobile and 64 or 52
+    bar.Size             = UDim2.new(1, 0, 0, QB_H)
+    bar.Position         = UDim2.new(0, 0, 1, -QB_H)
+    bar.BackgroundColor3 = BW.Panel
+    bar.ZIndex           = 22
+    bar.Parent           = panel
+    createCorner(bar, 0)
+    local topLine = Instance.new("Frame")
+    topLine.Size             = UDim2.new(1, 0, 0, 1)
+    topLine.BackgroundColor3 = BW.Border
+    topLine.BorderSizePixel  = 0
+    topLine.ZIndex           = 22
+    topLine.Parent           = bar
+
+    local grid = Instance.new("Frame")
+    grid.Size                 = UDim2.new(1, -8, 1, -8)
+    grid.Position             = UDim2.new(0, 4, 0, 7)
+    grid.BackgroundTransparency = 1
+    grid.ZIndex               = 22
+    grid.Parent               = bar
+
+    local gl = Instance.new("UIListLayout", grid)
+    gl.FillDirection       = Enum.FillDirection.Horizontal
+    gl.SortOrder           = Enum.SortOrder.LayoutOrder
+    gl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    gl.VerticalAlignment   = Enum.VerticalAlignment.Center
+    gl.Padding             = UDim.new(0, 4)
+
+    local btns = {}
+    for i, item in ipairs(items) do
+        local capItem = item
+        local btn = Instance.new("TextButton")
+        btn.Size             = UDim2.new(0, isMobile and 52 or 40, 0, isMobile and 50 or 38)
+        btn.BackgroundColor3 = CONFIG[item.key] and BW.Active or BW.Row
+        btn.Text             = item.icon
+        btn.TextColor3       = CONFIG[item.key] and BW.ActFg or BW.Dim
+        btn.Font             = Enum.Font.GothamBold
+        btn.TextSize         = 9
+        btn.LayoutOrder      = i
+        btn.ZIndex           = 23
+        btn.Parent           = grid
+        createCorner(btn, 7)
+        createStroke(btn, BW.Border, 1)
+
+        local lbl = Instance.new("TextLabel")
+        lbl.Size               = UDim2.new(1, 2, 0, 10)
+        lbl.Position           = UDim2.new(-0.025, 0, 1, 2)
+        lbl.BackgroundTransparency = 1
+        lbl.Text               = item.label
+        lbl.Font               = Enum.Font.GothamBold
+        lbl.TextSize           = 6
+        lbl.TextColor3         = CONFIG[item.key] and BW.ActFg or BW.Dim
+        lbl.ZIndex             = 23
+        lbl.Parent             = btn
+
+        btns[item.key] = {btn = btn, lbl = lbl}
+
+        local function refresh()
+            local on = CONFIG[capItem.key]
+            tween(btn, {BackgroundColor3 = on and BW.Active or BW.Row, TextColor3 = on and BW.ActFg or BW.Dim}, 0.15)
+            lbl.TextColor3 = on and BW.ActFg or BW.Dim
+        end
+
+        btn.MouseButton1Click:Connect(function()
+            CONFIG[capItem.key] = not CONFIG[capItem.key]
+            if capItem.callback then capItem.callback(CONFIG[capItem.key]) end
+            if toggleSyncs[capItem.key] then toggleSyncs[capItem.key](CONFIG[capItem.key]) end
+            refresh()
+            saveConfig()
+        end)
+
+        -- Keep in sync with main toggles
+        local orig = toggleSyncs[item.key]
+        toggleSyncs[item.key] = function(state)
+            if orig then orig(state) end
+            btn.BackgroundColor3 = state and BW.Active or BW.Row
+            btn.TextColor3       = state and BW.ActFg or BW.Dim
+            lbl.TextColor3       = state and BW.ActFg or BW.Dim
+        end
+    end
+
+    return bar
+end
+
+-- ============================================================
 -- ICON BUTTON (HH)
 -- ============================================================
 local iconBtn = Instance.new("TextButton")
-iconBtn.Size             = UDim2.new(0, 54, 0, 54)
+iconBtn.Size             = isMobile and UDim2.new(0, 70, 0, 70) or UDim2.new(0, 54, 0, 54)
 iconBtn.Position         = UDim2.new(0, 20, 0, 20)
 iconBtn.BackgroundColor3 = BW.BG
 iconBtn.Text             = "HH"
 iconBtn.TextColor3       = BW.White
 iconBtn.Font             = Enum.Font.GothamBlack
-iconBtn.TextSize         = 16
+iconBtn.TextSize         = isMobile and 20 or 16
 iconBtn.Active           = true
 iconBtn.Draggable        = true
 iconBtn.Parent           = screenGui
-createCorner(iconBtn, 10)
+createCorner(iconBtn, isMobile and 14 or 10)
 createStroke(iconBtn, BW.Border, 2)
 
 -- ============================================================
 -- MAIN FRAME  (command list — no sidebar tabs)
 -- ============================================================
-local FRAME_W = 260
-local FRAME_H = 420
+local FRAME_W = isMobile and 300 or 260
+local FRAME_H = isMobile and 480 or 420
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Size             = UDim2.new(0, FRAME_W, 0, FRAME_H)
@@ -622,7 +716,7 @@ listPad.PaddingLeft = UDim.new(0, 4); listPad.PaddingRight = UDim.new(0, 4)
 -- Command row builder
 local function makeCommandRow(icon, label, desc, lo, onTap)
     local row = Instance.new("TextButton")
-    row.Size             = UDim2.new(1, -4, 0, 48)
+    row.Size             = UDim2.new(1, -4, 0, isMobile and 60 or 48)
     row.BackgroundColor3 = BW.Row
     row.Text             = ""
     row.LayoutOrder      = lo
@@ -755,12 +849,22 @@ end
 toggleSyncs["KingMode"]    = createToggle(movBody, "King Mode",   "KingMode")
 toggleSyncs["Invisibility"]= createToggle(movBody, "Invisibility","Invisibility", function(v) applyInvisibility(v) end)
 
+makeQuickBar(movPanel, {
+    {icon="SPD", label="Speed",  key="SpeedBoost",  callback=function(v) if not v then local h=player.Character and player.Character:FindFirstChildWhichIsA("Humanoid") if h then h.WalkSpeed=16 end end end},
+    {icon="NCP", label="Noclip", key="Noclip"},
+    {icon="JMP", label="Jump",   key="SuperJump"},
+    {icon="INV", label="Invis",  key="Invisibility", callback=function(v) applyInvisibility(v) end},
+    {icon="KNG", label="King",   key="KingMode"},
+})
+
 -- ── ESP PANEL ───────────────────────────────────────────────
 local espPanel, espBody = buildPanel("ESP", 260, 400, UDim2.new(0.5, 80, 0.5, -200))
 
 toggleSyncs["BoxESP"]     = createToggle(espBody, "Box ESP",     "BoxESP")
 createESPColorRow(espBody, "Box Color", "ESPColor", "BoxRainbow")
-toggleSyncs["PlayerInfo"] = createToggle(espBody, "Player Info", "PlayerInfo")
+toggleSyncs["PlayerInfo"] = createToggle(espBody, "Player Info", "PlayerInfo", function(v)
+    if v then ESP:ApplyPlrChams() else ESP:ClearAllChams() end
+end)
 toggleSyncs["TeamFilter"] = createToggle(espBody, "Team Filter", "TeamFilter", function(v)
     if v then
         CONFIG.PlayerInfo = true
@@ -814,16 +918,31 @@ toggleSyncs["AimbotMonsters"] = createToggle(espBody, "Aim at Monsters", "Aimbot
 makeDivider(espBody, "ENTITY ESP")
 
 toggleSyncs["NPCBoxESP"]  = createToggle(espBody, "Entity Box ESP",   "NPCBoxESP",  function(v) if v then ESP:RescanNPCs() end end)
-toggleSyncs["NPCMonster"] = createToggle(espBody, "Monster / Enemy",  "NPCMonster", function(v) if v then ESP:RescanNPCs() end end)
+toggleSyncs["NPCMonster"] = createToggle(espBody, "Monster / Enemy", "NPCMonster", function(v)
+    if v then ESP:RescanNPCs(); task.delay(0.5, function() ESP:ApplyEntChams() end)
+    else ESP:ClearAllChams() end
+end)
 createESPColorRow(espBody, "Monster Color", "NPCMonsterColor", nil)
-toggleSyncs["NPCItem"]    = createToggle(espBody, "Items / Objects",   "NPCItem",    function(v) if v then ESP:RescanNPCs() end end)
+toggleSyncs["NPCItem"] = createToggle(espBody, "Items / Objects", "NPCItem", function(v)
+    if v then ESP:RescanNPCs(); task.delay(0.5, function() ESP:ApplyEntChams() end)
+    else ESP:ClearAllChams() end
+end)
 createESPColorRow(espBody, "Item Color", "NPCItemColor", nil)
 
 makeDivider(espBody, "CHAMS")
 
-toggleSyncs["Chams"]        = createToggle(espBody, "Player Chams",  "Chams")
-toggleSyncs["ChamsMonster"] = createToggle(espBody, "Monster Chams", "ChamsMonster")
-toggleSyncs["ChamsItem"]    = createToggle(espBody, "Item Chams",    "ChamsItem")
+toggleSyncs["Chams"]        = createToggle(espBody, "Player Chams",  "Chams",        function(v) if v then ESP:ApplyPlrChams() else ESP:ClearAllChams() end end)
+toggleSyncs["ChamsMonster"] = createToggle(espBody, "Monster Chams", "ChamsMonster",  function(v) if v then ESP:ApplyEntChams()  else ESP:ClearAllChams() end end)
+toggleSyncs["ChamsItem"]    = createToggle(espBody, "Item Chams",    "ChamsItem",     function(v) if v then ESP:ApplyEntChams()  else ESP:ClearAllChams() end end)
+
+makeQuickBar(espPanel, {
+    {icon="BOX", label="Box",     key="BoxESP"},
+    {icon="PLR", label="PlrInfo", key="PlayerInfo",  callback=function(v) if v then ESP:ApplyPlrChams() else ESP:ClearAllChams() end end},
+    {icon="TF",  label="TeamF",   key="TeamFilter"},
+    {icon="AB",  label="Aimbot",  key="Aimbot",      callback=function(v) if v then ESP:StartAimbot(CONFIG) else ESP:StopAimbot() end end},
+    {icon="EMN", label="Monster", key="NPCMonster",  callback=function(v) if v then ESP:RescanNPCs(); task.delay(0.5,function() ESP:ApplyEntChams() end) else ESP:ClearAllChams() end end},
+    {icon="CHM", label="Chams",   key="Chams",       callback=function(v) if v then ESP:ApplyPlrChams() else ESP:ClearAllChams() end end},
+})
 
 -- ── FPS PANEL ───────────────────────────────────────────────
 local fpsPanel, fpsBody = buildPanel("FPS BOOST", 260, 200, UDim2.new(0.5, 80, 0.5, -100))
@@ -860,6 +979,13 @@ end)
 toggleSyncs["Fling"]    = createToggle(trollBody, "Fling",      "Fling",    function(v) if v then Troll:StartFling(); Notif:Send("Fling: ON",2) else Troll:StopFling(); Notif:Send("Fling: OFF",2) end end)
 toggleSyncs["WalkFling"]= createToggle(trollBody, "Walk Fling", "WalkFling",function(v) if v then Troll:StartWalkFling(); Notif:Send("Walk Fling: ON",2) else Troll:StopWalkFling(); Notif:Send("Walk Fling: OFF",2) end end)
 toggleSyncs["AntiFling"]= createToggle(trollBody, "Anti Fling", "AntiFling",function(v) if v then Troll:StartAntiFling(); Notif:Send("Anti Fling: ON",2) else Troll:StopAntiFling(); Notif:Send("Anti Fling: OFF",2) end end)
+
+makeQuickBar(trollPanel, {
+    {icon="SCR", label="Scare",    key="Scare",    callback=function(v) scareHub.Visible=v; if v then local tgt=Troll:GetTarget() if tgt then Troll:StartSpectate(tgt,Troll:GetSpectateMode()) end end end},
+    {icon="FLG", label="Fling",    key="Fling",    callback=function(v) if v then Troll:StartFling() else Troll:StopFling() end end},
+    {icon="WFG", label="WFling",   key="WalkFling",callback=function(v) if v then Troll:StartWalkFling() else Troll:StopWalkFling() end end},
+    {icon="AFG", label="AntiFling",key="AntiFling",callback=function(v) if v then Troll:StartAntiFling() else Troll:StopAntiFling() end end},
+})
 
 -- ── SPECTATE PANEL ──────────────────────────────────────────
 local specPanel, specBody = buildPanel("SPECTATE", 260, 340, UDim2.new(0.5, 80, 0.5, -170))
@@ -929,7 +1055,7 @@ qbContainer.ZIndex               = 5
 qbContainer.Parent               = screenGui
 
 local qbGrid = Instance.new("UIGridLayout", qbContainer)
-qbGrid.CellSize            = UDim2.new(0, 54, 0, 54)
+qbGrid.CellSize            = UDim2.new(0, isMobile and 66 or 54, 0, isMobile and 66 or 54)
 qbGrid.CellPadding         = UDim2.new(0, 6, 0, 6)
 qbGrid.SortOrder           = Enum.SortOrder.LayoutOrder
 qbGrid.FillDirection       = Enum.FillDirection.Horizontal
@@ -1063,7 +1189,7 @@ end)
 
 for slotIdx = 1, QB_SLOTS do
     local btn = Instance.new("TextButton")
-    btn.Size             = UDim2.new(0, 54, 0, 54)
+    btn.Size             = UDim2.new(0, isMobile and 66 or 54, 0, isMobile and 66 or 54)
     btn.BackgroundColor3 = BW.Row
     btn.Text             = "--"
     btn.TextColor3       = BW.Dim
@@ -1135,7 +1261,7 @@ syncQBPositions()
 -- AIMBOT LOCK FLOAT BUTTON
 -- ============================================================
 local lockFloatBtn = Instance.new("TextButton")
-lockFloatBtn.Size             = UDim2.new(0, 54, 0, 54)
+lockFloatBtn.Size             = UDim2.new(0, isMobile and 66 or 54, 0, isMobile and 66 or 54)
 lockFloatBtn.BackgroundColor3 = BW.Panel
 lockFloatBtn.Text             = "LOCK"
 lockFloatBtn.TextColor3       = BW.Dim
@@ -1277,4 +1403,4 @@ end
 player.CharacterAdded:Connect(onCharacterAdded)
 if player.Character then onCharacterAdded(player.Character) end
 
-Notif:Send("HALO-HALO v0.1.3 loaded.", 4)
+Notif:Send("HALO-HALO v0.1.4 | " .. (isMobile and "Mobile" or "PC") .. " detected", 4)

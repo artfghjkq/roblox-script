@@ -5,6 +5,8 @@ local RunService       = game:GetService("RunService")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
 local player = Players.LocalPlayer
 local cam    = workspace.CurrentCamera
 
@@ -68,21 +70,19 @@ local function startThird()
         cam.FieldOfView = thirdFov
     end)
 
-    -- Touch/mouse drag to rotate
-    -- Supports both mobile touch AND mouse drag for desktop
+    -- Touch drag to rotate (mobile primary)
+    -- PC: hold RMB to rotate
     dragConn = UserInputService.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
             if input.UserInputState == Enum.UserInputState.Change then
-                if touchId and input.Position == lastTouchPos then return end
                 if lastTouchPos then
                     local delta = input.Position - lastTouchPos
                     camYaw   = camYaw - delta.X * SENS
                     camPitch = math.clamp(camPitch - delta.Y * SENS, PITCH_MIN, PITCH_MAX)
                 end
                 lastTouchPos = input.Position
-                touchId = input.Position
             end
-        elseif input.UserInputType == Enum.UserInputType.MouseMovement then
+        elseif not isMobile and input.UserInputType == Enum.UserInputType.MouseMovement then
             if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
                 camYaw   = camYaw - input.Delta.X * (SENS * 0.5)
                 camPitch = math.clamp(camPitch - input.Delta.Y * (SENS * 0.5), PITCH_MIN, PITCH_MAX)
@@ -104,7 +104,8 @@ local function startThird()
             if not hrp then return end
 
             -- When not actively dragging, softly follow character yaw
-            if not lastTouchPos and not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+            local rotating = lastTouchPos ~= nil or (not isMobile and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))
+            if not rotating then
                 local _, y, _ = hrp.CFrame:ToEulerAnglesYXZ()
                 local diff = y - camYaw
                 diff = ((diff + math.pi) % (2 * math.pi)) - math.pi

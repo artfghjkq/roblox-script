@@ -3,6 +3,9 @@ local ESP = {}
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local GuiService       = game:GetService("GuiService")
+
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 local plrDrawings = {}
 local entDrawings = {}
@@ -374,7 +377,11 @@ end
 function ESP:IsAimbotLocked() return aimbotLocked end
 function ESP:GetLockedPart()  return aimbotLockedPart end
 
-local AIMBOT_STEP = "HaloHaloAimbot"
+local AIMBOT_STEP      = "HaloHaloAimbot"
+local lastTgtPos       = nil
+local lastTgtPosTime   = 0
+local tgtVelocity      = Vector3.new(0, 0, 0)
+local PREDICT_FACTOR   = 0.08
 
 function ESP:StartAimbot(CONFIG)
     self:StopAimbot()
@@ -386,13 +393,13 @@ function ESP:StartAimbot(CONFIG)
         if not CONFIG.Aimbot or not aimbotActive then return end
         if not (CONFIG.AimbotPlayers or CONFIG.AimbotMonsters) then return end
 
-        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then return end
-
-        local camera = workspace.CurrentCamera
+        local camera  = workspace.CurrentCamera
         local tgtPart = getAimbotTarget(CONFIG, localPlayer, camera)
         if not tgtPart or not tgtPart.Parent then
             aimbotLocked     = false
             aimbotLockedPart = nil
+            lastTgtPos       = nil
+            tgtVelocity      = Vector3.new(0, 0, 0)
             return
         end
 
@@ -400,18 +407,47 @@ function ESP:StartAimbot(CONFIG)
             aimbotLockedPart = tgtPart
         end
 
-        local camCF    = camera.CFrame
-        local camPos   = camCF.Position
-        local tgtPos   = tgtPart.Position
+        local camCF  = camera.CFrame
+        local camPos = camCF.Position
+        local now    = tick()
+
+        -- Velocity estimation from position delta (works on all rigs)
+        local rawVel = Vector3.new(0, 0, 0)
+        pcall(function()
+            rawVel = tgtPart.AssemblyLinearVelocity
+        end)
+        -- Fallback: compute from position delta if AssemblyLinearVelocity is zero/unavailable
+        if rawVel.Magnitude < 0.1 and lastTgtPos then
+            local dT = now - lastTgtPosTime
+            if dT > 0 then
+                rawVel = (tgtPart.Position - lastTgtPos) / dT
+            end
+        end
+        -- Smooth velocity so it doesn't jitter
+        tgtVelocity = tgtVelocity:Lerp(rawVel, 0.3)
+        lastTgtPos      = tgtPart.Position
+        lastTgtPosTime  = now
+
+        -- Predict where target will be based on distance-dependent travel time
+        local dist         = (camPos - tgtPart.Position).Magnitude
+        local travelTime   = dist * PREDICT_FACTOR
+        local predictedPos = tgtPart.Position + tgtVelocity * travelTime
+
         local curLook  = camCF.LookVector
-        local wantLook = (tgtPos - camPos).Unit
+        local wantLook = (predictedPos - camPos).Unit
         local factor   = math.clamp(1 - (1 - AIMBOT_SMOOTH) ^ (dt * 60), 0.01, 1)
         local newLook  = curLook:Lerp(wantLook, factor).Unit
 
         local newRight = newLook:Cross(Vector3.new(0, 1, 0))
         if newRight.Magnitude < 0.01 then newRight = camCF.RightVector end
-        local newUp   = newRight.Unit:Cross(newLook)
-        camera.CFrame = CFrame.fromMatrix(camPos, newRight.Unit, newUp.Unit, -newLook)
+        local newUp = newRight.Unit:Cross(newLook)
+
+        -- On mobile there is no MouseButton1 — always write camera
+        -- On PC skip write while LMB held to avoid auto-fire bug
+        local canWrite = isMobile or not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+        if canWrite then
+            camera.CFrame = CFrame.fromMatrix(camPos, newRight.Unit, newUp.Unit, -newLook)
+        end
     end)
 
     aimbotConn = true
@@ -424,6 +460,65 @@ function ESP:StopAimbot()
     if aimbotConn then
         pcall(function() RunService:UnbindFromRenderStep(AIMBOT_STEP) end)
         aimbotConn = nil
+    end
+end
+
+function ESP:ClearAllChams()
+    for plr, h in pairs(plrChams) do
+        removeChams(h)
+        plrChams[plr] = nil
+    end
+    for model, h in pairs(entChams) do
+        removeChams(h)
+        entChams[model] = nil
+    end
+end
+
+function ESP:ApplyPlrChams()
+    local camera = workspace.CurrentCamera
+    local localPlayer = Players.LocalPlayer
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr == localPlayer then continue end
+        local char = plr.Character
+        if not char then continue end
+        local n = plr.Name:lower()
+        local t = plr.Team and plr.Team.Name:lower() or ""
+        local role = "neutral"
+        for _, kw in ipairs(TEAMMATE_KW) do if n:find(kw,1,true) or t:find(kw,1,true) then role="teammate" break end end
+        if role == "neutral" then
+            for _, kw in ipairs(ENEMY_KW) do if n:find(kw,1,true) or t:find(kw,1,true) then role="enemy" break end end
+        end
+        local col
+        if localPlayer.Team and plr.Team then
+            col = (localPlayer.Team ~= plr.Team) and Color3.fromRGB(220,50,50) or Color3.fromRGB(50,220,100)
+        elseif role == "enemy" then col = Color3.fromRGB(220,50,50)
+        elseif role == "teammate" then col = Color3.fromRGB(50,220,100)
+        else col = Color3.fromRGB(220,220,220) end
+        local h = plrChams[plr]
+        if not h or not h.Parent then
+            h = makeHighlight(char, col, col)
+            plrChams[plr] = h
+        else
+            h.Adornee = char; h.OutlineColor = col
+        end
+        h.Enabled = true
+    end
+end
+
+function ESP:ApplyEntChams()
+    for model, cat in pairs(knownEntities) do
+        if not model or not model.Parent then continue end
+        local eCol
+        if cat == "monster" then eCol = Color3.fromRGB(220,50,50)
+        else eCol = Color3.fromRGB(255,165,0) end
+        local h = entChams[model]
+        if not h or not h.Parent then
+            h = makeHighlight(model, eCol, eCol)
+            entChams[model] = h
+        else
+            h.Adornee = model; h.OutlineColor = eCol
+        end
+        h.Enabled = true
     end
 end
 
@@ -633,7 +728,7 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
             h.Enabled = true
         else
             local h = plrChams[plr]
-            if h then h.Enabled = false end
+            if h then removeChams(h); plrChams[plr] = nil end
         end
     end
 
@@ -728,7 +823,7 @@ function ESP:Update(CONFIG, COLORS, rainbowHue)
             h.Enabled = true
         else
             local h = entChams[model]
-            if h then h.Enabled = false end
+            if h then removeChams(h); entChams[model] = nil end
         end
 
         local sz   = math.clamp((1000 / math.max(dist, 1)) * 2, 10, 600)
